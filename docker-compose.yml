@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: service_booking
+      POSTGRES_USER: service_booking
+      POSTGRES_PASSWORD: service_booking
+    ports:
+      - "5432:5432"
+    volumes:
+      - service_booking_postgres:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U service_booking -d service_booking"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  service_booking_postgres:
