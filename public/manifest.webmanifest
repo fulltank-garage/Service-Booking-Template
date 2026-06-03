@@ -1,7 +1,7 @@
 {
   "name": "Service Booking Admin",
   "short_name": "Booking Admin",
-  "description": "Admin dashboard for service booking queue management",
+  "description": "ระบบจัดการคิวจองบริการ",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

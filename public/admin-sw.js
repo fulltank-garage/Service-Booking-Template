@@ -8,7 +8,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('push', (event) => {
   let payload = {
-    title: 'Service Booking Admin',
+    title: 'Service Booking',
     body: 'มีรายการใหม่ในระบบจองคิว',
     url: '/',
   }

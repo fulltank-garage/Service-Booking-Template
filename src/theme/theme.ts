@@ -19,7 +19,7 @@ export const appTheme = createTheme({
     text: { primary: colors.ink, secondary: colors.muted },
     divider: colors.line,
   },
-  shape: { borderRadius: 18 },
+  shape: { borderRadius: 16 },
   typography: {
     fontFamily: '"Noto Sans Thai", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     h1: { fontSize: 'clamp(2rem, 4vw, 3.4rem)', lineHeight: 1.08, fontWeight: 850, letterSpacing: 0 },
@@ -32,7 +32,7 @@ export const appTheme = createTheme({
   components: {
     MuiButton: {
       styleOverrides: {
-        root: { borderRadius: 999, minHeight: 42, paddingInline: 18 },
+        root: { borderRadius: 18, minHeight: 42, paddingInline: 18 },
       },
     },
     MuiPaper: {

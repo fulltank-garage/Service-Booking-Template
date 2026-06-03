@@ -33,7 +33,7 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
     try {
       await enablePushNotifications()
       setPermission(getCurrentPushPermission())
-      onNotice('เปิดการแจ้งเตือนสำหรับ Admin แล้ว')
+      onNotice('เปิดการแจ้งเตือนแล้ว')
     } catch (error) {
       onNotice(error instanceof Error ? error.message : 'เปิดการแจ้งเตือนไม่สำเร็จ')
     } finally {
@@ -45,7 +45,7 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
     <Alert
       severity={state === 'denied' ? 'warning' : 'info'}
       icon={<NotificationsActiveIcon />}
-      sx={{ borderRadius: 4, alignItems: 'center' }}
+      sx={{ borderRadius: 2.5, alignItems: 'center' }}
       action={
         <Button disabled={isEnabling || state === 'denied'} onClick={handleEnable} variant="contained">
           {state === 'denied' ? 'ถูกปิดใน Browser' : isEnabling ? 'กำลังเปิด...' : 'เปิดแจ้งเตือน'}
@@ -56,8 +56,8 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
         <Typography sx={{ fontWeight: 800 }}>แจ้งเตือนเมื่อมีคิวใหม่</Typography>
         <Typography variant="body2">
           {state === 'denied'
-            ? 'ต้องเปิด permission จาก browser settings ก่อน'
-            : 'ระบบจะรับ push notification ผ่าน service worker ของ Admin'}
+            ? 'ต้องเปิดสิทธิ์แจ้งเตือนจากการตั้งค่าเบราว์เซอร์ก่อน'
+            : 'เปิดไว้เพื่อให้ทีมงานไม่พลาดคำขอจองใหม่'}
         </Typography>
       </Stack>
     </Alert>

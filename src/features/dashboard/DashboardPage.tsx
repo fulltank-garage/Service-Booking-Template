@@ -56,7 +56,7 @@ export function DashboardPage() {
       setBookings(bookingItems)
       setNotifications(notificationItems)
     } catch {
-      setError('โหลดข้อมูล Admin ไม่สำเร็จ')
+      setError('โหลดข้อมูลไม่สำเร็จ')
     }
   }, [])
 
@@ -111,12 +111,12 @@ export function DashboardPage() {
           <Box>
             <Typography variant="h1">จัดการคิวจองบริการ</Typography>
             <Typography sx={{ mt: 1, maxWidth: 760, color: 'text.secondary' }}>
-              Dashboard สำหรับติดตามคิวใหม่ อัปเดตสถานะ และรับ notification แบบ Web Push/WebSocket พร้อมใช้งานบน Home Screen
+              ติดตามคิวใหม่ อัปเดตสถานะ และดูรายการแจ้งเตือนของงานบริการในหน้าเดียว
             </Typography>
           </Box>
 
           <PushNotificationPrompt onNotice={setNotice} />
-          {error && <Alert severity="error" sx={{ borderRadius: 4 }}>{error}</Alert>}
+          {error && <Alert severity="error" sx={{ borderRadius: 2.5 }}>{error}</Alert>}
 
           <Grid container spacing={2}>
             <SummaryCard icon={<HourglassTopIcon />} label="รอยืนยัน" value={summary.pending} color="#F97363" />
@@ -127,7 +127,7 @@ export function DashboardPage() {
 
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, lg: 8 }}>
-              <Card sx={{ borderRadius: 5, border: '1px solid', borderColor: 'divider', boxShadow: '0 20px 70px rgba(29,29,31,0.07)' }}>
+              <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 20px 70px rgba(29,29,31,0.07)' }}>
                 <CardContent sx={{ p: { xs: 2, md: 3 } }}>
                   <Typography variant="h2" sx={{ mb: 2 }}>
                     รายการจองล่าสุด
@@ -158,7 +158,7 @@ export function DashboardPage() {
                                 size="small"
                                 value={booking.status}
                                 onChange={(event) => void handleStatusChange(booking, event.target.value as BookingStatus)}
-                                sx={{ borderRadius: 999, minWidth: 136 }}
+                                sx={{ borderRadius: 2, minWidth: 136 }}
                               >
                                 {Object.entries(statusLabels).map(([status, label]) => (
                                   <MenuItem key={status} value={status}>
@@ -177,10 +177,10 @@ export function DashboardPage() {
             </Grid>
 
             <Grid size={{ xs: 12, lg: 4 }}>
-              <Card sx={{ borderRadius: 5, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+              <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
                 <CardContent sx={{ p: { xs: 2, md: 3 } }}>
                   <Typography variant="h2" sx={{ mb: 2 }}>
-                    Notification
+                    รายการแจ้งเตือน
                   </Typography>
                   <Stack spacing={2}>
                     {notifications.map((notification, index) => (
@@ -211,10 +211,10 @@ export function DashboardPage() {
 function SummaryCard({ icon, label, value, color }: { icon: ReactNode; label: string; value: number; color: string }) {
   return (
     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-      <Card sx={{ borderRadius: 5, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
         <CardContent>
           <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: 4, display: 'grid', placeItems: 'center', bgcolor: `${color}18`, color }}>
+            <Box sx={{ width: 48, height: 48, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: `${color}18`, color }}>
               {icon}
             </Box>
             <Box>

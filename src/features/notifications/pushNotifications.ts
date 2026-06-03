@@ -44,7 +44,7 @@ export const enablePushNotifications = async () => {
 
   const publicKey = await adminApi.getPushPublicKey()
   if (!publicKey.configured || !publicKey.publicKey) {
-    throw new Error('ยังไม่ได้ตั้งค่า VAPID public key ใน API')
+    throw new Error('ยังไม่ได้ตั้งค่าการแจ้งเตือน')
   }
 
   const permission = await Notification.requestPermission()
