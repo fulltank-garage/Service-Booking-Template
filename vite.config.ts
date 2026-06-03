@@ -6,6 +6,9 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  preview: {
+    allowedHosts: ['service-booking-template-production.up.railway.app'],
+  },
   test: {
     environment: 'jsdom',
     globals: true,
