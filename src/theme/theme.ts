@@ -123,6 +123,13 @@ export const appTheme = createTheme({
         },
       },
     },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+        },
+      },
+    },
     MuiTextField: {
       defaultProps: {
         variant: 'outlined',
