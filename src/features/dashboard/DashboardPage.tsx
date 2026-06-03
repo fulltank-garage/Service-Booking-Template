@@ -20,6 +20,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
@@ -123,7 +124,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} sx={{ minHeight: '100vh' }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ minHeight: '100vh' }}>
         <Sidebar
           activePage={activePage}
           adminEmail={adminEmail}
@@ -131,7 +132,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
           onLogout={onLogout}
         />
 
-        <Box component="main" sx={{ flex: 1, minWidth: 0, px: { xs: 2, md: 3.5 }, py: { xs: 2, md: 3.5 } }}>
+        <Box component="main" sx={{ flex: 1, minWidth: 0, px: { xs: 2, sm: 2.5, lg: 3.5 }, py: { xs: 2, sm: 2.5, lg: 3.5 } }}>
           <Stack spacing={2.5}>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
@@ -204,46 +205,114 @@ function Sidebar({
     <Box
       component="aside"
       sx={{
-        width: { xs: '100%', md: 280 },
-        borderRight: { xs: 0, md: '1px solid' },
-        borderBottom: { xs: '1px solid', md: 0 },
+        width: { xs: '100%', sm: 88, lg: 280 },
+        flexShrink: 0,
+        borderRight: { xs: 0, sm: '1px solid' },
+        borderBottom: { xs: '1px solid', sm: 0 },
         borderColor: 'divider',
         bgcolor: 'background.paper',
-        position: { xs: 'sticky', md: 'sticky' },
+        position: 'sticky',
         top: 0,
         zIndex: 10,
+        maxHeight: { xs: 'none', sm: '100vh' },
       }}
     >
-      <Stack sx={{ minHeight: { xs: 'auto', md: '100vh' }, p: { xs: 1.5, md: 2.5 } }} spacing={2}>
-        <BrandMark />
-        <Stack spacing={1}>
+      <Stack
+        sx={{
+          minHeight: { xs: 'auto', sm: '100vh' },
+          p: { xs: 1.5, sm: 1.25, lg: 2.5 },
+          overflowY: { xs: 'visible', sm: 'auto' },
+        }}
+        spacing={{ xs: 1.25, sm: 1.5, lg: 2 }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: { xs: 'flex-start', sm: 'center', lg: 'flex-start' },
+            '& p': { display: { xs: 'block', sm: 'none', lg: 'block' } },
+          }}
+        >
+          <BrandMark />
+        </Box>
+        <Stack
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: '1fr' },
+            gap: 1,
+          }}
+        >
           {navItems.map((item) => {
             const isActive = activePage === item.page
             return (
-              <Button
-                key={item.page}
-                fullWidth
-                variant={isActive ? 'contained' : 'outlined'}
-                startIcon={item.icon}
-                onClick={() => onChangePage(item.page)}
-                sx={{
-                  justifyContent: 'flex-start',
-                  bgcolor: isActive ? 'primary.main' : 'background.default',
-                }}
-              >
-                {item.label}
-              </Button>
+              <Tooltip key={item.page} title={item.label} placement="right">
+                <Button
+                  fullWidth
+                  variant={isActive ? 'contained' : 'outlined'}
+                  startIcon={item.icon}
+                  aria-label={item.label}
+                  onClick={() => onChangePage(item.page)}
+                  sx={{
+                    justifyContent: { xs: 'center', sm: 'center', lg: 'flex-start' },
+                    minWidth: 0,
+                    px: { xs: 1, sm: 0, lg: 2.25 },
+                    bgcolor: isActive ? 'primary.main' : 'background.default',
+                    '& .MuiButton-startIcon': {
+                      mr: { xs: 0.75, sm: 0, lg: 1 },
+                      ml: 0,
+                    },
+                  }}
+                >
+                  <Box
+                    component="span"
+                    sx={{
+                      display: { xs: 'inline', sm: 'none', lg: 'inline' },
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontSize: { xs: '0.82rem', lg: 'inherit' },
+                    }}
+                  >
+                    {item.label}
+                  </Box>
+                </Button>
+              </Tooltip>
             )
           })}
         </Stack>
-        <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
-        <Stack spacing={1}>
-          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 760, wordBreak: 'break-word' }}>
+        <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
+        <Stack spacing={1} sx={{ mt: { xs: 0.25, sm: 'auto' } }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              display: { xs: 'block', sm: 'none', lg: 'block' },
+              fontWeight: 760,
+              wordBreak: 'break-word',
+            }}
+          >
             {adminEmail}
           </Typography>
-          <Button variant="outlined" onClick={onLogout} startIcon={<LogoutIcon />}>
-            ออกจากระบบ
-          </Button>
+          <Tooltip title="ออกจากระบบ" placement="right">
+            <Button
+              variant="outlined"
+              onClick={onLogout}
+              startIcon={<LogoutIcon />}
+              aria-label="ออกจากระบบ"
+              sx={{
+                justifyContent: { xs: 'center', sm: 'center', lg: 'flex-start' },
+                minWidth: 0,
+                px: { xs: 2, sm: 0, lg: 2.25 },
+                '& .MuiButton-startIcon': {
+                  mr: { xs: 1, sm: 0, lg: 1 },
+                  ml: 0,
+                },
+              }}
+            >
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none', lg: 'inline' } }}>
+                ออกจากระบบ
+              </Box>
+            </Button>
+          </Tooltip>
         </Stack>
       </Stack>
     </Box>
