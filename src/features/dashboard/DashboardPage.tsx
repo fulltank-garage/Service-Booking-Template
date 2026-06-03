@@ -8,7 +8,9 @@ import {
   CardContent,
   Chip,
   Divider,
+  Drawer,
   Grid,
+  IconButton,
   MenuItem,
   Select,
   Skeleton,
@@ -24,10 +26,12 @@ import {
   Typography,
 } from '@mui/material'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
+import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import HourglassTopIcon from '@mui/icons-material/HourglassTop'
 import LogoutIcon from '@mui/icons-material/Logout'
+import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { adminApi } from '../../api/adminApi'
@@ -59,6 +63,7 @@ type DashboardPageProps = {
 
 export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   const [activePage, setActivePage] = useState<AdminPage>('overview')
+  const [isNavOpen, setIsNavOpen] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -122,13 +127,28 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
     }
   }
 
+  const handleChangePage = (page: AdminPage) => {
+    setActivePage(page)
+    setIsNavOpen(false)
+  }
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ minHeight: '100vh' }}>
+      <MobileHeader onOpenNav={() => setIsNavOpen(true)} />
+      <MobileNavDrawer
+        activePage={activePage}
+        adminEmail={adminEmail}
+        open={isNavOpen}
+        onChangePage={handleChangePage}
+        onClose={() => setIsNavOpen(false)}
+        onLogout={onLogout}
+      />
+
+      <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100vh' }}>
         <Sidebar
           activePage={activePage}
           adminEmail={adminEmail}
-          onChangePage={setActivePage}
+          onChangePage={handleChangePage}
           onLogout={onLogout}
         />
 
@@ -184,6 +204,95 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   )
 }
 
+function MobileHeader({ onOpenNav }: { onOpenNav: () => void }) {
+  return (
+    <Box
+      component="header"
+      sx={{
+        display: { xs: 'block', lg: 'none' },
+        position: 'sticky',
+        top: 0,
+        zIndex: 20,
+        bgcolor: 'background.paper',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+      }}
+    >
+      <Stack direction="row" sx={{ minHeight: 72, px: { xs: 1.5, sm: 2.5 }, alignItems: 'center', justifyContent: 'space-between' }}>
+        <IconButton
+          aria-label="เปิดเมนู"
+          onClick={onOpenNav}
+          sx={{
+            width: 46,
+            height: 46,
+            border: '1px solid',
+            borderColor: 'divider',
+            color: 'text.primary',
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+        <Box sx={{ display: 'flex', justifyContent: 'center', flex: 1, mx: 1.5 }}>
+          <BrandMark />
+        </Box>
+        <Box sx={{ width: 46, height: 46 }} />
+      </Stack>
+    </Box>
+  )
+}
+
+function MobileNavDrawer({
+  activePage,
+  adminEmail,
+  open,
+  onChangePage,
+  onClose,
+  onLogout,
+}: {
+  activePage: AdminPage
+  adminEmail: string
+  open: boolean
+  onChangePage: (page: AdminPage) => void
+  onClose: () => void
+  onLogout: () => void
+}) {
+  return (
+    <Drawer
+      anchor="left"
+      open={open}
+      onClose={onClose}
+      ModalProps={{ keepMounted: true }}
+      sx={{
+        display: { xs: 'block', lg: 'none' },
+        '& .MuiDrawer-paper': {
+          width: { xs: 'min(84vw, 320px)', sm: 340 },
+          bgcolor: 'background.paper',
+          backgroundImage: 'none',
+          borderRight: '1px solid',
+          borderColor: 'divider',
+        },
+      }}
+    >
+      <SidebarContent
+        activePage={activePage}
+        adminEmail={adminEmail}
+        compact={false}
+        headerAction={
+          <IconButton
+            aria-label="ปิดเมนู"
+            onClick={onClose}
+            sx={{ border: '1px solid', borderColor: 'divider', color: 'text.primary' }}
+          >
+            <CloseIcon />
+          </IconButton>
+        }
+        onChangePage={onChangePage}
+        onLogout={onLogout}
+      />
+    </Drawer>
+  )
+}
+
 function Sidebar({
   activePage,
   adminEmail,
@@ -195,6 +304,48 @@ function Sidebar({
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
 }) {
+  return (
+    <Box
+      component="aside"
+      sx={{
+        display: { xs: 'none', lg: 'block' },
+        width: 280,
+        flexShrink: 0,
+        borderRight: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        maxHeight: '100vh',
+      }}
+    >
+      <SidebarContent
+        activePage={activePage}
+        adminEmail={adminEmail}
+        compact={false}
+        onChangePage={onChangePage}
+        onLogout={onLogout}
+      />
+    </Box>
+  )
+}
+
+function SidebarContent({
+  activePage,
+  adminEmail,
+  compact,
+  headerAction,
+  onChangePage,
+  onLogout,
+}: {
+  activePage: AdminPage
+  adminEmail: string
+  compact: boolean
+  headerAction?: ReactNode
+  onChangePage: (page: AdminPage) => void
+  onLogout: () => void
+}) {
   const navItems: Array<{ page: AdminPage; label: string; icon: ReactNode }> = [
     { page: 'overview', label: 'ภาพรวม', icon: <DashboardIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
@@ -202,120 +353,89 @@ function Sidebar({
   ]
 
   return (
-    <Box
-      component="aside"
+    <Stack
       sx={{
-        width: { xs: '100%', sm: 88, lg: 280 },
-        flexShrink: 0,
-        borderRight: { xs: 0, sm: '1px solid' },
-        borderBottom: { xs: '1px solid', sm: 0 },
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-        maxHeight: { xs: 'none', sm: '100vh' },
+        minHeight: '100%',
+        p: 2.5,
+        overflowY: 'auto',
       }}
+      spacing={2}
     >
-      <Stack
-        sx={{
-          minHeight: { xs: 'auto', sm: '100vh' },
-          p: { xs: 1.5, sm: 1.25, lg: 2.5 },
-          overflowY: { xs: 'visible', sm: 'auto' },
-        }}
-        spacing={{ xs: 1.25, sm: 1.5, lg: 2 }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: { xs: 'flex-start', sm: 'center', lg: 'flex-start' },
-            '& p': { display: { xs: 'block', sm: 'none', lg: 'block' } },
-          }}
-        >
+      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: compact ? 'center' : 'flex-start', '& p': { display: compact ? 'none' : 'block' } }}>
           <BrandMark />
         </Box>
-        <Stack
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: '1fr' },
-            gap: 1,
-          }}
-        >
-          {navItems.map((item) => {
-            const isActive = activePage === item.page
-            return (
-              <Tooltip key={item.page} title={item.label} placement="right">
-                <Button
-                  fullWidth
-                  variant={isActive ? 'contained' : 'outlined'}
-                  startIcon={item.icon}
-                  aria-label={item.label}
-                  onClick={() => onChangePage(item.page)}
+        {headerAction}
+      </Stack>
+      <Stack spacing={1}>
+        {navItems.map((item) => {
+          const isActive = activePage === item.page
+          return (
+            <Tooltip key={item.page} title={compact ? item.label : ''} placement="right">
+              <Button
+                fullWidth
+                variant={isActive ? 'contained' : 'outlined'}
+                startIcon={item.icon}
+                aria-label={item.label}
+                onClick={() => onChangePage(item.page)}
+                sx={{
+                  justifyContent: compact ? 'center' : 'flex-start',
+                  minWidth: 0,
+                  px: compact ? 0 : 2.25,
+                  bgcolor: isActive ? 'primary.main' : 'background.default',
+                  '& .MuiButton-startIcon': {
+                    mr: compact ? 0 : 1,
+                    ml: 0,
+                  },
+                }}
+              >
+                <Box
+                  component="span"
                   sx={{
-                    justifyContent: { xs: 'center', sm: 'center', lg: 'flex-start' },
-                    minWidth: 0,
-                    px: { xs: 1, sm: 0, lg: 2.25 },
-                    bgcolor: isActive ? 'primary.main' : 'background.default',
-                    '& .MuiButton-startIcon': {
-                      mr: { xs: 0.75, sm: 0, lg: 1 },
-                      ml: 0,
-                    },
+                    display: compact ? 'none' : 'inline',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  <Box
-                    component="span"
-                    sx={{
-                      display: { xs: 'inline', sm: 'none', lg: 'inline' },
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: { xs: '0.82rem', lg: 'inherit' },
-                    }}
-                  >
-                    {item.label}
-                  </Box>
-                </Button>
-              </Tooltip>
-            )
-          })}
-        </Stack>
-        <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
-        <Stack spacing={1} sx={{ mt: { xs: 0.25, sm: 'auto' } }}>
-          <Typography
-            variant="body2"
+                  {item.label}
+                </Box>
+              </Button>
+            </Tooltip>
+          )
+        })}
+      </Stack>
+      <Box sx={{ flex: 1 }} />
+      <Stack spacing={1}>
+        <Typography
+          variant="body2"
+          sx={{ color: 'text.secondary', display: compact ? 'none' : 'block', fontWeight: 760, wordBreak: 'break-word' }}
+        >
+          {adminEmail}
+        </Typography>
+        <Tooltip title={compact ? 'ออกจากระบบ' : ''} placement="right">
+          <Button
+            variant="outlined"
+            onClick={onLogout}
+            startIcon={<LogoutIcon />}
+            aria-label="ออกจากระบบ"
             sx={{
-              color: 'text.secondary',
-              display: { xs: 'block', sm: 'none', lg: 'block' },
-              fontWeight: 760,
-              wordBreak: 'break-word',
+              justifyContent: compact ? 'center' : 'flex-start',
+              minWidth: 0,
+              px: compact ? 0 : 2.25,
+              '& .MuiButton-startIcon': {
+                mr: compact ? 0 : 1,
+                ml: 0,
+              },
             }}
           >
-            {adminEmail}
-          </Typography>
-          <Tooltip title="ออกจากระบบ" placement="right">
-            <Button
-              variant="outlined"
-              onClick={onLogout}
-              startIcon={<LogoutIcon />}
-              aria-label="ออกจากระบบ"
-              sx={{
-                justifyContent: { xs: 'center', sm: 'center', lg: 'flex-start' },
-                minWidth: 0,
-                px: { xs: 2, sm: 0, lg: 2.25 },
-                '& .MuiButton-startIcon': {
-                  mr: { xs: 1, sm: 0, lg: 1 },
-                  ml: 0,
-                },
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none', lg: 'inline' } }}>
-                ออกจากระบบ
-              </Box>
-            </Button>
-          </Tooltip>
-        </Stack>
+            <Box component="span" sx={{ display: compact ? 'none' : 'inline' }}>
+              ออกจากระบบ
+            </Box>
+          </Button>
+        </Tooltip>
       </Stack>
-    </Box>
+    </Stack>
   )
 }
 
