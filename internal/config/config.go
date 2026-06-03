@@ -10,6 +10,7 @@ type RedisConfig struct {
 	Addr     string
 	Password string
 	DB       int
+	URL      string
 }
 
 type Config struct {
@@ -30,7 +31,7 @@ func Load() Config {
 	adminURL := getEnv("ADMIN_WEB_URL", "http://127.0.0.1:5174")
 	return Config{
 		AppEnv:       getEnv("APP_ENV", "development"),
-		HTTPPort:     getEnv("HTTP_PORT", "8080"),
+		HTTPPort:     getEnv("HTTP_PORT", getEnv("PORT", "8080")),
 		DatabaseURL:  getEnv("DATABASE_URL", "postgres://service_booking:service_booking@localhost:5432/service_booking?sslmode=disable"),
 		PublicWebURL: publicURL,
 		AdminWebURL:  adminURL,
@@ -38,6 +39,7 @@ func Load() Config {
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 			Password: os.Getenv("REDIS_PASSWORD"),
 			DB:       getEnvInt("REDIS_DB", 0),
+			URL:      os.Getenv("REDIS_URL"),
 		},
 		BookingSlotCapacity: getEnvInt("BOOKING_SLOT_CAPACITY", 3),
 		VAPIDPublicKey:      os.Getenv("VAPID_PUBLIC_KEY"),
