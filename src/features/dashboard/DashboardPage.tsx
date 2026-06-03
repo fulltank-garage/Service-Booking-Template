@@ -225,6 +225,7 @@ function MobileHeader({ onOpenNav }: { onOpenNav: () => void }) {
           sx={{
             width: 46,
             height: 46,
+            borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
             color: 'text.primary',
@@ -281,7 +282,7 @@ function MobileNavDrawer({
           <IconButton
             aria-label="ปิดเมนู"
             onClick={onClose}
-            sx={{ border: '1px solid', borderColor: 'divider', color: 'text.primary' }}
+            sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', color: 'text.primary' }}
           >
             <CloseIcon />
           </IconButton>
