@@ -10,16 +10,16 @@ export function BrandMark({ compact = false }: BrandMarkProps) {
       <Box
         component="img"
         src="/logo.svg"
-        alt="Service Booking"
+        alt="Booking"
         sx={{ width: compact ? 34 : 42, height: compact ? 34 : 42, borderRadius: 2 }}
       />
       {!compact && (
         <Box>
           <Typography component="p" sx={{ fontWeight: 850, lineHeight: 1, color: 'text.primary' }}>
-            Service Booking
+            Booking
           </Typography>
           <Typography component="p" variant="caption" sx={{ color: 'text.secondary' }}>
-            ระบบจองคิวบริการ
+            ระบบจองคิว
           </Typography>
         </Box>
       )}

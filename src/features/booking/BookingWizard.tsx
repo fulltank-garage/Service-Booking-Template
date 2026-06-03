@@ -5,66 +5,105 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   Divider,
-  FormControl,
   Grid,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import SendIcon from '@mui/icons-material/Send'
 import { bookingApi } from '../../api/bookingApi'
-import type { AvailabilitySlot, Booking, CreateBookingPayload, ServiceItem } from '../../types/booking'
+import type { AvailabilitySlot, Booking, CreateBookingPayload } from '../../types/booking'
 import type { LineProfile } from '../../integrations/liff'
 
 type BookingWizardProps = {
   lineProfile: LineProfile | null
 }
 
+type CalendarDay = {
+  date: Date
+  inMonth: boolean
+  key: string
+}
+
+const thaiMonths = [
+  'มกราคม',
+  'กุมภาพันธ์',
+  'มีนาคม',
+  'เมษายน',
+  'พฤษภาคม',
+  'มิถุนายน',
+  'กรกฎาคม',
+  'สิงหาคม',
+  'กันยายน',
+  'ตุลาคม',
+  'พฤศจิกายน',
+  'ธันวาคม',
+]
+
+const weekdays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+const parseISODate = (value: string) => {
+  const date = new Date(`${value}T00:00:00`)
+  return Number.isFinite(date.getTime()) ? date : new Date()
+}
+
+const toISODate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+const addDays = (date: Date, count: number) => {
+  const next = new Date(date)
+  next.setDate(next.getDate() + count)
+  return next
+}
+
+const addMonths = (date: Date, count: number) => new Date(date.getFullYear(), date.getMonth() + count, 1)
+
+const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+  const start = addDays(firstDay, -firstDay.getDay())
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = addDays(start, index)
+    return {
+      date,
+      inMonth: date.getMonth() === monthDate.getMonth(),
+      key: toISODate(date),
+    }
+  })
+}
+
 export function BookingWizard({ lineProfile }: BookingWizardProps) {
-  const [services, setServices] = useState<ServiceItem[]>([])
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [bookingDate, setBookingDate] = useState(todayISO)
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const today = parseISODate(todayISO())
+    return new Date(today.getFullYear(), today.getMonth(), 1)
+  })
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const [selectedSlot, setSelectedSlot] = useState('')
   const [customerName, setCustomerName] = useState(lineProfile?.displayName ?? '')
   const [phone, setPhone] = useState('')
-  const [notes, setNotes] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null)
-  const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const selectedService = useMemo(
-    () => services.find((service) => service.id === selectedServiceId) ?? null,
-    [selectedServiceId, services],
-  )
-
   useEffect(() => {
     let active = true
     const load = async () => {
-      setIsLoadingServices(true)
       setError('')
       try {
         const items = await bookingApi.listServices()
         if (!active) return
-        setServices(items)
         setSelectedServiceId((current) => current || items[0]?.id || '')
       } catch {
-        if (active) setError('โหลดรายการบริการไม่สำเร็จ')
-      } finally {
-        if (active) setIsLoadingServices(false)
+        if (active) setError('โหลดข้อมูลไม่สำเร็จ')
       }
     }
     void load()
@@ -111,7 +150,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
       bookingDate,
       slotTime: selectedSlot,
       lineUserId: lineProfile?.userId,
-      notes: notes.trim(),
+      notes: '',
     }
 
     setIsSubmitting(true)
@@ -164,21 +203,19 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
         boxShadow: 'none',
       }}
     >
-      <CardContent sx={{ p: { xs: 2.5, sm: 3.5, md: 5 } }}>
-        <Stack spacing={3.5}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="h2">จองคิวเข้าใช้บริการ</Typography>
-              <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                เลือกบริการ วัน เวลา และข้อมูลติดต่อของคุณ
+      <CardContent sx={{ p: 2.25 }}>
+        <Stack spacing={2.75}>
+          <Box>
+            <Typography variant="h2" sx={{ fontSize: '1.8rem' }}>
+              จองคิว
+            </Typography>
+            <Typography sx={{ mt: 0.75, color: 'text.secondary' }}>เลือกวัน เวลา และกรอกข้อมูลติดต่อ</Typography>
+            {lineProfile && (
+              <Typography variant="body2" sx={{ mt: 0.75, fontWeight: 750 }}>
+                {lineProfile.displayName}
               </Typography>
-            </Box>
-            {lineProfile ? (
-              <Chip label={lineProfile.displayName} color="primary" variant="outlined" />
-            ) : (
-              <Chip label="ข้อมูลผู้จอง" variant="outlined" />
             )}
-          </Stack>
+          </Box>
 
           {error && (
             <Alert severity="error" sx={{ borderRadius: 2.5 }}>
@@ -186,59 +223,13 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
             </Alert>
           )}
 
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <FormControl fullWidth>
-                <InputLabel id="service-label">บริการ</InputLabel>
-                <Select
-                  labelId="service-label"
-                  label="บริการ"
-                  value={selectedServiceId}
-                  disabled={isLoadingServices}
-                  onChange={(event) => setSelectedServiceId(event.target.value)}
-                >
-                  {services.map((service) => (
-                    <MenuItem value={service.id} key={service.id}>
-                      {service.nameTh} / {service.nameEn}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <TextField
-                fullWidth
-                label="วันที่"
-                type="date"
-                value={bookingDate}
-                onChange={(event) => setBookingDate(event.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Grid>
-          </Grid>
-
-          {selectedService && (
-            <Box
-              sx={{
-                p: 2.5,
-                borderRadius: 2.5,
-                bgcolor: 'secondary.main',
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
-                <CalendarMonthIcon color="primary" />
-                <Box sx={{ flex: 1 }}>
-                  <Typography sx={{ fontWeight: 800 }}>{selectedService.nameTh}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {selectedService.descriptionTh}
-                  </Typography>
-                </Box>
-                <Chip label={`${selectedService.durationMinutes} นาที`} color="primary" />
-              </Stack>
-            </Box>
-          )}
+          <BookingCalendar
+            bookingDate={bookingDate}
+            todayKey={todayISO()}
+            visibleMonth={visibleMonth}
+            onMonthChange={setVisibleMonth}
+            onSelectDate={setBookingDate}
+          />
 
           <Box>
             <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
@@ -248,7 +239,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
             </Stack>
             <Grid container spacing={1.2}>
               {slots.map((slot) => (
-                <Grid size={{ xs: 6, sm: 4, md: 3 }} key={slot.time}>
+                <Grid size={{ xs: 6 }} key={slot.time}>
                   <Button
                     fullWidth
                     variant={selectedSlot === slot.time ? 'contained' : 'outlined'}
@@ -263,8 +254,8 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
             </Grid>
           </Box>
 
-          <Grid container spacing={2.5}>
-            <Grid size={{ xs: 12, md: 6 }}>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="ชื่อผู้จอง"
@@ -272,25 +263,12 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
                 onChange={(event) => setCustomerName(event.target.value)}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField fullWidth label="เบอร์โทร" value={phone} onChange={(event) => setPhone(event.target.value)} />
-            </Grid>
             <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                label="รายละเอียดเพิ่มเติม"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-              />
+              <TextField fullWidth label="เบอร์โทร" value={phone} onChange={(event) => setPhone(event.target.value)} />
             </Grid>
           </Grid>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
-            <Typography variant="body2" color="text.secondary">
-              ทีมงานจะตรวจสอบและยืนยันคิวหลังจากได้รับคำขอ
-            </Typography>
+          <Stack spacing={1.5}>
             <Button
               variant="contained"
               size="large"
@@ -304,6 +282,92 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
         </Stack>
       </CardContent>
     </Card>
+  )
+}
+
+function BookingCalendar({
+  bookingDate,
+  todayKey,
+  visibleMonth,
+  onMonthChange,
+  onSelectDate,
+}: {
+  bookingDate: string
+  todayKey: string
+  visibleMonth: Date
+  onMonthChange: (date: Date) => void
+  onSelectDate: (date: string) => void
+}) {
+  const days = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth])
+
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, p: 1.5, bgcolor: 'background.default' }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+        <Button
+          type="button"
+          variant="outlined"
+          aria-label="เดือนก่อนหน้า"
+          onClick={() => onMonthChange(addMonths(visibleMonth, -1))}
+          sx={{ minWidth: 44, width: 44, px: 0 }}
+        >
+          ‹
+        </Button>
+        <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 850 }}>
+            {thaiMonths[visibleMonth.getMonth()]} {visibleMonth.getFullYear() + 543}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            เลือกวันที่
+          </Typography>
+        </Box>
+        <Button
+          type="button"
+          variant="outlined"
+          aria-label="เดือนถัดไป"
+          onClick={() => onMonthChange(addMonths(visibleMonth, 1))}
+          sx={{ minWidth: 44, width: 44, px: 0 }}
+        >
+          ›
+        </Button>
+      </Stack>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.6 }}>
+        {weekdays.map((weekday) => (
+          <Typography key={weekday} variant="caption" sx={{ py: 0.5, textAlign: 'center', fontWeight: 850 }}>
+            {weekday}
+          </Typography>
+        ))}
+
+        {days.map((day) => {
+          const isSelected = day.key === bookingDate
+          const isDisabled = !day.inMonth || day.key < todayKey
+
+          return (
+            <Button
+              key={day.key}
+              type="button"
+              disabled={isDisabled}
+              variant={isSelected ? 'contained' : 'outlined'}
+              onClick={() => onSelectDate(day.key)}
+              aria-label={`${day.date.getDate()} ${thaiMonths[day.date.getMonth()]}`}
+              sx={{
+                minWidth: 0,
+                width: '100%',
+                minHeight: 42,
+                p: 0,
+                borderRadius: 2,
+                borderColor: isSelected ? 'primary.main' : 'divider',
+                bgcolor: isSelected ? 'primary.main' : 'background.default',
+                color: isSelected ? 'primary.contrastText' : 'text.primary',
+                opacity: isDisabled ? 0.35 : 1,
+              }}
+            >
+              {day.inMonth ? day.date.getDate() : ''}
+            </Button>
+          )
+        })}
+      </Box>
+    </Box>
   )
 }
 

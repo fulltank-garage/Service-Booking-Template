@@ -17,7 +17,8 @@ describe('BookingWizard', () => {
     const user = userEvent.setup()
     renderWizard()
 
-    await screen.findByText('จองคิวเข้าใช้บริการ')
+    await screen.findByText('จองคิว')
+    expect(screen.getByText('เลือกวันที่')).toBeInTheDocument()
     await user.type(screen.getByLabelText('ชื่อผู้จอง'), 'สมชาย')
     await user.type(screen.getByLabelText('เบอร์โทร'), '0890000000')
 
