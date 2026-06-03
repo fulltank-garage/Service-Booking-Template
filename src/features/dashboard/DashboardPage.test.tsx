@@ -12,7 +12,7 @@ vi.stubGlobal('WebSocket', class {
 const renderPage = () =>
   render(
     <ThemeProvider theme={appTheme}>
-      <DashboardPage />
+      <DashboardPage adminEmail="admin@example.com" onLogout={vi.fn()} />
     </ThemeProvider>,
   )
 

@@ -1,12 +1,25 @@
 import { httpClient, isApiFallbackEnabled } from './httpClient'
 import { mockBookings, mockNotifications } from '../data/mockAdmin'
 import type { AdminNotification, ApiEnvelope, Booking, BookingStatus } from '../types/admin'
+import axios from 'axios'
+
+type AdminLoginResponse = {
+  email: string
+  token: string
+  expiresAt: string
+}
+
+const canFallback = (error: unknown) => {
+  if (!isApiFallbackEnabled) return false
+  if (axios.isAxiosError(error) && error.response?.status === 401) return false
+  return true
+}
 
 const withFallback = async <T>(request: () => Promise<T>, fallback: () => T): Promise<T> => {
   try {
     return await request()
   } catch (error) {
-    if (!isApiFallbackEnabled) {
+    if (!canFallback(error)) {
       throw error
     }
     return fallback()
@@ -14,6 +27,11 @@ const withFallback = async <T>(request: () => Promise<T>, fallback: () => T): Pr
 }
 
 export const adminApi = {
+  login: async (email: string, password: string) => {
+    const response = await httpClient.post<ApiEnvelope<AdminLoginResponse>>('/admin/auth/login', { email, password })
+    return response.data.data
+  },
+
   listBookings: () =>
     withFallback(
       async () => {

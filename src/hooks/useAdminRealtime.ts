@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { wsBaseURL } from '../api/httpClient'
+import { authStorage } from '../features/auth/authStorage'
 import type { AdminNotification } from '../types/admin'
 
 type UseAdminRealtimeOptions = {
@@ -10,7 +11,10 @@ export function useAdminRealtime({ onNotification }: UseAdminRealtimeOptions) {
   useEffect(() => {
     if (!('WebSocket' in window)) return
 
-    const ws = new WebSocket(`${wsBaseURL}/ws/admin`)
+    const token = authStorage.getToken()
+    if (!token) return
+
+    const ws = new WebSocket(`${wsBaseURL}/ws/admin?token=${encodeURIComponent(token)}`)
     ws.addEventListener('message', (event) => {
       try {
         onNotification(JSON.parse(event.data) as AdminNotification)

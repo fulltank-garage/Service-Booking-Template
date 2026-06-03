@@ -25,6 +25,7 @@ import {
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import HourglassTopIcon from '@mui/icons-material/HourglassTop'
+import LogoutIcon from '@mui/icons-material/Logout'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import { adminApi } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
@@ -40,7 +41,12 @@ const statusLabels: Record<BookingStatus, string> = {
   cancelled: 'ยกเลิก',
 }
 
-export function DashboardPage() {
+type DashboardPageProps = {
+  adminEmail: string
+  onLogout: () => void
+}
+
+export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [notice, setNotice] = useState('')
@@ -103,9 +109,17 @@ export function DashboardPage() {
         <Stack spacing={3}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
             <BrandMark />
-            <Button variant="contained" onClick={loadData}>
-              รีเฟรชข้อมูล
-            </Button>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 760 }}>
+                {adminEmail}
+              </Typography>
+              <Button variant="outlined" onClick={onLogout} endIcon={<LogoutIcon />}>
+                ออกจากระบบ
+              </Button>
+              <Button variant="contained" onClick={loadData}>
+                รีเฟรชข้อมูล
+              </Button>
+            </Stack>
           </Stack>
 
           <Box>
