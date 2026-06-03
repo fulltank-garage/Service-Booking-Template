@@ -43,12 +43,14 @@ func main() {
 	store := repositories.NewGormStore(db)
 	notifier := services.NewNotificationService(store, hub, redisClient)
 	bookingService := services.NewBookingService(store, notifier, cfg.BookingSlotCapacity)
+	authService := services.NewAuthService(cfg.AdminEmail, cfg.AdminPassword, cfg.AdminSessionSecret)
 	if redisClient != nil {
 		go notifier.Subscribe(context.Background())
 	}
 
 	router := httpserver.New(httpserver.Dependencies{
 		Config:              cfg,
+		AuthService:         authService,
 		BookingService:      bookingService,
 		NotificationService: notifier,
 		Hub:                 hub,

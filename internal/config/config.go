@@ -20,6 +20,9 @@ type Config struct {
 	Redis               RedisConfig
 	PublicWebURL        string
 	AdminWebURL         string
+	AdminEmail          string
+	AdminPassword       string
+	AdminSessionSecret  string
 	BookingSlotCapacity int
 	VAPIDPublicKey      string
 	VAPIDPrivateKey     string
@@ -35,6 +38,12 @@ func Load() Config {
 		DatabaseURL:  getEnv("DATABASE_URL", "postgres://service_booking:service_booking@localhost:5432/service_booking?sslmode=disable"),
 		PublicWebURL: publicURL,
 		AdminWebURL:  adminURL,
+		AdminEmail:   getEnv("ADMIN_EMAIL", "admin@example.com"),
+		AdminPassword: getEnv(
+			"ADMIN_PASSWORD",
+			"admin1234",
+		),
+		AdminSessionSecret: getEnv("ADMIN_SESSION_SECRET", getEnv("ADMIN_PASSWORD", "admin1234")),
 		Redis: RedisConfig{
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 			Password: os.Getenv("REDIS_PASSWORD"),

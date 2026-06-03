@@ -11,6 +11,7 @@ import (
 
 type Dependencies struct {
 	Config              config.Config
+	AuthService         *services.AuthService
 	BookingService      *services.BookingService
 	NotificationService *services.NotificationService
 	Hub                 *ws.Hub
@@ -21,6 +22,7 @@ func New(deps Dependencies) *gin.Engine {
 	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS(deps.Config.AllowedOrigins))
 
 	healthHandler := handlers.NewHealthHandler()
+	authHandler := handlers.NewAuthHandler(deps.AuthService)
 	bookingHandler := handlers.NewBookingHandler(deps.BookingService)
 	notificationHandler := handlers.NewNotificationHandler(deps.Config, deps.NotificationService)
 	webSocketHandler := handlers.NewWebSocketHandler(deps.Config, deps.Hub)
@@ -30,15 +32,18 @@ func New(deps Dependencies) *gin.Engine {
 	api.GET("/services", bookingHandler.ListServices)
 	api.GET("/availability", bookingHandler.Availability)
 	api.POST("/bookings", bookingHandler.CreateBooking)
-	api.GET("/ws/admin", webSocketHandler.Admin)
 
 	admin := api.Group("/admin")
+	admin.POST("/auth/login", authHandler.Login)
+	admin.Use(middleware.AdminAuth(deps.AuthService))
 	admin.GET("/bookings", bookingHandler.ListBookings)
 	admin.PUT("/bookings/:id/status", bookingHandler.UpdateStatus)
 	admin.GET("/notifications", notificationHandler.List)
 	admin.PUT("/notifications/:id/read", notificationHandler.MarkRead)
 	admin.GET("/push/public-key", notificationHandler.PublicKey)
 	admin.POST("/push/subscribe", notificationHandler.Subscribe)
+
+	api.GET("/ws/admin", middleware.AdminAuth(deps.AuthService), webSocketHandler.Admin)
 
 	return router
 }
