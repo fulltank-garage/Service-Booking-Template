@@ -11,7 +11,7 @@ export function BrandMark({ compact = false }: BrandMarkProps) {
         component="img"
         src="/logo.svg"
         alt="Service Booking"
-        sx={{ width: compact ? 34 : 42, height: compact ? 34 : 42, borderRadius: 3 }}
+        sx={{ width: compact ? 34 : 42, height: compact ? 34 : 42, borderRadius: 2 }}
       />
       {!compact && (
         <Box>
@@ -19,7 +19,7 @@ export function BrandMark({ compact = false }: BrandMarkProps) {
             Service Booking
           </Typography>
           <Typography component="p" variant="caption" sx={{ color: 'text.secondary' }}>
-            LINE-ready queue template
+            ระบบจองคิวบริการ
           </Typography>
         </Box>
       )}

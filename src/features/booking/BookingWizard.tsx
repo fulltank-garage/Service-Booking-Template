@@ -128,14 +128,14 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
 
   if (confirmedBooking) {
     return (
-      <Card sx={{ borderRadius: 5, border: '1px solid', borderColor: 'divider', boxShadow: '0 24px 80px rgba(29,29,31,0.08)' }}>
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 24px 80px rgba(29,29,31,0.08)' }}>
         <CardContent sx={{ p: { xs: 3, md: 5 } }}>
           <Stack spacing={3} sx={{ alignItems: 'flex-start' }}>
             <CheckCircleIcon color="primary" sx={{ fontSize: 54 }} />
             <Box>
               <Typography variant="h2">จองคิวเรียบร้อย</Typography>
               <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                ระบบบันทึกคำขอของคุณแล้ว ทีมงานสามารถยืนยันสถานะต่อได้จากหน้า Admin
+                ระบบบันทึกคำขอของคุณแล้ว ทีมงานจะตรวจสอบและยืนยันสถานะต่อไป
               </Typography>
             </Box>
             <Divider sx={{ width: '100%' }} />
@@ -158,7 +158,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
     <Card
       data-testid="booking-wizard"
       sx={{
-        borderRadius: 5,
+        borderRadius: 3,
         border: '1px solid',
         borderColor: 'divider',
         boxShadow: '0 24px 80px rgba(29,29,31,0.08)',
@@ -170,13 +170,13 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
             <Box>
               <Typography variant="h2">จองคิวเข้าใช้บริการ</Typography>
               <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                เลือกบริการ วัน เวลา และข้อมูลติดต่อ ระบบพร้อมใช้กับ LINE LIFF และ Rich Menu
+                เลือกบริการ วัน เวลา และข้อมูลติดต่อของคุณ
               </Typography>
             </Box>
             {lineProfile ? (
-              <Chip label={`LINE: ${lineProfile.displayName}`} color="primary" variant="outlined" />
+              <Chip label={lineProfile.displayName} color="primary" variant="outlined" />
             ) : (
-              <Chip label="LIFF ยังไม่ถูกตั้งค่า" variant="outlined" />
+              <Chip label="ข้อมูลผู้จอง" variant="outlined" />
             )}
           </Stack>
 
@@ -217,7 +217,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
             <Box
               sx={{
                 p: 2.5,
-                borderRadius: 4,
+                borderRadius: 2.5,
                 bgcolor: 'rgba(15,118,110,0.08)',
                 border: '1px solid rgba(15,118,110,0.15)',
               }}
@@ -249,7 +249,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
                     variant={selectedSlot === slot.time ? 'contained' : 'outlined'}
                     disabled={!slot.available}
                     onClick={() => setSelectedSlot(slot.time)}
-                    sx={{ minHeight: 52, borderRadius: 3 }}
+                    sx={{ minHeight: 52, borderRadius: 2 }}
                   >
                     {slot.time}
                   </Button>
@@ -284,7 +284,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
             <Typography variant="body2" color="text.secondary">
-              Rich Menu สามารถเปิดหน้านี้พร้อม query/serviceId เพื่อเริ่ม flow ได้ทันที
+              ทีมงานจะตรวจสอบและยืนยันคิวหลังจากได้รับคำขอ
             </Typography>
             <Button
               variant="contained"

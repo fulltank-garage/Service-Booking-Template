@@ -39,18 +39,18 @@ function App() {
             }}
           >
             <Stack spacing={2.5}>
-              <Typography variant="h1">จองคิวบริการได้ทันทีจาก LINE</Typography>
+              <Typography variant="h1">จองคิวบริการได้ทันที</Typography>
               <Typography sx={{ maxWidth: 560, color: 'text.secondary', fontSize: { xs: '1.05rem', md: '1.2rem' } }}>
-                Template สำหรับธุรกิจบริการที่ต้องการเริ่มระบบจองคิวเร็ว รองรับ LIFF, Rich Menu, API กลาง และ Admin realtime ตั้งแต่โครงแรก
+                เลือกบริการ วัน เวลา และส่งข้อมูลติดต่อให้ทีมงานดูแลต่อได้อย่างเป็นระเบียบในขั้นตอนเดียว
               </Typography>
               <Stack direction="row" spacing={1.2} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-                {['LIFF ready', 'Axios API', 'Responsive', 'Modern MUI'].map((item) => (
+                {['เลือกบริการ', 'เลือกเวลา', 'กรอกข้อมูล', 'รอยืนยัน'].map((item) => (
                   <Box
                     key={item}
                     sx={{
                       px: 1.8,
                       py: 0.8,
-                      borderRadius: 999,
+                      borderRadius: 2.25,
                       bgcolor: 'white',
                       border: '1px solid',
                       borderColor: 'divider',
