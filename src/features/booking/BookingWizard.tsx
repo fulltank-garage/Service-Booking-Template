@@ -5,9 +5,13 @@ import {
   Button,
   Card,
   CardContent,
-  CircularProgress,
   Divider,
+  FormControl,
   Grid,
+  InputLabel,
+  MenuItem,
+  Select,
+  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -16,7 +20,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import SendIcon from '@mui/icons-material/Send'
 import { bookingApi } from '../../api/bookingApi'
-import type { AvailabilitySlot, Booking, CreateBookingPayload } from '../../types/booking'
+import type { AvailabilitySlot, Booking, CreateBookingPayload, ServiceItem } from '../../types/booking'
 import type { LineProfile } from '../../integrations/liff'
 
 type BookingWizardProps = {
@@ -79,6 +83,7 @@ const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
 }
 
 export function BookingWizard({ lineProfile }: BookingWizardProps) {
+  const [services, setServices] = useState<ServiceItem[]>([])
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [bookingDate, setBookingDate] = useState(todayISO)
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -90,6 +95,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
   const [customerName, setCustomerName] = useState(lineProfile?.displayName ?? '')
   const [phone, setPhone] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null)
+  const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -97,13 +103,17 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
   useEffect(() => {
     let active = true
     const load = async () => {
+      setIsLoadingServices(true)
       setError('')
       try {
         const items = await bookingApi.listServices()
         if (!active) return
+        setServices(items)
         setSelectedServiceId((current) => current || items[0]?.id || '')
       } catch {
         if (active) setError('โหลดข้อมูลไม่สำเร็จ')
+      } finally {
+        if (active) setIsLoadingServices(false)
       }
     }
     void load()
@@ -139,6 +149,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
   }, [bookingDate, selectedServiceId])
 
   const canSubmit = Boolean(selectedServiceId && bookingDate && selectedSlot && customerName.trim() && phone.trim())
+  const showInitialSkeleton = isLoadingServices && services.length === 0
 
   const handleSubmit = async () => {
     if (!canSubmit) return
@@ -163,6 +174,10 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (showInitialSkeleton) {
+    return <BookingWizardSkeleton />
   }
 
   if (confirmedBooking) {
@@ -231,27 +246,62 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
             onSelectDate={setBookingDate}
           />
 
+          <FormControl fullWidth>
+            <InputLabel id="service-label">บริการ</InputLabel>
+            <Select
+              labelId="service-label"
+              label="บริการ"
+              value={selectedServiceId}
+              disabled={isLoadingServices}
+              onChange={(event) => setSelectedServiceId(event.target.value)}
+            >
+              {services.map((service) => (
+                <MenuItem value={service.id} key={service.id}>
+                  {service.nameTh}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <Box>
             <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
               <ScheduleIcon color="primary" />
               <Typography variant="h3">เลือกเวลา</Typography>
-              {isLoadingSlots && <CircularProgress size={18} />}
             </Stack>
-            <Grid container spacing={1.2}>
-              {slots.map((slot) => (
-                <Grid size={{ xs: 6 }} key={slot.time}>
-                  <Button
-                    fullWidth
-                    variant={selectedSlot === slot.time ? 'contained' : 'outlined'}
-                    disabled={!slot.available}
-                    onClick={() => setSelectedSlot(slot.time)}
-                    sx={{ minHeight: 52, borderRadius: 2 }}
-                  >
-                    {slot.time}
-                  </Button>
-                </Grid>
-              ))}
-            </Grid>
+            {isLoadingSlots ? (
+              <SlotGridSkeleton />
+            ) : (
+              <Grid container spacing={1.2}>
+                {slots.map((slot) => (
+                  <Grid size={{ xs: 6 }} key={slot.time}>
+                    <Button
+                      fullWidth
+                      variant={selectedSlot === slot.time ? 'contained' : 'outlined'}
+                      disabled={!slot.available}
+                      onClick={() => setSelectedSlot(slot.time)}
+                      sx={{
+                        minHeight: 62,
+                        borderRadius: 2,
+                        borderColor: !slot.available ? 'divider' : undefined,
+                        color: !slot.available ? 'text.secondary' : undefined,
+                        '&.Mui-disabled': {
+                          bgcolor: '#F3F4F6',
+                          borderColor: 'divider',
+                          color: 'text.secondary',
+                        },
+                      }}
+                    >
+                      <Stack spacing={0.1} sx={{ alignItems: 'center', lineHeight: 1.1 }}>
+                        <Typography sx={{ fontWeight: 850, lineHeight: 1.1 }}>{slot.time}</Typography>
+                        <Typography variant="caption" sx={{ lineHeight: 1.1 }}>
+                          {slot.available ? 'ว่าง' : 'ไม่ว่าง'}
+                        </Typography>
+                      </Stack>
+                    </Button>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
           </Box>
 
           <Grid container spacing={2}>
@@ -302,16 +352,7 @@ function BookingCalendar({
 
   return (
     <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, p: 1.5, bgcolor: 'background.default' }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-        <Button
-          type="button"
-          variant="outlined"
-          aria-label="เดือนก่อนหน้า"
-          onClick={() => onMonthChange(addMonths(visibleMonth, -1))}
-          sx={{ minWidth: 44, width: 44, px: 0 }}
-        >
-          ‹
-        </Button>
+      <Stack spacing={1} sx={{ alignItems: 'center', mb: 1.5 }}>
         <Box sx={{ textAlign: 'center', minWidth: 0 }}>
           <Typography sx={{ fontWeight: 850 }}>
             {thaiMonths[visibleMonth.getMonth()]} {visibleMonth.getFullYear() + 543}
@@ -320,15 +361,6 @@ function BookingCalendar({
             เลือกวันที่
           </Typography>
         </Box>
-        <Button
-          type="button"
-          variant="outlined"
-          aria-label="เดือนถัดไป"
-          onClick={() => onMonthChange(addMonths(visibleMonth, 1))}
-          sx={{ minWidth: 44, width: 44, px: 0 }}
-        >
-          ›
-        </Button>
       </Stack>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.6 }}>
@@ -367,7 +399,99 @@ function BookingCalendar({
           )
         })}
       </Box>
+
+      <Stack direction="row" spacing={0.6} sx={{ justifyContent: 'flex-end', mt: 1.5 }}>
+        <Button
+          type="button"
+          variant="outlined"
+          aria-label="เดือนก่อนหน้า"
+          onClick={() => onMonthChange(addMonths(visibleMonth, -1))}
+          sx={{ minHeight: 40, px: 1.5 }}
+        >
+          เดือนก่อนหน้า
+        </Button>
+        <Button
+          type="button"
+          variant="outlined"
+          aria-label="เดือนถัดไป"
+          onClick={() => onMonthChange(addMonths(visibleMonth, 1))}
+          sx={{ minHeight: 40, px: 1.5 }}
+        >
+          เดือนถัดไป
+        </Button>
+      </Stack>
     </Box>
+  )
+}
+
+function BookingWizardSkeleton() {
+  return (
+    <Card
+      data-testid="booking-wizard-skeleton"
+      sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}
+    >
+      <CardContent sx={{ p: 2.25 }}>
+        <Stack spacing={2.75}>
+          <Box>
+            <Skeleton variant="text" width={110} height={42} sx={{ bgcolor: 'divider' }} />
+            <Skeleton variant="text" width={260} height={28} sx={{ bgcolor: 'divider' }} />
+          </Box>
+
+          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, p: 1.5 }}>
+            <Stack spacing={0.6} sx={{ alignItems: 'center', mb: 1.5 }}>
+              <Skeleton variant="text" width={140} height={28} sx={{ bgcolor: 'divider' }} />
+              <Skeleton variant="text" width={74} height={22} sx={{ bgcolor: 'divider' }} />
+            </Stack>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.6 }}>
+              {Array.from({ length: 7 }).map((_, index) => (
+                <Skeleton key={`weekday-${index}`} variant="text" height={22} sx={{ bgcolor: 'divider' }} />
+              ))}
+              {Array.from({ length: 42 }).map((_, index) => (
+                <Skeleton key={`day-${index}`} variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              ))}
+            </Box>
+            <Stack direction="row" spacing={0.6} sx={{ justifyContent: 'flex-end', mt: 1.5 }}>
+              <Skeleton variant="rectangular" width={118} height={40} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              <Skeleton variant="rectangular" width={108} height={40} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+            </Stack>
+          </Box>
+
+          <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+
+          <Box>
+            <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
+              <Skeleton variant="circular" width={24} height={24} sx={{ bgcolor: 'divider' }} />
+              <Skeleton variant="text" width={100} height={32} sx={{ bgcolor: 'divider' }} />
+            </Stack>
+            <Grid container spacing={1.2}>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Grid size={{ xs: 6 }} key={`slot-${index}`}>
+                  <Skeleton variant="rectangular" height={62} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+
+          <Stack spacing={2}>
+            <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+            <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+          </Stack>
+          <Skeleton variant="rectangular" height={46} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SlotGridSkeleton() {
+  return (
+    <Grid container spacing={1.2}>
+      {Array.from({ length: 6 }).map((_, index) => (
+        <Grid size={{ xs: 6 }} key={`loading-slot-${index}`}>
+          <Skeleton variant="rectangular" height={62} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+        </Grid>
+      ))}
+    </Grid>
   )
 }
 
