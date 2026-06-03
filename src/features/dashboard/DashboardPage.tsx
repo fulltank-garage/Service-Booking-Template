@@ -116,18 +116,22 @@ export function DashboardPage() {
           </Box>
 
           <PushNotificationPrompt onNotice={setNotice} />
-          {error && <Alert severity="error" sx={{ borderRadius: 2.5 }}>{error}</Alert>}
+          {error && (
+            <Alert severity="error" sx={{ borderRadius: 2.5 }}>
+              {error}
+            </Alert>
+          )}
 
           <Grid container spacing={2}>
-            <SummaryCard icon={<HourglassTopIcon />} label="รอยืนยัน" value={summary.pending} color="#F97363" />
-            <SummaryCard icon={<CheckCircleIcon />} label="ยืนยันแล้ว" value={summary.confirmed} color="#0F766E" />
-            <SummaryCard icon={<CalendarMonthIcon />} label="คิวทั้งหมด" value={summary.total} color="#2563EB" />
-            <SummaryCard icon={<NotificationsIcon />} label="แจ้งเตือนยังไม่อ่าน" value={summary.unread} color="#7C3AED" />
+            <SummaryCard icon={<HourglassTopIcon />} label="รอยืนยัน" value={summary.pending} color="#FF008C" />
+            <SummaryCard icon={<CheckCircleIcon />} label="ยืนยันแล้ว" value={summary.confirmed} color="#111827" />
+            <SummaryCard icon={<CalendarMonthIcon />} label="คิวทั้งหมด" value={summary.total} color="#FF008C" />
+            <SummaryCard icon={<NotificationsIcon />} label="แจ้งเตือนยังไม่อ่าน" value={summary.unread} color="#111827" />
           </Grid>
 
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, lg: 8 }}>
-              <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 20px 70px rgba(29,29,31,0.07)' }}>
+              <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
                 <CardContent sx={{ p: { xs: 2, md: 3 } }}>
                   <Typography variant="h2" sx={{ mb: 2 }}>
                     รายการจองล่าสุด
@@ -214,7 +218,7 @@ function SummaryCard({ icon, label, value, color }: { icon: ReactNode; label: st
       <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
         <CardContent>
           <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: `${color}18`, color }}>
+            <Box sx={{ width: 48, height: 48, borderRadius: 2.5, display: 'grid', placeItems: 'center', bgcolor: 'secondary.main', color }}>
               {icon}
             </Box>
             <Box>

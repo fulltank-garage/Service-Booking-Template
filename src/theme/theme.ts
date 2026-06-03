@@ -1,23 +1,26 @@
 import { createTheme } from '@mui/material/styles'
 
 export const colors = {
-  warmWhite: '#FBFAF7',
-  surface: '#FFFFFF',
-  ink: '#1D1D1F',
-  muted: '#6E6E73',
-  teal: '#0F766E',
-  coral: '#F97363',
-  line: '#E7E2D8',
+  background: '#FFFFFF',
+  text: '#111827',
+  primaryPink: '#FF008C',
+  accentYellow: '#F5FF00',
+  softGray: '#F3F4F6',
+  border: '#E5E7EB',
 }
 
 export const appTheme = createTheme({
   palette: {
     mode: 'light',
-    background: { default: colors.warmWhite, paper: colors.surface },
-    primary: { main: colors.teal, contrastText: '#FFFFFF' },
-    secondary: { main: colors.coral, contrastText: '#FFFFFF' },
-    text: { primary: colors.ink, secondary: colors.muted },
-    divider: colors.line,
+    background: { default: colors.background, paper: colors.background },
+    primary: { main: colors.primaryPink, contrastText: colors.background },
+    secondary: { main: colors.accentYellow, contrastText: colors.text },
+    error: { main: colors.primaryPink, contrastText: colors.background },
+    warning: { main: colors.accentYellow, contrastText: colors.text },
+    info: { main: colors.primaryPink, contrastText: colors.background },
+    success: { main: colors.primaryPink, contrastText: colors.background },
+    text: { primary: colors.text, secondary: colors.text },
+    divider: colors.border,
   },
   shape: { borderRadius: 16 },
   typography: {
@@ -37,7 +40,27 @@ export const appTheme = createTheme({
     },
     MuiPaper: {
       styleOverrides: {
-        root: { backgroundImage: 'none' },
+        root: { backgroundImage: 'none', boxShadow: 'none' },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          backgroundColor: colors.background,
+          color: colors.text,
+          border: `1px solid ${colors.border}`,
+        },
+        icon: {
+          color: colors.primaryPink,
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderColor: colors.border,
+          color: colors.text,
+        },
       },
     },
   },

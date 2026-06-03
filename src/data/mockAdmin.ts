@@ -15,7 +15,7 @@ export const mockBookings: Booking[] = [
       nameTh: 'เข้าใช้บริการมาตรฐาน',
       nameEn: 'Standard Service',
       durationMinutes: 60,
-      accentColor: '#F97363',
+      accentColor: '#FF008C',
     },
   },
   {
@@ -32,7 +32,7 @@ export const mockBookings: Booking[] = [
       nameTh: 'ปรึกษาบริการ',
       nameEn: 'Service Consultation',
       durationMinutes: 30,
-      accentColor: '#0F766E',
+      accentColor: '#F5FF00',
     },
   },
 ]

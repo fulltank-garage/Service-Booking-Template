@@ -45,7 +45,15 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
     <Alert
       severity={state === 'denied' ? 'warning' : 'info'}
       icon={<NotificationsActiveIcon />}
-      sx={{ borderRadius: 2.5, alignItems: 'center' }}
+      sx={{
+        borderRadius: 2.5,
+        alignItems: 'center',
+        bgcolor: 'background.default',
+        color: 'text.primary',
+        border: '1px solid',
+        borderColor: 'divider',
+        '& .MuiAlert-icon': { color: 'primary.main' },
+      }}
       action={
         <Button disabled={isEnabling || state === 'denied'} onClick={handleEnable} variant="contained">
           {state === 'denied' ? 'ถูกปิดใน Browser' : isEnabling ? 'กำลังเปิด...' : 'เปิดแจ้งเตือน'}
