@@ -1,35 +1,50 @@
 import { createTheme } from '@mui/material/styles'
 
 export const colors = {
-  warmWhite: '#FBFAF7',
-  surface: '#FFFFFF',
-  ink: '#1D1D1F',
-  muted: '#6E6E73',
-  teal: '#0F766E',
-  coral: '#F97363',
-  line: '#E7E2D8',
+  background: '#FFFFFF',
+  text: '#111827',
+  primaryPink: '#FF008C',
+  accentYellow: '#F5FF00',
+  softGray: '#F3F4F6',
+  border: '#E5E7EB',
 }
 
 export const appTheme = createTheme({
   palette: {
     mode: 'light',
     background: {
-      default: colors.warmWhite,
-      paper: colors.surface,
+      default: colors.background,
+      paper: colors.background,
     },
     primary: {
-      main: colors.teal,
-      contrastText: '#FFFFFF',
+      main: colors.primaryPink,
+      contrastText: colors.background,
     },
     secondary: {
-      main: colors.coral,
-      contrastText: '#FFFFFF',
+      main: colors.accentYellow,
+      contrastText: colors.text,
+    },
+    error: {
+      main: colors.primaryPink,
+      contrastText: colors.background,
+    },
+    warning: {
+      main: colors.accentYellow,
+      contrastText: colors.text,
+    },
+    info: {
+      main: colors.primaryPink,
+      contrastText: colors.background,
+    },
+    success: {
+      main: colors.primaryPink,
+      contrastText: colors.background,
     },
     text: {
-      primary: colors.ink,
-      secondary: colors.muted,
+      primary: colors.text,
+      secondary: colors.text,
     },
-    divider: colors.line,
+    divider: colors.border,
   },
   shape: {
     borderRadius: 16,
@@ -84,6 +99,27 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
+          boxShadow: 'none',
+        },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          backgroundColor: colors.background,
+          color: colors.text,
+          border: `1px solid ${colors.border}`,
+        },
+        icon: {
+          color: colors.primaryPink,
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderColor: colors.border,
+          color: colors.text,
         },
       },
     },

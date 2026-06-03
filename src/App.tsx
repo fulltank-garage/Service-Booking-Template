@@ -23,7 +23,7 @@ function App() {
   }, [])
 
   return (
-    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(180deg, #FBFAF7 0%, #FFFFFF 62%, #F7FAF9 100%)' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Container maxWidth="lg" sx={{ py: { xs: 2.5, md: 4 } }}>
         <Stack spacing={{ xs: 3, md: 5 }}>
           <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
@@ -51,7 +51,7 @@ function App() {
                       px: 1.8,
                       py: 0.8,
                       borderRadius: 2.25,
-                      bgcolor: 'white',
+                      bgcolor: 'secondary.main',
                       border: '1px solid',
                       borderColor: 'divider',
                       fontWeight: 750,

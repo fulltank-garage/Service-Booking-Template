@@ -128,7 +128,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
 
   if (confirmedBooking) {
     return (
-      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 24px 80px rgba(29,29,31,0.08)' }}>
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <CardContent sx={{ p: { xs: 3, md: 5 } }}>
           <Stack spacing={3} sx={{ alignItems: 'flex-start' }}>
             <CheckCircleIcon color="primary" sx={{ fontSize: 54 }} />
@@ -161,7 +161,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
         borderRadius: 3,
         border: '1px solid',
         borderColor: 'divider',
-        boxShadow: '0 24px 80px rgba(29,29,31,0.08)',
+        boxShadow: 'none',
       }}
     >
       <CardContent sx={{ p: { xs: 2.5, sm: 3.5, md: 5 } }}>
@@ -180,7 +180,11 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
             )}
           </Stack>
 
-          {error && <Alert severity="error">{error}</Alert>}
+          {error && (
+            <Alert severity="error" sx={{ borderRadius: 2.5 }}>
+              {error}
+            </Alert>
+          )}
 
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, md: 7 }}>
@@ -218,8 +222,9 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
               sx={{
                 p: 2.5,
                 borderRadius: 2.5,
-                bgcolor: 'rgba(15,118,110,0.08)',
-                border: '1px solid rgba(15,118,110,0.15)',
+                bgcolor: 'secondary.main',
+                border: '1px solid',
+                borderColor: 'divider',
               }}
             >
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>

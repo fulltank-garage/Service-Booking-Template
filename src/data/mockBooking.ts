@@ -8,7 +8,7 @@ export const mockServices: ServiceItem[] = [
     descriptionTh: 'เลือกเวลาปรึกษาเบื้องต้นก่อนเข้าใช้บริการจริง',
     durationMinutes: 30,
     priceCents: 0,
-    accentColor: '#0F766E',
+    accentColor: '#FF008C',
     isActive: true,
   },
   {
@@ -18,7 +18,7 @@ export const mockServices: ServiceItem[] = [
     descriptionTh: 'จองคิวสำหรับบริการหลัก พร้อมรองรับการยืนยันจากทีมงาน',
     durationMinutes: 60,
     priceCents: 50000,
-    accentColor: '#F97363',
+    accentColor: '#F5FF00',
     isActive: true,
   },
   {
@@ -28,7 +28,7 @@ export const mockServices: ServiceItem[] = [
     descriptionTh: 'คิวเร่งด่วนสำหรับงานที่ต้องการเวลาตอบสนองเร็ว',
     durationMinutes: 45,
     priceCents: 80000,
-    accentColor: '#2563EB',
+    accentColor: '#111827',
     isActive: true,
   },
 ]
