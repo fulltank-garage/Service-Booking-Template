@@ -1,0 +1,70 @@
+import { httpClient, isApiFallbackEnabled } from './httpClient'
+import { mockBookings, mockNotifications } from '../data/mockAdmin'
+import type { AdminNotification, ApiEnvelope, Booking, BookingStatus } from '../types/admin'
+
+const withFallback = async <T>(request: () => Promise<T>, fallback: () => T): Promise<T> => {
+  try {
+    return await request()
+  } catch (error) {
+    if (!isApiFallbackEnabled) {
+      throw error
+    }
+    return fallback()
+  }
+}
+
+export const adminApi = {
+  listBookings: () =>
+    withFallback(
+      async () => {
+        const response = await httpClient.get<ApiEnvelope<Booking[]>>('/admin/bookings')
+        return response.data.data
+      },
+      () => mockBookings,
+    ),
+
+  updateBookingStatus: (id: string, status: BookingStatus) =>
+    withFallback(
+      async () => {
+        const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}/status`, { status })
+        return response.data.data
+      },
+      () => mockBookings.find((booking) => booking.id === id) ?? mockBookings[0],
+    ),
+
+  listNotifications: () =>
+    withFallback(
+      async () => {
+        const response = await httpClient.get<ApiEnvelope<AdminNotification[]>>('/admin/notifications')
+        return response.data.data
+      },
+      () => mockNotifications,
+    ),
+
+  markNotificationRead: (id: string) =>
+    withFallback(
+      async () => {
+        const response = await httpClient.put<ApiEnvelope<AdminNotification>>(`/admin/notifications/${id}/read`)
+        return response.data.data
+      },
+      () => mockNotifications.find((item) => item.id === id) ?? mockNotifications[0],
+    ),
+
+  getPushPublicKey: () =>
+    withFallback(
+      async () => {
+        const response = await httpClient.get<{ configured: boolean; publicKey: string }>('/admin/push/public-key')
+        return response.data
+      },
+      () => ({ configured: false, publicKey: '' }),
+    ),
+
+  subscribePush: (subscription: PushSubscriptionJSON) =>
+    withFallback(
+      async () => {
+        await httpClient.post('/admin/push/subscribe', subscription)
+        return true
+      },
+      () => true,
+    ),
+}
