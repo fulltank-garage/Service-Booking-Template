@@ -47,7 +47,7 @@ export const appTheme = createTheme({
     divider: colors.border,
   },
   shape: {
-    borderRadius: 4,
+    borderRadius: 6.4,
   },
   typography: {
     fontFamily: '"Noto Sans Thai", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
@@ -89,7 +89,7 @@ export const appTheme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 10,
+          borderRadius: 12,
           minHeight: 46,
           paddingInline: 22,
         },
