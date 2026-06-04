@@ -68,8 +68,8 @@ const formatThaiPrice = (priceCents: number) =>
   `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
 
 const SIDEBAR_WIDTH = 280
-const MOBILE_TOPBAR_OFFSET = 'calc(104px + env(safe-area-inset-top))'
-const MOBILE_TOOLBAR_TOP = 'calc(104px + env(safe-area-inset-top) + 20px)'
+const MOBILE_TOPBAR_OFFSET = '72px'
+const MOBILE_TOOLBAR_TOP = '84px'
 
 type AdminPage = keyof typeof pageLabels
 
@@ -291,13 +291,12 @@ function AdminTopbar({
         bgcolor: 'background.paper',
         borderBottom: '1px solid',
         borderColor: 'divider',
-        pt: { xs: 'env(safe-area-inset-top)', lg: 0 },
       }}
     >
       <Stack
         direction="row"
         sx={{
-          minHeight: { xs: 104, sm: 92, lg: 72 },
+          minHeight: 72,
           px: { xs: 2.5, sm: 2.5, lg: 2.5 },
           alignItems: 'center',
           justifyContent: 'space-between',
