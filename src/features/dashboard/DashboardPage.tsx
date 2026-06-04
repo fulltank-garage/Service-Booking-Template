@@ -98,9 +98,23 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [isLoading, setIsLoading] = useState(true)
   const [shouldShowDataSkeleton, setShouldShowDataSkeleton] = useState(false)
   const hasLoadedDataRef = useRef(false)
+  const knownNotificationIdsRef = useRef<Set<string>>(new Set())
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting')
   const [latestRealtimeAt, setLatestRealtimeAt] = useState<Date | null>(null)
   const [notice, setNotice] = useState('')
+
+  const showNotificationNotice = useCallback((notification: AdminNotification) => {
+    const isNewBooking = notification.type === 'booking.created'
+    const message = isNewBooking ? 'มีคิวจองใหม่' : notification.title
+    setNotice(message)
+
+    if (isNewBooking && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('มีคิวจองใหม่', {
+        body: notification.body || 'มีรายการจองใหม่ในระบบ',
+        icon: '/pwa-icons/booking-queue-icon-192.png',
+      })
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     if (!hasLoadedDataRef.current) {
@@ -113,17 +127,30 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
         adminApi.listNotifications(),
         adminApi.listServices(),
       ])
+      const newBookingNotification = hasLoadedDataRef.current
+        ? notificationItems.find(
+            (notification) =>
+              notification.type === 'booking.created' &&
+              !notification.isRead &&
+              !knownNotificationIdsRef.current.has(notification.id),
+          )
+        : undefined
+
       setBookings(bookingItems)
       setServices(serviceItems)
       setNotifications(notificationItems)
       setLatestRealtimeAt(new Date())
+      knownNotificationIdsRef.current = new Set(notificationItems.map((notification) => notification.id))
       hasLoadedDataRef.current = true
+      if (newBookingNotification) {
+        showNotificationNotice(newBookingNotification)
+      }
     } catch {
       setNotice('')
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [showNotificationNotice])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setShouldShowDataSkeleton(isLoading), isLoading ? 180 : 0)
@@ -142,18 +169,10 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   }, [loadData])
 
   const handleRealtimeNotification = useCallback((notification: AdminNotification) => {
+    knownNotificationIdsRef.current.add(notification.id)
     setNotifications((current) => upsertById(current, notification))
-    const isNewBooking = notification.type === 'booking.created'
-    const message = isNewBooking ? 'มีคิวจองใหม่' : notification.title
-    setNotice(message)
-
-    if (isNewBooking && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification('มีคิวจองใหม่', {
-        body: notification.body || 'มีรายการจองใหม่ในระบบ',
-        icon: '/pwa-icons/booking-queue-icon-192.png',
-      })
-    }
-  }, [])
+    showNotificationNotice(notification)
+  }, [showNotificationNotice])
 
   useAdminRealtime({
     onEvent: useCallback(
