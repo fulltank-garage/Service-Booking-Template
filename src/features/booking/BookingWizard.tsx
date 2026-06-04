@@ -109,7 +109,6 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
         const items = await bookingApi.listServices()
         if (!active) return
         setServices(items)
-        setSelectedServiceId((current) => current || items[0]?.id || '')
       } catch {
         if (active) setError('โหลดข้อมูลไม่สำเร็จ')
       } finally {
@@ -254,7 +253,11 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
               value={selectedServiceId}
               disabled={isLoadingServices}
               onChange={(event) => setSelectedServiceId(event.target.value)}
+              displayEmpty
             >
+              <MenuItem value="" disabled>
+                เลือกบริการของคุณ
+              </MenuItem>
               {services.map((service) => (
                 <MenuItem value={service.id} key={service.id}>
                   {service.nameTh}

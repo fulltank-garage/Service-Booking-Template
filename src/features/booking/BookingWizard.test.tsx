@@ -58,6 +58,9 @@ describe('BookingWizard', () => {
 
     await screen.findByText('จองคิว')
     expect(screen.getByText('เลือกวันที่')).toBeInTheDocument()
+    expect(screen.getByText('เลือกบริการของคุณ')).toBeInTheDocument()
+    await user.click(screen.getByLabelText('บริการ'))
+    await user.click(await screen.findByRole('option', { name: 'บริการทดสอบ' }))
     await user.type(screen.getByLabelText('ชื่อผู้จอง'), 'สมชาย')
     await user.type(screen.getByLabelText('เบอร์โทร'), '0890000000')
 
