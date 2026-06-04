@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Box,
@@ -6,10 +6,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Drawer,
   Grid,
   IconButton,
@@ -81,12 +77,16 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const hasLoadedDataRef = useRef(false)
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting')
   const [latestRealtimeAt, setLatestRealtimeAt] = useState<Date | null>(null)
   const [notice, setNotice] = useState('')
 
   const loadData = useCallback(async () => {
-    setIsLoading((bookings.length === 0 && notifications.length === 0) || false)
+    if (!hasLoadedDataRef.current) {
+      setIsLoading(true)
+    }
+
     try {
       const [bookingItems, notificationItems, serviceItems] = await Promise.all([
         adminApi.listBookings(),
@@ -97,12 +97,13 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
       setServices(serviceItems)
       setNotifications(notificationItems)
       setLatestRealtimeAt(new Date())
+      hasLoadedDataRef.current = true
     } catch {
       setNotice('')
     } finally {
       setIsLoading(false)
     }
-  }, [bookings.length, notifications.length])
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -734,12 +735,12 @@ function AdminProfilePanel({
           startIcon={<LogoutIcon />}
           variant="outlined"
           sx={{
-            borderColor: 'divider',
-            color: 'text.primary',
+            borderColor: '#DC2626',
+            color: '#DC2626',
             bgcolor: 'transparent',
             '&:hover': {
-              borderColor: 'primary.main',
-              bgcolor: 'background.default',
+              borderColor: '#B91C1C',
+              bgcolor: '#FEF2F2',
             },
           }}
         >
@@ -813,7 +814,7 @@ function ServicesPage({
 
   const closeEditor = () => {
     setIsEditorOpen(false)
-    resetForm()
+    window.setTimeout(resetForm, 280)
   }
 
   const handleAddService = () => {
@@ -834,32 +835,15 @@ function ServicesPage({
 
   return (
     <>
-      <Stack spacing={2.5}>
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1.5}
-          sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
-        >
-          <TextField
-            placeholder="ค้นหาบริการ"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            sx={{ width: { xs: '100%', sm: 360 } }}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsEditorOpen(true)}>
-            เพิ่มบริการ
-          </Button>
-        </Stack>
+      <ManagementToolbar
+        addLabel="เพิ่มบริการ"
+        onAdd={() => setIsEditorOpen(true)}
+        onSearch={setQuery}
+        placeholder="ค้นหาบริการ"
+        query={query}
+      />
 
+      <Box component="section" sx={{ pt: { xs: 9.5, lg: 10 } }}>
         <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
           <CardContent sx={{ p: { xs: 2, md: 3 } }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
@@ -949,27 +933,11 @@ function ServicesPage({
             </TableContainer>
           </CardContent>
         </Card>
-      </Stack>
+      </Box>
 
-      <Dialog
-        fullWidth
-        maxWidth="sm"
-        open={isEditorOpen}
-        onClose={closeEditor}
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              boxShadow: '0 24px 70px rgba(17, 24, 39, 0.18)',
-            },
-          },
-        }}
-      >
-        <DialogTitle sx={{ pb: 1, fontWeight: 950 }}>เพิ่มบริการ</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+      <BottomEditorSheet isOpen={isEditorOpen} onClose={closeEditor} title="เพิ่มบริการ">
+        <Box component="form" onSubmit={(event) => { event.preventDefault(); handleAddService() }}>
+          <Stack spacing={2}>
             <TextField fullWidth label="ชื่อบริการ" value={nameTh} onChange={(event) => setNameTh(event.target.value)} />
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -999,18 +967,159 @@ function ServicesPage({
               value={descriptionTh}
               onChange={(event) => setDescriptionTh(event.target.value)}
             />
+            <Stack direction="row" spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
+              <Button variant="outlined" onClick={closeEditor}>
+                ยกเลิก
+              </Button>
+              <Button variant="contained" type="submit" disabled={!canAdd}>
+                บันทึกบริการ
+              </Button>
+            </Stack>
           </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button variant="outlined" onClick={closeEditor}>
-            ยกเลิก
-          </Button>
-          <Button variant="contained" onClick={handleAddService} disabled={!canAdd}>
-            บันทึกบริการ
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </BottomEditorSheet>
     </>
+  )
+}
+
+function ManagementToolbar({
+  addLabel,
+  onAdd,
+  onSearch,
+  placeholder,
+  query,
+}: {
+  addLabel: string
+  onAdd: () => void
+  onSearch: (value: string) => void
+  placeholder: string
+  query: string
+}) {
+  return (
+    <Box
+      sx={{
+        position: 'fixed',
+        top: { xs: 84, lg: 88 },
+        left: { xs: 16, sm: 20, lg: 312 },
+        right: { xs: 16, sm: 20, lg: 32 },
+        zIndex: 25,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 3,
+        bgcolor: 'background.paper',
+        p: 1.2,
+        boxShadow: '0 18px 48px rgba(17, 24, 39, 0.10)',
+      }}
+    >
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
+        <TextField
+          placeholder={placeholder}
+          value={query}
+          onChange={(event) => onSearch(event.target.value)}
+          size="small"
+          sx={{ flex: 1, minWidth: 0 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+        <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd} sx={{ minHeight: 44, px: { xs: 1.4, sm: 2 } }}>
+          <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{addLabel}</Box>
+        </Button>
+      </Stack>
+    </Box>
+  )
+}
+
+function BottomEditorSheet({
+  children,
+  isOpen,
+  onClose,
+  title,
+}: {
+  children: ReactNode
+  isOpen: boolean
+  onClose: () => void
+  title: string
+}) {
+  useEffect(() => {
+    if (!isOpen) return undefined
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [isOpen])
+
+  return (
+    <Box
+      aria-hidden={!isOpen}
+      sx={{
+        position: 'fixed',
+        inset: 0,
+        left: { lg: 280 },
+        zIndex: 1200,
+        pointerEvents: isOpen ? 'auto' : 'none',
+      }}
+    >
+      <Box
+        component="button"
+        aria-label="ปิดฟอร์ม"
+        type="button"
+        onClick={onClose}
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          border: 0,
+          bgcolor: 'rgba(17, 24, 39, 0.42)',
+          backdropFilter: 'blur(8px)',
+          opacity: isOpen ? 1 : 0,
+          transition: 'opacity 260ms ease',
+        }}
+      />
+      <Box
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        sx={{
+          position: 'absolute',
+          left: { xs: 12, sm: 24, lg: 32 },
+          right: { xs: 12, sm: 24, lg: 32 },
+          bottom: { xs: 12, sm: 24, lg: 32 },
+          top: { xs: 84, lg: 88 },
+          maxWidth: 720,
+          mx: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+          bgcolor: 'background.paper',
+          boxShadow: '0 -28px 80px rgba(17, 24, 39, 0.22)',
+          transform: isOpen ? 'translateY(0)' : 'translateY(calc(100% + 6rem))',
+          transition: 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)',
+          willChange: 'transform',
+        }}
+      >
+        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider', p: 1.5 }}>
+          <Typography component="h2" sx={{ fontSize: '1.1rem', fontWeight: 950 }}>{title}</Typography>
+          <IconButton aria-label="ปิดฟอร์ม" onClick={onClose} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+            <CloseIcon />
+          </IconButton>
+        </Stack>
+        <Box sx={{ minHeight: 0, flex: 1, overflowY: 'auto', p: { xs: 2, sm: 2.5 } }}>
+          {children}
+        </Box>
+      </Box>
+    </Box>
   )
 }
 
@@ -1110,44 +1219,66 @@ function DashboardSkeleton({ activePage }: { activePage: AdminPage }) {
 
 function ServicesSkeleton() {
   return (
-    <Grid container spacing={2.5}>
-      <Grid size={{ xs: 12, lg: 4 }}>
-        <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-            <Skeleton variant="text" width={140} height={38} sx={{ mb: 2, bgcolor: 'divider' }} />
-            <Stack spacing={2}>
-              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={104} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-            </Stack>
-          </CardContent>
-        </Card>
-      </Grid>
-      <Grid size={{ xs: 12, lg: 8 }}>
-        <TableSkeleton />
-      </Grid>
-    </Grid>
+    <Stack spacing={2.5}>
+      <Box
+        sx={{
+          position: 'fixed',
+          top: { xs: 84, lg: 88 },
+          left: { xs: 16, sm: 20, lg: 312 },
+          right: { xs: 16, sm: 20, lg: 32 },
+          zIndex: 25,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+          bgcolor: 'background.paper',
+          p: 1.2,
+          boxShadow: '0 18px 48px rgba(17, 24, 39, 0.10)',
+        }}
+      >
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Skeleton variant="rectangular" height={44} sx={{ flex: 1, borderRadius: 2, bgcolor: 'divider' }} />
+          <Skeleton variant="rectangular" width={124} height={44} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+        </Stack>
+      </Box>
+      <Box sx={{ pt: { xs: 9.5, lg: 10 } }}>
+        <TableSkeleton titleWidth={180} columns={4} rows={5} />
+      </Box>
+    </Stack>
   )
 }
 
-function TableSkeleton() {
+function TableSkeleton({ columns = 5, rows = 6, titleWidth = 190 }: { columns?: number; rows?: number; titleWidth?: number } = {}) {
   return (
-    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
       <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-        <Skeleton variant="text" width={190} height={38} sx={{ mb: 2, bgcolor: 'divider' }} />
-        <Stack spacing={1.5}>
-          {Array.from({ length: 6 }).map((_, index) => (
+        <Skeleton variant="text" width={titleWidth} height={38} sx={{ mb: 2, bgcolor: 'divider' }} />
+        <Stack spacing={1.5} sx={{ display: { xs: 'flex', sm: 'none' } }}>
+          {Array.from({ length: Math.min(rows, 4) }).map((_, index) => (
+            <Box key={`mobile-row-skeleton-${index}`} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, p: 1.5 }}>
+              <Skeleton variant="text" width="72%" height={24} sx={{ bgcolor: 'divider' }} />
+              <Skeleton variant="text" width="52%" height={20} sx={{ bgcolor: 'divider' }} />
+              <Stack direction="row" spacing={1} sx={{ mt: 1.2, justifyContent: 'space-between' }}>
+                <Skeleton variant="rectangular" width="28%" height={34} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+                <Skeleton variant="rectangular" width="28%" height={34} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+                <Skeleton variant="rectangular" width="28%" height={34} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              </Stack>
+            </Box>
+          ))}
+        </Stack>
+        <Stack spacing={1.2} sx={{ display: { xs: 'none', sm: 'flex' } }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 1.5 }}>
+            {Array.from({ length: columns }).map((_, index) => (
+              <Skeleton key={`table-head-skeleton-${index}`} variant="text" height={30} sx={{ bgcolor: 'divider' }} />
+            ))}
+          </Box>
+          {Array.from({ length: rows }).map((_, index) => (
             <Box
               key={`table-row-skeleton-${index}`}
-              sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.1fr 1fr 1fr 150px' }, gap: 1.5 }}
+              sx={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 1.5 }}
             >
-              <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-              <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              {Array.from({ length: columns }).map((__, columnIndex) => (
+                <Skeleton key={`table-cell-skeleton-${index}-${columnIndex}`} variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              ))}
             </Box>
           ))}
         </Stack>

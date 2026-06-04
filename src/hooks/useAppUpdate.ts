@@ -3,6 +3,31 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 const serviceWorkerPath = '/admin-sw.js'
 const updateCheckIntervalMs = 60_000
 
+const readAssetVersion = (root: ParentNode) =>
+  Array.from(root.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('script[src^="/assets/"], link[href^="/assets/"]'))
+    .map((element) => {
+      const assetUrl = element instanceof HTMLScriptElement ? element.src : element.href
+      return new URL(assetUrl, window.location.origin).pathname
+    })
+    .filter(Boolean)
+    .sort()
+    .join('|')
+
+const getLoadedAppVersion = () => readAssetVersion(document)
+
+const getRemoteAppVersion = async () => {
+  const response = await fetch(`${window.location.origin}/?app-version=${Date.now()}`, {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' },
+  })
+
+  if (!response.ok) return ''
+
+  const html = await response.text()
+  const snapshot = new DOMParser().parseFromString(html, 'text/html')
+  return readAssetVersion(snapshot)
+}
+
 export function useAppUpdate() {
   const [hasPendingAppUpdate, setHasPendingAppUpdate] = useState(false)
   const [isInitialUpdateCheckDone, setIsInitialUpdateCheckDone] = useState(false)
@@ -45,6 +70,16 @@ export function useAppUpdate() {
   )
 
   const checkForUpdate = useCallback(() => {
+    const loadedVersion = getLoadedAppVersion()
+
+    void getRemoteAppVersion()
+      .then((remoteVersion) => {
+        if (loadedVersion && remoteVersion && remoteVersion !== loadedVersion) {
+          showUpdatePrompt()
+        }
+      })
+      .catch(() => undefined)
+
     if (!('serviceWorker' in navigator)) {
       return
     }
@@ -57,7 +92,7 @@ export function useAppUpdate() {
         return registration.update()
       })
       .catch(() => undefined)
-  }, [watchRegistration])
+  }, [showUpdatePrompt, watchRegistration])
 
   const applyAppUpdate = useCallback(() => {
     const waitingWorker = registrationRef.current?.waiting
@@ -84,6 +119,7 @@ export function useAppUpdate() {
       .then((registration) => {
         watchRegistration(registration)
         return registration.update().finally(() => {
+          checkForUpdate()
           window.setTimeout(() => setIsInitialUpdateCheckDone(true), 180)
         })
       })
