@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react'
-import { Box, Container } from '@mui/material'
+import { Suspense, lazy, useEffect, useState } from 'react'
+import { Box, Container, Skeleton, Stack } from '@mui/material'
 import { BrandMark } from './components/BrandMark'
-import { BookingSuccessPage } from './features/booking/BookingSuccessPage'
-import { ServicesCatalogPage } from './features/booking/ServicesCatalogPage'
-import { BookingWizard } from './features/booking/BookingWizard'
 import { initializeLiff, type LineProfile } from './integrations/liff'
 import type { Booking } from './types/booking'
+
+const BookingWizard = lazy(() => import('./features/booking/BookingWizard').then((module) => ({ default: module.BookingWizard })))
+const BookingSuccessPage = lazy(() =>
+  import('./features/booking/BookingSuccessPage').then((module) => ({ default: module.BookingSuccessPage })),
+)
+const ServicesCatalogPage = lazy(() =>
+  import('./features/booking/ServicesCatalogPage').then((module) => ({ default: module.ServicesCatalogPage })),
+)
 
 const latestBookingStorageKey = 'bookingQueue.latestBooking'
 
@@ -127,9 +132,19 @@ function App() {
       </Box>
 
       <Container maxWidth={false} sx={{ width: '100%', maxWidth: 430, px: 2, py: 2.5, mx: 'auto' }}>
-        {pageContent}
+        <Suspense fallback={<CustomerPageSkeleton />}>{pageContent}</Suspense>
       </Container>
     </Box>
+  )
+}
+
+function CustomerPageSkeleton() {
+  return (
+    <Stack spacing={2}>
+      <Skeleton variant="rounded" height={72} sx={{ borderRadius: 3 }} />
+      <Skeleton variant="rounded" height={160} sx={{ borderRadius: 3 }} />
+      <Skeleton variant="rounded" height={240} sx={{ borderRadius: 3 }} />
+    </Stack>
   )
 }
 
