@@ -31,7 +31,12 @@ export function BrandMark({ compact = false }: BrandMarkProps) {
               lineHeight: 1.02,
             }}
           >
-            BookingQueue
+            <Box component="span" sx={{ color: 'text.primary' }}>
+              Booking
+            </Box>
+            <Box component="span" sx={{ color: '#FF008C' }}>
+              Queue
+            </Box>
           </Typography>
           <Typography
             component="p"
