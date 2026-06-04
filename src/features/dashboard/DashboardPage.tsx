@@ -47,7 +47,7 @@ import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
 import { adminApi, type ServicePayload } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
-import type { AdminNotification, Booking, BookingStatus, ServiceItem } from '../../types/admin'
+import type { AdminNotification, AdminRealtimeEvent, Booking, BookingStatus, ServiceItem } from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
 import { registerAdminServiceWorker } from '../notifications/pushNotifications'
 
@@ -66,6 +66,14 @@ const pageLabels = {
 
 const formatThaiPrice = (priceCents: number) =>
   `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
+
+const upsertById = <T extends { id: string }>(items: T[], nextItem: T) => {
+  const existingIndex = items.findIndex((item) => item.id === nextItem.id)
+  if (existingIndex === -1) {
+    return [nextItem, ...items]
+  }
+  return items.map((item) => (item.id === nextItem.id ? nextItem : item))
+}
 
 const SIDEBAR_WIDTH = 280
 const MOBILE_TOPBAR_OFFSET = '72px'
@@ -133,23 +141,46 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
   }, [loadData])
 
-  useAdminRealtime({
-    onNotification: useCallback(
-      (notification) => {
-        setNotifications((current) => [notification, ...current])
-        const isNewBooking = notification.type === 'booking.created'
-        const message = isNewBooking ? 'มีคิวจองใหม่' : notification.title
-        setNotice(message)
+  const handleRealtimeNotification = useCallback((notification: AdminNotification) => {
+    setNotifications((current) => upsertById(current, notification))
+    const isNewBooking = notification.type === 'booking.created'
+    const message = isNewBooking ? 'มีคิวจองใหม่' : notification.title
+    setNotice(message)
 
-        if (isNewBooking && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification('มีคิวจองใหม่', {
-            body: notification.body || 'มีรายการจองใหม่ในระบบ',
-            icon: '/pwa-icons/booking-queue-icon-192.png',
-          })
+    if (isNewBooking && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('มีคิวจองใหม่', {
+        body: notification.body || 'มีรายการจองใหม่ในระบบ',
+        icon: '/pwa-icons/booking-queue-icon-192.png',
+      })
+    }
+  }, [])
+
+  useAdminRealtime({
+    onEvent: useCallback(
+      (event: AdminRealtimeEvent) => {
+        setLatestRealtimeAt(new Date())
+
+        if (event.booking) {
+          setBookings((current) => upsertById(current, event.booking as Booking))
+        }
+
+        if (event.notification) {
+          if (event.type === 'notification.read') {
+            setNotifications((current) =>
+              current.map((notification) => (notification.id === event.notification?.id ? event.notification : notification)),
+            )
+          } else {
+            handleRealtimeNotification(event.notification)
+          }
+        }
+
+        if ((event.type === 'booking.created' || event.type === 'booking.updated') && !event.booking) {
+          void loadData()
         }
       },
-      [],
+      [handleRealtimeNotification, loadData],
     ),
+    onLegacyNotification: handleRealtimeNotification,
     onRefresh: loadData,
     onStatus: setRealtimeStatus,
   })

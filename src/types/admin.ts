@@ -34,6 +34,12 @@ export type AdminNotification = {
   createdAt: string
 }
 
+export type AdminRealtimeEvent = {
+  type: 'booking.created' | 'booking.updated' | 'notification.created' | 'notification.read' | 'dashboard.summary.updated' | string
+  notification?: AdminNotification
+  booking?: Booking
+}
+
 export type ApiEnvelope<T> = {
   data: T
 }

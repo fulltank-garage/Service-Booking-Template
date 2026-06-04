@@ -1,17 +1,18 @@
 import { useEffect } from 'react'
 import { wsBaseURL } from '../api/httpClient'
 import { authStorage } from '../features/auth/authStorage'
-import type { AdminNotification } from '../types/admin'
+import type { AdminNotification, AdminRealtimeEvent } from '../types/admin'
 
 export type RealtimeStatus = 'connecting' | 'connected' | 'reconnecting' | 'off'
 
 type UseAdminRealtimeOptions = {
-  onNotification: (notification: AdminNotification) => void
+  onEvent: (event: AdminRealtimeEvent) => void
+  onLegacyNotification?: (notification: AdminNotification) => void
   onRefresh?: () => void
   onStatus?: (status: RealtimeStatus) => void
 }
 
-export function useAdminRealtime({ onNotification, onRefresh, onStatus }: UseAdminRealtimeOptions) {
+export function useAdminRealtime({ onEvent, onLegacyNotification, onRefresh, onStatus }: UseAdminRealtimeOptions) {
   useEffect(() => {
     if (!('WebSocket' in window)) return
 
@@ -53,8 +54,12 @@ export function useAdminRealtime({ onNotification, onRefresh, onStatus }: UseAdm
 
         nextSocket.addEventListener('message', (event) => {
           try {
-            onNotification(JSON.parse(event.data) as AdminNotification)
-            onRefresh?.()
+            const payload = JSON.parse(event.data) as AdminRealtimeEvent | AdminNotification
+            if ('type' in payload && ('notification' in payload || 'booking' in payload)) {
+              onEvent(payload as AdminRealtimeEvent)
+              return
+            }
+            onLegacyNotification?.(payload as AdminNotification)
           } catch {
             // Ignore malformed realtime payloads from development tools.
           }
@@ -108,5 +113,5 @@ export function useAdminRealtime({ onNotification, onRefresh, onStatus }: UseAdm
       onStatus?.('off')
       socket?.close()
     }
-  }, [onNotification, onRefresh, onStatus])
+  }, [onEvent, onLegacyNotification, onRefresh, onStatus])
 }
