@@ -3,28 +3,110 @@ import { wsBaseURL } from '../api/httpClient'
 import { authStorage } from '../features/auth/authStorage'
 import type { AdminNotification } from '../types/admin'
 
+export type RealtimeStatus = 'connecting' | 'connected' | 'reconnecting' | 'off'
+
 type UseAdminRealtimeOptions = {
   onNotification: (notification: AdminNotification) => void
+  onRefresh?: () => void
+  onStatus?: (status: RealtimeStatus) => void
 }
 
-export function useAdminRealtime({ onNotification }: UseAdminRealtimeOptions) {
+export function useAdminRealtime({ onNotification, onRefresh, onStatus }: UseAdminRealtimeOptions) {
   useEffect(() => {
     if (!('WebSocket' in window)) return
 
     const token = authStorage.getToken()
     if (!token) return
 
-    const ws = new WebSocket(`${wsBaseURL}/ws/admin?token=${encodeURIComponent(token)}`)
-    ws.addEventListener('message', (event) => {
-      try {
-        onNotification(JSON.parse(event.data) as AdminNotification)
-      } catch {
-        // Ignore malformed realtime payloads from development tools.
-      }
-    })
+    let socket: WebSocket | null = null
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let retryCount = 0
+    let isClosed = false
+    let isConnecting = false
 
-    return () => {
-      ws.close()
+    const clearRetry = () => {
+      if (retryTimer) {
+        clearTimeout(retryTimer)
+        retryTimer = null
+      }
     }
-  }, [onNotification])
+
+    const isSocketLive = () =>
+      socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING
+
+    const connect = () => {
+      if (isClosed || isConnecting || isSocketLive()) return
+
+      isConnecting = true
+      onStatus?.(retryCount === 0 ? 'connecting' : 'reconnecting')
+
+      try {
+        const nextSocket = new WebSocket(`${wsBaseURL}/ws/admin?token=${encodeURIComponent(token)}`)
+        socket = nextSocket
+
+        nextSocket.addEventListener('open', () => {
+          retryCount = 0
+          isConnecting = false
+          onStatus?.('connected')
+          onRefresh?.()
+        })
+
+        nextSocket.addEventListener('message', (event) => {
+          try {
+            onNotification(JSON.parse(event.data) as AdminNotification)
+            onRefresh?.()
+          } catch {
+            // Ignore malformed realtime payloads from development tools.
+          }
+        })
+
+        nextSocket.addEventListener('error', () => {
+          nextSocket.close()
+        })
+
+        nextSocket.addEventListener('close', () => {
+          isConnecting = false
+          if (isClosed) return
+
+          retryCount += 1
+          onStatus?.('reconnecting')
+          retryTimer = setTimeout(connect, Math.min(1000 * retryCount, 10_000))
+        })
+      } catch {
+        isConnecting = false
+        retryCount += 1
+        onStatus?.('reconnecting')
+        retryTimer = setTimeout(connect, Math.min(1000 * retryCount, 10_000))
+      }
+    }
+
+    const reconnect = () => {
+      if (isClosed || document.visibilityState === 'hidden' || isSocketLive()) return
+
+      clearRetry()
+      onStatus?.('reconnecting')
+      retryTimer = setTimeout(connect, 100)
+    }
+
+    const handleActiveRefresh = () => {
+      if (document.visibilityState !== 'hidden') {
+        onRefresh?.()
+        reconnect()
+      }
+    }
+
+    connect()
+    window.addEventListener('focus', handleActiveRefresh)
+    window.addEventListener('online', handleActiveRefresh)
+    document.addEventListener('visibilitychange', handleActiveRefresh)
+    return () => {
+      isClosed = true
+      clearRetry()
+      window.removeEventListener('focus', handleActiveRefresh)
+      window.removeEventListener('online', handleActiveRefresh)
+      document.removeEventListener('visibilitychange', handleActiveRefresh)
+      onStatus?.('off')
+      socket?.close()
+    }
+  }, [onNotification, onRefresh, onStatus])
 }

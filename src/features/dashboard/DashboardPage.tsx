@@ -14,7 +14,6 @@ import {
   MenuItem,
   Select,
   Skeleton,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -36,9 +35,12 @@ import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import RoomServiceIcon from '@mui/icons-material/RoomService'
+import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
+import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
 import { adminApi } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
-import { useAdminRealtime } from '../../hooks/useAdminRealtime'
+import { useAppUpdate } from '../../hooks/useAppUpdate'
+import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
 import type { AdminNotification, Booking, BookingStatus, ServiceItem } from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
 import { registerAdminServiceWorker } from '../notifications/pushNotifications'
@@ -78,8 +80,11 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting')
+  const [latestRealtimeAt, setLatestRealtimeAt] = useState<Date | null>(null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const { applyAppUpdate, hasPendingAppUpdate } = useAppUpdate()
 
   const loadData = useCallback(async () => {
     setError('')
@@ -93,6 +98,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
       setBookings(bookingItems)
       setServices(serviceItems)
       setNotifications(notificationItems)
+      setLatestRealtimeAt(new Date())
     } catch {
       setError('โหลดข้อมูลไม่สำเร็จ')
     } finally {
@@ -116,11 +122,20 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
       (notification) => {
         setNotifications((current) => [notification, ...current])
         setNotice(notification.title)
-        void loadData()
       },
-      [loadData],
+      [],
     ),
+    onRefresh: loadData,
+    onStatus: setRealtimeStatus,
   })
+
+  useEffect(() => {
+    if (hasPendingAppUpdate) {
+      const timer = window.setTimeout(() => setNotice('มีเวอร์ชันใหม่พร้อมอัปเดต'), 0)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [hasPendingAppUpdate])
 
   const summary = useMemo(() => {
     const pending = bookings.filter((booking) => booking.status === 'pending').length
@@ -147,20 +162,28 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <MobileHeader onOpenNav={() => setIsNavOpen(true)} />
+      <MobileHeader hasPendingAppUpdate={hasPendingAppUpdate} onOpenNav={() => setIsNavOpen(true)} />
       <MobileNavDrawer
         activePage={activePage}
         adminEmail={adminEmail}
+        hasPendingAppUpdate={hasPendingAppUpdate}
+        latestRealtimeAt={latestRealtimeAt}
         open={isNavOpen}
+        realtimeStatus={realtimeStatus}
+        onApplyAppUpdate={applyAppUpdate}
         onChangePage={handleChangePage}
         onClose={() => setIsNavOpen(false)}
         onLogout={onLogout}
       />
 
-      <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100vh' }}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100vh', pt: { xs: '72px', lg: 0 } }}>
         <Sidebar
           activePage={activePage}
           adminEmail={adminEmail}
+          hasPendingAppUpdate={hasPendingAppUpdate}
+          latestRealtimeAt={latestRealtimeAt}
+          realtimeStatus={realtimeStatus}
+          onApplyAppUpdate={applyAppUpdate}
           onChangePage={handleChangePage}
           onLogout={onLogout}
         />
@@ -221,19 +244,27 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
         </Box>
       </Stack>
 
-      <Snackbar open={Boolean(notice)} autoHideDuration={3200} onClose={() => setNotice('')} message={notice} />
+      <AppNoticeSnackbar message={notice} onClose={() => setNotice('')} />
     </Box>
   )
 }
 
-function MobileHeader({ onOpenNav }: { onOpenNav: () => void }) {
+function MobileHeader({
+  hasPendingAppUpdate,
+  onOpenNav,
+}: {
+  hasPendingAppUpdate: boolean
+  onOpenNav: () => void
+}) {
   return (
     <Box
       component="header"
       sx={{
         display: { xs: 'block', lg: 'none' },
-        position: 'sticky',
+        position: 'fixed',
         top: 0,
+        left: 0,
+        right: 0,
         zIndex: 20,
         bgcolor: 'background.paper',
         borderBottom: '1px solid',
@@ -254,6 +285,22 @@ function MobileHeader({ onOpenNav }: { onOpenNav: () => void }) {
           }}
         >
           <MenuIcon />
+          {hasPendingAppUpdate && (
+            <Box
+              component="span"
+              className="app-update-pulse"
+              sx={{
+                position: 'absolute',
+                top: 5,
+                right: 5,
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                bgcolor: 'secondary.main',
+                boxShadow: '0 0 0 4px rgba(245, 255, 0, 0.28)',
+              }}
+            />
+          )}
         </IconButton>
         <Box sx={{ display: 'flex', justifyContent: 'center', flex: 1, mx: 1.5 }}>
           <BrandMark />
@@ -264,17 +311,73 @@ function MobileHeader({ onOpenNav }: { onOpenNav: () => void }) {
   )
 }
 
+function AppNoticeSnackbar({ message, onClose }: { message: string; onClose: () => void }) {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    if (!message) return undefined
+
+    const showTimer = window.setTimeout(() => setIsVisible(true), 20)
+    const hideTimer = window.setTimeout(() => setIsVisible(false), 3200)
+    const closeTimer = window.setTimeout(onClose, 3520)
+
+    return () => {
+      window.clearTimeout(showTimer)
+      window.clearTimeout(hideTimer)
+      window.clearTimeout(closeTimer)
+      setIsVisible(false)
+    }
+  }, [message, onClose])
+
+  if (!message) return null
+
+  return (
+    <Box
+      role="status"
+      sx={{
+        position: 'fixed',
+        top: { xs: 88, lg: 24 },
+        left: { xs: '50%', lg: 'calc(280px + ((100vw - 280px) / 2))' },
+        zIndex: 1100,
+        width: 'calc(100vw - 32px)',
+        maxWidth: 420,
+        transform: `translate(-50%, ${isVisible ? '0' : '-18px'})`,
+        opacity: isVisible ? 1 : 0,
+        transition: 'transform 260ms ease, opacity 260ms ease',
+        bgcolor: 'primary.main',
+        color: 'primary.contrastText',
+        borderRadius: 2.5,
+        px: 2,
+        py: 1.35,
+        boxShadow: '0 14px 34px rgba(255, 0, 140, 0.24)',
+        textAlign: 'center',
+        fontWeight: 850,
+      }}
+    >
+      {message}
+    </Box>
+  )
+}
+
 function MobileNavDrawer({
   activePage,
   adminEmail,
+  hasPendingAppUpdate,
+  latestRealtimeAt,
   open,
+  realtimeStatus,
+  onApplyAppUpdate,
   onChangePage,
   onClose,
   onLogout,
 }: {
   activePage: AdminPage
   adminEmail: string
+  hasPendingAppUpdate: boolean
+  latestRealtimeAt: Date | null
   open: boolean
+  realtimeStatus: RealtimeStatus
+  onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onClose: () => void
   onLogout: () => void
@@ -300,6 +403,7 @@ function MobileNavDrawer({
         activePage={activePage}
         adminEmail={adminEmail}
         compact={false}
+        hasPendingAppUpdate={hasPendingAppUpdate}
         headerAction={
           <IconButton
             aria-label="ปิดเมนู"
@@ -309,6 +413,9 @@ function MobileNavDrawer({
             <CloseIcon />
           </IconButton>
         }
+        latestRealtimeAt={latestRealtimeAt}
+        realtimeStatus={realtimeStatus}
+        onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
       />
@@ -319,11 +426,19 @@ function MobileNavDrawer({
 function Sidebar({
   activePage,
   adminEmail,
+  hasPendingAppUpdate,
+  latestRealtimeAt,
+  realtimeStatus,
+  onApplyAppUpdate,
   onChangePage,
   onLogout,
 }: {
   activePage: AdminPage
   adminEmail: string
+  hasPendingAppUpdate: boolean
+  latestRealtimeAt: Date | null
+  realtimeStatus: RealtimeStatus
+  onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
 }) {
@@ -347,6 +462,10 @@ function Sidebar({
         activePage={activePage}
         adminEmail={adminEmail}
         compact={false}
+        hasPendingAppUpdate={hasPendingAppUpdate}
+        latestRealtimeAt={latestRealtimeAt}
+        realtimeStatus={realtimeStatus}
+        onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
       />
@@ -358,14 +477,22 @@ function SidebarContent({
   activePage,
   adminEmail,
   compact,
+  hasPendingAppUpdate,
   headerAction,
+  latestRealtimeAt,
+  realtimeStatus,
+  onApplyAppUpdate,
   onChangePage,
   onLogout,
 }: {
   activePage: AdminPage
   adminEmail: string
   compact: boolean
+  hasPendingAppUpdate: boolean
   headerAction?: ReactNode
+  latestRealtimeAt: Date | null
+  realtimeStatus: RealtimeStatus
+  onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
 }) {
@@ -431,6 +558,8 @@ function SidebarContent({
       </Stack>
       <Box sx={{ flex: 1 }} />
       <Stack spacing={1}>
+        <SidebarStatusPanel latestRealtimeAt={latestRealtimeAt} status={realtimeStatus} />
+        <SidebarUpdatePanel hasPendingAppUpdate={hasPendingAppUpdate} onApplyAppUpdate={onApplyAppUpdate} />
         <Typography
           variant="body2"
           sx={{ color: 'text.secondary', display: compact ? 'none' : 'block', fontWeight: 760, wordBreak: 'break-word' }}
@@ -460,6 +589,80 @@ function SidebarContent({
         </Tooltip>
       </Stack>
     </Stack>
+  )
+}
+
+function SidebarStatusPanel({
+  latestRealtimeAt,
+  status,
+}: {
+  latestRealtimeAt: Date | null
+  status: RealtimeStatus
+}) {
+  const statusLabel: Record<RealtimeStatus, string> = {
+    connected: 'เชื่อมต่อข้อมูลสด',
+    connecting: 'กำลังเชื่อมต่อ',
+    reconnecting: 'กำลังเชื่อมต่อใหม่',
+    off: 'ปิดข้อมูลสด',
+  }
+  const statusColor = status === 'connected' ? 'primary.main' : status === 'off' ? 'divider' : 'secondary.main'
+  const latestLabel = latestRealtimeAt
+    ? new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(latestRealtimeAt)
+    : 'ยังไม่มีข้อมูล'
+
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5, bgcolor: 'background.default' }}>
+      <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
+        <WifiTetheringIcon sx={{ color: statusColor, fontSize: 20, mt: 0.2 }} />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" sx={{ fontWeight: 850, lineHeight: 1.2 }}>
+            {statusLabel[status]}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            ข้อมูลล่าสุด {latestLabel}
+          </Typography>
+        </Box>
+      </Stack>
+    </Box>
+  )
+}
+
+function SidebarUpdatePanel({
+  hasPendingAppUpdate,
+  onApplyAppUpdate,
+}: {
+  hasPendingAppUpdate: boolean
+  onApplyAppUpdate: () => void
+}) {
+  return (
+    <Box
+      sx={{
+        border: '1px solid',
+        borderColor: hasPendingAppUpdate ? 'primary.main' : 'divider',
+        borderRadius: 2,
+        p: 1.5,
+        bgcolor: hasPendingAppUpdate ? '#F3F4F6' : 'background.default',
+      }}
+    >
+      <Stack spacing={1.2}>
+        <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
+          <SystemUpdateAltIcon sx={{ color: hasPendingAppUpdate ? 'primary.main' : 'text.primary', fontSize: 20, mt: 0.2 }} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 850, lineHeight: 1.2 }}>
+              อัปเดตแอป
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {hasPendingAppUpdate ? 'มีเวอร์ชันใหม่พร้อมใช้งาน' : 'กำลังใช้เวอร์ชันล่าสุด'}
+            </Typography>
+          </Box>
+        </Stack>
+        {hasPendingAppUpdate && (
+          <Button fullWidth variant="contained" onClick={onApplyAppUpdate}>
+            อัปเดตตอนนี้
+          </Button>
+        )}
+      </Stack>
+    </Box>
   )
 }
 

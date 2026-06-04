@@ -1,9 +1,23 @@
 self.addEventListener('install', () => {
-  self.skipWaiting()
+  // Keep the new worker waiting so the Admin UI can show an update prompt.
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
+})
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
+})
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') {
+    return
+  }
+
+  event.respondWith(fetch(event.request, { cache: 'no-store' }).catch(() => fetch(event.request)))
 })
 
 self.addEventListener('push', (event) => {
