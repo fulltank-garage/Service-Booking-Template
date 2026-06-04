@@ -1248,7 +1248,9 @@ function BottomEditorSheet({
             bottom: 0,
             left: 0,
             border: 0,
-            bgcolor: 'rgba(17, 24, 39, 0.42)',
+            bgcolor: 'rgba(255, 255, 255, 0.72)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
             opacity: isOpen ? 1 : 0,
             transition: 'opacity 260ms ease',
           }}
