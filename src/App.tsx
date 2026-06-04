@@ -31,6 +31,10 @@ function App() {
   const [latestBooking, setLatestBooking] = useState<Booking | null>(() => readLatestBooking())
 
   useEffect(() => {
+    if (activePage === 'services' || lineProfile) {
+      return
+    }
+
     let active = true
     initializeLiff()
       .then((profile) => {
@@ -43,7 +47,7 @@ function App() {
     return () => {
       active = false
     }
-  }, [])
+  }, [activePage, lineProfile])
 
   useEffect(() => {
     const handlePopState = () => setActivePage(getCurrentPath())

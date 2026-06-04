@@ -7,20 +7,32 @@ import type { ServiceItem } from '../../types/booking'
 const formatThaiPrice = (priceCents: number) =>
   `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
 
+let servicesCache: ServiceItem[] | null = null
+let servicesRequest: Promise<ServiceItem[]> | null = null
+
+const loadServicesOnce = () => {
+  servicesRequest ??= bookingApi.listServices().then((items) => {
+    servicesCache = items
+    return items
+  })
+  return servicesRequest
+}
+
 export function ServicesCatalogPage() {
-  const [services, setServices] = useState<ServiceItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [services, setServices] = useState<ServiceItem[]>(() => servicesCache ?? [])
+  const [isLoading, setIsLoading] = useState(() => !servicesCache)
   const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
     const load = async () => {
-      setIsLoading(true)
+      if (!servicesCache) setIsLoading(true)
       setError('')
       try {
-        const items = await bookingApi.listServices()
+        const items = await loadServicesOnce()
         if (active) setServices(items)
       } catch {
+        servicesRequest = null
         if (active) setError('โหลดข้อมูลบริการไม่สำเร็จ')
       } finally {
         if (active) setIsLoading(false)
