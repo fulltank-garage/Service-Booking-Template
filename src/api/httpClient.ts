@@ -19,5 +19,3 @@ httpClient.interceptors.request.use((config) => {
   }
   return config
 })
-
-export const isApiFallbackEnabled = import.meta.env.VITE_ENABLE_MOCK_FALLBACK !== 'false'

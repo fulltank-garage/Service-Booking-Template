@@ -1,6 +1,28 @@
 import { expect, test } from '@playwright/test'
 
 test('admin dashboard loads booking and notification surfaces', async ({ page }, testInfo) => {
+  const service = {
+    id: 'service-1',
+    nameTh: 'บริการทดสอบ',
+    nameEn: 'Test Service',
+    descriptionTh: 'บริการสำหรับทดสอบ',
+    durationMinutes: 30,
+    priceCents: 50000,
+    accentColor: '#FF008C',
+    isActive: true,
+  }
+  const booking = {
+    id: 'booking-1',
+    bookingCode: 'SB-TEST-0001',
+    customerName: 'ลูกค้าทดสอบ',
+    phone: '0890000000',
+    bookingDate: '2026-06-10',
+    slotTime: '10:00',
+    status: 'pending',
+    createdAt: '2026-06-10T03:00:00.000Z',
+    service,
+  }
+
   await page.route('**/api/v1/admin/auth/login', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
@@ -12,6 +34,38 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
           expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
         },
       }),
+    })
+  })
+  await page.route('**/api/v1/admin/bookings', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [booking] }),
+    })
+  })
+  await page.route('**/api/v1/admin/notifications', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    })
+  })
+  await page.route('**/api/v1/admin/services', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { ...service, id: 'service-2', nameTh: 'บริการใหม่' } }),
+      })
+      return
+    }
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [service] }),
+    })
+  })
+  await page.route('**/api/v1/admin/push/public-key', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ configured: false, publicKey: '' }),
     })
   })
 
@@ -51,12 +105,12 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
 
   await expect(page.getByRole('heading', { name: 'รายการจอง' })).toBeVisible()
   if (testInfo.project.name === 'mobile-chromium') {
-    await expect(page.locator('p').filter({ hasText: 'สมชาย ใจดี', visible: true })).toBeVisible()
-    await expect(page.locator('p').filter({ hasText: 'SB-20260610-1201', visible: true })).toBeVisible()
+    await expect(page.locator('p').filter({ hasText: 'ลูกค้าทดสอบ', visible: true })).toBeVisible()
+    await expect(page.locator('p').filter({ hasText: 'SB-TEST-0001', visible: true })).toBeVisible()
   } else {
     const bookingTable = page.getByRole('table', { name: 'booking table' })
-    await expect(bookingTable.getByText('สมชาย ใจดี')).toBeVisible()
-    await expect(bookingTable.getByText('SB-20260610-1201')).toBeVisible()
+    await expect(bookingTable.getByText('ลูกค้าทดสอบ')).toBeVisible()
+    await expect(bookingTable.getByText('SB-TEST-0001')).toBeVisible()
   }
 
   if (testInfo.project.name === 'mobile-chromium') {

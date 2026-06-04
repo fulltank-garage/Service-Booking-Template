@@ -44,7 +44,7 @@ import RoomServiceIcon from '@mui/icons-material/RoomService'
 import SearchIcon from '@mui/icons-material/Search'
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
 import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
-import { adminApi } from '../../api/adminApi'
+import { adminApi, type ServicePayload } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
 import type { AdminNotification, Booking, BookingStatus, ServiceItem } from '../../types/admin'
@@ -245,18 +245,22 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                 {activePage === 'services' && (
                   <ServicesPage
                     services={services}
-                    onAddService={(service) => {
+                    onAddService={async (payload) => {
+                      const service = await adminApi.createService(payload)
                       setServices((current) => [service, ...current])
                       setNotice('เพิ่มบริการของร้านแล้ว')
                     }}
-                    onDeleteService={(serviceId) => {
+                    onDeleteService={async (serviceId) => {
+                      await adminApi.deleteService(serviceId)
                       setServices((current) => current.filter((service) => service.id !== serviceId))
                       setNotice('ลบบริการของร้านแล้ว')
                     }}
-                    onUpdateService={(nextService) => {
+                    onUpdateService={async (serviceId, payload) => {
+                      const nextService = await adminApi.updateService(serviceId, payload)
                       setServices((current) => current.map((service) => (service.id === nextService.id ? nextService : service)))
                       setNotice('แก้ไขบริการของร้านแล้ว')
                     }}
+                    onError={() => setNotice('บันทึกข้อมูลบริการไม่สำเร็จ')}
                   />
                 )}
               </>
@@ -816,12 +820,14 @@ function ServicesPage({
   services,
   onAddService,
   onDeleteService,
+  onError,
   onUpdateService,
 }: {
   services: ServiceItem[]
-  onAddService: (service: ServiceItem) => void
-  onDeleteService: (serviceId: string) => void
-  onUpdateService: (service: ServiceItem) => void
+  onAddService: (payload: ServicePayload) => Promise<void>
+  onDeleteService: (serviceId: string) => Promise<void>
+  onError: () => void
+  onUpdateService: (serviceId: string, payload: ServicePayload) => Promise<void>
 }) {
   const [query, setQuery] = useState('')
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -831,6 +837,8 @@ function ServicesPage({
   const [priceBaht, setPriceBaht] = useState('')
   const [durationMinutes, setDurationMinutes] = useState('')
   const [descriptionTh, setDescriptionTh] = useState('')
+  const [isSavingService, setIsSavingService] = useState(false)
+  const [isDeletingService, setIsDeletingService] = useState(false)
 
   const canAdd = Boolean(nameTh.trim() && Number(priceBaht) >= 0 && Number(durationMinutes) > 0)
 
@@ -875,11 +883,10 @@ function ServicesPage({
     }, 520)
   }
 
-  const handleSaveService = () => {
-    if (!canAdd) return
+  const handleSaveService = async () => {
+    if (!canAdd || isSavingService) return
 
-    const nextService: ServiceItem = {
-      id: editingService?.id ?? `service-${Date.now()}`,
+    const payload: ServicePayload = {
       nameTh: nameTh.trim(),
       nameEn: editingService?.nameEn ?? nameTh.trim(),
       descriptionTh: descriptionTh.trim(),
@@ -889,19 +896,32 @@ function ServicesPage({
       isActive: editingService?.isActive ?? true,
     }
 
-    if (editingService) {
-      onUpdateService(nextService)
-    } else {
-      onAddService(nextService)
+    setIsSavingService(true)
+    try {
+      if (editingService) {
+        await onUpdateService(editingService.id, payload)
+      } else {
+        await onAddService(payload)
+      }
+      closeEditor()
+    } catch {
+      onError()
+    } finally {
+      setIsSavingService(false)
     }
-
-    closeEditor()
   }
 
-  const handleDeleteService = () => {
-    if (!serviceToDelete) return
-    onDeleteService(serviceToDelete.id)
-    setServiceToDelete(null)
+  const handleDeleteService = async () => {
+    if (!serviceToDelete || isDeletingService) return
+    setIsDeletingService(true)
+    try {
+      await onDeleteService(serviceToDelete.id)
+      setServiceToDelete(null)
+    } catch {
+      onError()
+    } finally {
+      setIsDeletingService(false)
+    }
   }
 
   const previewName = nameTh.trim() || 'ตัวอย่างบริการ'
@@ -1104,11 +1124,11 @@ function ServicesPage({
               </Stack>
             </Box>
             <Stack direction="row" spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
-              <Button variant="outlined" onClick={closeEditor}>
+              <Button variant="outlined" disabled={isSavingService} onClick={closeEditor}>
                 ยกเลิก
               </Button>
-              <Button variant="contained" type="submit" disabled={!canAdd}>
-                {editingService ? 'บันทึกการแก้ไข' : 'บันทึกบริการ'}
+              <Button variant="contained" type="submit" disabled={!canAdd || isSavingService}>
+                {isSavingService ? 'กำลังบันทึก...' : editingService ? 'บันทึกการแก้ไข' : 'บันทึกบริการ'}
               </Button>
             </Stack>
           </Stack>
@@ -1138,15 +1158,16 @@ function ServicesPage({
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button variant="outlined" onClick={() => setServiceToDelete(null)}>
+          <Button variant="outlined" disabled={isDeletingService} onClick={() => setServiceToDelete(null)}>
             ยกเลิก
           </Button>
           <Button
             variant="contained"
+            disabled={isDeletingService}
             onClick={handleDeleteService}
             sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
           >
-            ยืนยันลบ
+            {isDeletingService ? 'กำลังลบ...' : 'ยืนยันลบ'}
           </Button>
         </DialogActions>
       </Dialog>

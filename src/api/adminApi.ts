@@ -1,7 +1,5 @@
-import { httpClient, isApiFallbackEnabled } from './httpClient'
-import { mockBookings, mockNotifications, mockServices } from '../data/mockAdmin'
+import { httpClient } from './httpClient'
 import type { AdminNotification, ApiEnvelope, Booking, BookingStatus, ServiceItem } from '../types/admin'
-import axios from 'axios'
 
 type AdminLoginResponse = {
   email: string
@@ -10,21 +8,14 @@ type AdminLoginResponse = {
   expiresAt: string
 }
 
-const canFallback = (error: unknown) => {
-  if (!isApiFallbackEnabled) return false
-  if (axios.isAxiosError(error) && error.response?.status === 401) return false
-  return true
-}
-
-const withFallback = async <T>(request: () => Promise<T>, fallback: () => T): Promise<T> => {
-  try {
-    return await request()
-  } catch (error) {
-    if (!canFallback(error)) {
-      throw error
-    }
-    return fallback()
-  }
+export type ServicePayload = {
+  nameTh: string
+  nameEn: string
+  descriptionTh: string
+  durationMinutes: number
+  priceCents: number
+  accentColor: string
+  isActive: boolean
 }
 
 export const adminApi = {
@@ -33,66 +24,52 @@ export const adminApi = {
     return response.data.data
   },
 
-  listBookings: () =>
-    withFallback(
-      async () => {
-        const response = await httpClient.get<ApiEnvelope<Booking[]>>('/admin/bookings')
-        return response.data.data
-      },
-      () => mockBookings,
-    ),
+  listBookings: async () => {
+    const response = await httpClient.get<ApiEnvelope<Booking[]>>('/admin/bookings')
+    return response.data.data
+  },
 
-  listServices: () =>
-    withFallback(
-      async () => {
-        const response = await httpClient.get<ApiEnvelope<ServiceItem[]>>('/admin/services')
-        return response.data.data
-      },
-      () => mockServices,
-    ),
+  listServices: async () => {
+    const response = await httpClient.get<ApiEnvelope<ServiceItem[]>>('/admin/services')
+    return response.data.data
+  },
 
-  updateBookingStatus: (id: string, status: BookingStatus) =>
-    withFallback(
-      async () => {
-        const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}/status`, { status })
-        return response.data.data
-      },
-      () => mockBookings.find((booking) => booking.id === id) ?? mockBookings[0],
-    ),
+  createService: async (payload: ServicePayload) => {
+    const response = await httpClient.post<ApiEnvelope<ServiceItem>>('/admin/services', payload)
+    return response.data.data
+  },
 
-  listNotifications: () =>
-    withFallback(
-      async () => {
-        const response = await httpClient.get<ApiEnvelope<AdminNotification[]>>('/admin/notifications')
-        return response.data.data
-      },
-      () => mockNotifications,
-    ),
+  updateService: async (id: string, payload: ServicePayload) => {
+    const response = await httpClient.put<ApiEnvelope<ServiceItem>>(`/admin/services/${id}`, payload)
+    return response.data.data
+  },
 
-  markNotificationRead: (id: string) =>
-    withFallback(
-      async () => {
-        const response = await httpClient.put<ApiEnvelope<AdminNotification>>(`/admin/notifications/${id}/read`)
-        return response.data.data
-      },
-      () => mockNotifications.find((item) => item.id === id) ?? mockNotifications[0],
-    ),
+  deleteService: async (id: string) => {
+    await httpClient.delete(`/admin/services/${id}`)
+  },
 
-  getPushPublicKey: () =>
-    withFallback(
-      async () => {
-        const response = await httpClient.get<{ configured: boolean; publicKey: string }>('/admin/push/public-key')
-        return response.data
-      },
-      () => ({ configured: false, publicKey: '' }),
-    ),
+  updateBookingStatus: async (id: string, status: BookingStatus) => {
+    const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}/status`, { status })
+    return response.data.data
+  },
 
-  subscribePush: (subscription: PushSubscriptionJSON) =>
-    withFallback(
-      async () => {
-        await httpClient.post('/admin/push/subscribe', subscription)
-        return true
-      },
-      () => true,
-    ),
+  listNotifications: async () => {
+    const response = await httpClient.get<ApiEnvelope<AdminNotification[]>>('/admin/notifications')
+    return response.data.data
+  },
+
+  markNotificationRead: async (id: string) => {
+    const response = await httpClient.put<ApiEnvelope<AdminNotification>>(`/admin/notifications/${id}/read`)
+    return response.data.data
+  },
+
+  getPushPublicKey: async () => {
+    const response = await httpClient.get<{ configured: boolean; publicKey: string }>('/admin/push/public-key')
+    return response.data
+  },
+
+  subscribePush: async (subscription: PushSubscriptionJSON) => {
+    await httpClient.post('/admin/push/subscribe', subscription)
+    return true
+  },
 }
