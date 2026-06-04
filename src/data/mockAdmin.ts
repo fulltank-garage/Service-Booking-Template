@@ -1,4 +1,27 @@
-import type { AdminNotification, Booking } from '../types/admin'
+import type { AdminNotification, Booking, ServiceItem } from '../types/admin'
+
+export const mockServices: ServiceItem[] = [
+  {
+    id: 'service-standard',
+    nameTh: 'เข้าใช้บริการมาตรฐาน',
+    nameEn: 'Standard Service',
+    descriptionTh: 'บริการหลักสำหรับลูกค้าที่ต้องการเข้ารับบริการทั่วไป',
+    durationMinutes: 60,
+    priceCents: 120000,
+    accentColor: '#FF008C',
+    isActive: true,
+  },
+  {
+    id: 'service-consult',
+    nameTh: 'ปรึกษาบริการ',
+    nameEn: 'Service Consultation',
+    descriptionTh: 'นัดหมายเพื่อประเมินความต้องการและแนะนำบริการที่เหมาะสม',
+    durationMinutes: 30,
+    priceCents: 0,
+    accentColor: '#F5FF00',
+    isActive: true,
+  },
+]
 
 export const mockBookings: Booking[] = [
   {
@@ -11,11 +34,7 @@ export const mockBookings: Booking[] = [
     status: 'pending',
     createdAt: new Date().toISOString(),
     service: {
-      id: 'service-standard',
-      nameTh: 'เข้าใช้บริการมาตรฐาน',
-      nameEn: 'Standard Service',
-      durationMinutes: 60,
-      accentColor: '#FF008C',
+      ...mockServices[0],
     },
   },
   {
@@ -28,11 +47,7 @@ export const mockBookings: Booking[] = [
     status: 'confirmed',
     createdAt: new Date().toISOString(),
     service: {
-      id: 'service-consult',
-      nameTh: 'ปรึกษาบริการ',
-      nameEn: 'Service Consultation',
-      durationMinutes: 30,
-      accentColor: '#F5FF00',
+      ...mockServices[1],
     },
   },
 ]

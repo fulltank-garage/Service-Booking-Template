@@ -1,6 +1,6 @@
 import { httpClient, isApiFallbackEnabled } from './httpClient'
-import { mockBookings, mockNotifications } from '../data/mockAdmin'
-import type { AdminNotification, ApiEnvelope, Booking, BookingStatus } from '../types/admin'
+import { mockBookings, mockNotifications, mockServices } from '../data/mockAdmin'
+import type { AdminNotification, ApiEnvelope, Booking, BookingStatus, ServiceItem } from '../types/admin'
 import axios from 'axios'
 
 type AdminLoginResponse = {
@@ -39,6 +39,15 @@ export const adminApi = {
         return response.data.data
       },
       () => mockBookings,
+    ),
+
+  listServices: () =>
+    withFallback(
+      async () => {
+        const response = await httpClient.get<ApiEnvelope<ServiceItem[]>>('/admin/services')
+        return response.data.data
+      },
+      () => mockServices,
     ),
 
   updateBookingStatus: (id: string, status: BookingStatus) =>

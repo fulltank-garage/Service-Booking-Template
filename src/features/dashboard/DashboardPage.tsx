@@ -22,6 +22,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -34,10 +35,11 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import RoomServiceIcon from '@mui/icons-material/RoomService'
 import { adminApi } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime } from '../../hooks/useAdminRealtime'
-import type { AdminNotification, Booking, BookingStatus } from '../../types/admin'
+import type { AdminNotification, Booking, BookingStatus, ServiceItem } from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
 import { registerAdminServiceWorker } from '../notifications/pushNotifications'
 
@@ -51,8 +53,16 @@ const statusLabels: Record<BookingStatus, string> = {
 const pageLabels = {
   overview: 'จัดการคิวจองบริการ',
   bookings: 'รายการจอง',
+  services: 'บริการของร้าน',
   notifications: 'แจ้งเตือน',
 } as const
+
+const pageDescriptions: Record<AdminPage, string> = {
+  overview: 'ติดตามคิวใหม่ อัปเดตสถานะ และดูรายการแจ้งเตือนของงานบริการ',
+  bookings: 'ดูรายการจองทั้งหมดและอัปเดตสถานะของแต่ละคิว',
+  services: 'กำหนดรายการบริการ ราคา และระยะเวลาที่ใช้สำหรับให้ลูกค้าเลือกจอง',
+  notifications: 'ดูรายการแจ้งเตือนที่เกิดขึ้นในระบบจองคิว',
+}
 
 type AdminPage = keyof typeof pageLabels
 
@@ -65,6 +75,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   const [activePage, setActivePage] = useState<AdminPage>('overview')
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notice, setNotice] = useState('')
@@ -74,11 +85,13 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
     setError('')
     setIsLoading((bookings.length === 0 && notifications.length === 0) || false)
     try {
-      const [bookingItems, notificationItems] = await Promise.all([
+      const [bookingItems, notificationItems, serviceItems] = await Promise.all([
         adminApi.listBookings(),
         adminApi.listNotifications(),
+        adminApi.listServices(),
       ])
       setBookings(bookingItems)
+      setServices(serviceItems)
       setNotifications(notificationItems)
     } catch {
       setError('โหลดข้อมูลไม่สำเร็จ')
@@ -162,7 +175,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
               <Box>
                 <Typography variant="h1">{pageLabels[activePage]}</Typography>
                 <Typography sx={{ mt: 0.8, maxWidth: 760, color: 'text.secondary' }}>
-                  ติดตามคิวใหม่ อัปเดตสถานะ และดูรายการแจ้งเตือนของงานบริการ
+                  {pageDescriptions[activePage]}
                 </Typography>
               </Box>
               <Button variant="contained" onClick={loadData} startIcon={<RefreshIcon />}>
@@ -191,6 +204,15 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
                 )}
                 {activePage === 'bookings' && (
                   <BookingsPage bookings={bookings} onStatusChange={handleStatusChange} />
+                )}
+                {activePage === 'services' && (
+                  <ServicesPage
+                    services={services}
+                    onAddService={(service) => {
+                      setServices((current) => [service, ...current])
+                      setNotice('เพิ่มบริการของร้านแล้ว')
+                    }}
+                  />
                 )}
                 {activePage === 'notifications' && <NotificationsPage notifications={notifications} />}
               </>
@@ -349,6 +371,7 @@ function SidebarContent({
 }) {
   const navItems: Array<{ page: AdminPage; label: string; icon: ReactNode }> = [
     { page: 'overview', label: 'ภาพรวม', icon: <DashboardIcon /> },
+    { page: 'services', label: 'บริการของร้าน', icon: <RoomServiceIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
     { page: 'notifications', label: 'แจ้งเตือน', icon: <NotificationsIcon /> },
   ]
@@ -486,6 +509,178 @@ function NotificationsPage({ notifications }: { notifications: AdminNotification
   return <NotificationsCard notifications={notifications} />
 }
 
+function ServicesPage({
+  services,
+  onAddService,
+}: {
+  services: ServiceItem[]
+  onAddService: (service: ServiceItem) => void
+}) {
+  const [nameTh, setNameTh] = useState('')
+  const [priceBaht, setPriceBaht] = useState('')
+  const [durationMinutes, setDurationMinutes] = useState('')
+  const [descriptionTh, setDescriptionTh] = useState('')
+
+  const canAdd = Boolean(nameTh.trim() && Number(priceBaht) >= 0 && Number(durationMinutes) > 0)
+
+  const formatPrice = (priceCents: number) =>
+    new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(priceCents / 100)
+
+  const handleAddService = () => {
+    if (!canAdd) return
+
+    onAddService({
+      id: `service-${Date.now()}`,
+      nameTh: nameTh.trim(),
+      nameEn: nameTh.trim(),
+      descriptionTh: descriptionTh.trim(),
+      durationMinutes: Number(durationMinutes),
+      priceCents: Math.round(Number(priceBaht) * 100),
+      accentColor: '#FF008C',
+      isActive: true,
+    })
+    setNameTh('')
+    setPriceBaht('')
+    setDurationMinutes('')
+    setDescriptionTh('')
+  }
+
+  return (
+    <Grid container spacing={2.5}>
+      <Grid size={{ xs: 12, lg: 4 }}>
+        <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+            <Typography variant="h2" sx={{ mb: 2 }}>
+              เพิ่มบริการ
+            </Typography>
+            <Stack spacing={2}>
+              <TextField
+                fullWidth
+                label="ชื่อบริการ"
+                value={nameTh}
+                onChange={(event) => setNameTh(event.target.value)}
+              />
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, sm: 6, lg: 12 }}>
+                  <TextField
+                    fullWidth
+                    label="ราคา"
+                    type="number"
+                    value={priceBaht}
+                    onChange={(event) => setPriceBaht(event.target.value)}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6, lg: 12 }}>
+                  <TextField
+                    fullWidth
+                    label="เวลาที่ใช้ (นาที)"
+                    type="number"
+                    value={durationMinutes}
+                    onChange={(event) => setDurationMinutes(event.target.value)}
+                  />
+                </Grid>
+              </Grid>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="รายละเอียดบริการ"
+                value={descriptionTh}
+                onChange={(event) => setDescriptionTh(event.target.value)}
+              />
+              <Button variant="contained" onClick={handleAddService} disabled={!canAdd}>
+                เพิ่มรายการบริการ
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid size={{ xs: 12, lg: 8 }}>
+        <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+            <Typography variant="h2" sx={{ mb: 2 }}>
+              รายการบริการของร้าน
+            </Typography>
+            <Stack spacing={1.5} sx={{ display: { xs: 'flex', sm: 'none' } }}>
+              {services.map((service) => (
+                <Box
+                  key={service.id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 1.5,
+                  }}
+                >
+                  <Stack spacing={1.25}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 850 }}>{service.nameTh}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {service.descriptionTh || service.nameEn}
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          ราคา
+                        </Typography>
+                        <Typography sx={{ fontWeight: 800 }}>{formatPrice(service.priceCents)}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          เวลา
+                        </Typography>
+                        <Typography sx={{ fontWeight: 800 }}>{service.durationMinutes} นาที</Typography>
+                      </Box>
+                      <Chip
+                        color={service.isActive ? 'secondary' : 'default'}
+                        label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                      />
+                    </Stack>
+                  </Stack>
+                </Box>
+              ))}
+            </Stack>
+            <TableContainer sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <Table aria-label="service table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>บริการ</TableCell>
+                    <TableCell>ราคา</TableCell>
+                    <TableCell>เวลา</TableCell>
+                    <TableCell>สถานะ</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {services.map((service) => (
+                    <TableRow key={service.id}>
+                      <TableCell>
+                        <Typography sx={{ fontWeight: 800 }}>{service.nameTh}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {service.descriptionTh || service.nameEn}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 760 }}>{formatPrice(service.priceCents)}</TableCell>
+                      <TableCell>{service.durationMinutes} นาที</TableCell>
+                      <TableCell>
+                        <Chip
+                          color={service.isActive ? 'secondary' : 'default'}
+                          label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  )
+}
+
 function BookingsCard({
   bookings,
   onStatusChange,
@@ -577,6 +772,10 @@ function NotificationsCard({ notifications }: { notifications: AdminNotification
 }
 
 function DashboardSkeleton({ activePage }: { activePage: AdminPage }) {
+  if (activePage === 'services') {
+    return <ServicesSkeleton />
+  }
+
   if (activePage === 'notifications') {
     return <NotificationsSkeleton />
   }
@@ -613,6 +812,30 @@ function DashboardSkeleton({ activePage }: { activePage: AdminPage }) {
         </Grid>
       </Grid>
     </Stack>
+  )
+}
+
+function ServicesSkeleton() {
+  return (
+    <Grid container spacing={2.5}>
+      <Grid size={{ xs: 12, lg: 4 }}>
+        <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+            <Skeleton variant="text" width={140} height={38} sx={{ mb: 2, bgcolor: 'divider' }} />
+            <Stack spacing={2}>
+              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              <Skeleton variant="rectangular" height={104} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+              <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid size={{ xs: 12, lg: 8 }}>
+        <TableSkeleton />
+      </Grid>
+    </Grid>
   )
 }
 

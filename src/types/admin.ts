@@ -4,8 +4,11 @@ export type ServiceItem = {
   id: string
   nameTh: string
   nameEn: string
+  descriptionTh?: string
   durationMinutes: number
+  priceCents: number
   accentColor: string
+  isActive: boolean
 }
 
 export type Booking = {
