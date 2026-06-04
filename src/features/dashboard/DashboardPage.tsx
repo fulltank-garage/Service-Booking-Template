@@ -872,7 +872,7 @@ function ServicesPage({
     window.setTimeout(() => {
       setEditingService(null)
       resetForm()
-    }, 280)
+    }, 520)
   }
 
   const handleSaveService = () => {
@@ -1261,7 +1261,7 @@ function BottomEditorSheet({
             backdropFilter: 'blur(14px)',
             WebkitBackdropFilter: 'blur(14px)',
             opacity: isOpen ? 1 : 0,
-            transition: 'opacity 260ms ease',
+            transition: `opacity ${isOpen ? 360 : 280}ms ease`,
           }}
         />
         <Box
@@ -1283,9 +1283,9 @@ function BottomEditorSheet({
             borderRadius: 3,
             bgcolor: 'background.paper',
             boxShadow: 'none',
-            transform: isOpen ? 'translate(-50%, -50%)' : 'translate(-50%, calc(60% + 80px))',
+            transform: isOpen ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, calc(-50% + 46px)) scale(0.98)',
             opacity: isOpen ? 1 : 0,
-            transition: 'transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease',
+            transition: `transform ${isOpen ? 520 : 420}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${isOpen ? 320 : 260}ms ease`,
             willChange: 'transform',
           }}
         >
