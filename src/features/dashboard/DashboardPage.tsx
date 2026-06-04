@@ -430,14 +430,22 @@ function MobileNavDrawer({
       open={open}
       onClose={onClose}
       ModalProps={{ keepMounted: true }}
+      transitionDuration={{ enter: 420, exit: 340 }}
       sx={{
         display: { xs: 'block', lg: 'none' },
+        '& .MuiBackdrop-root': {
+          bgcolor: 'rgba(255, 255, 255, 0.72)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          transition: 'opacity 340ms ease',
+        },
         '& .MuiDrawer-paper': {
           width: { xs: 'min(84vw, 320px)', sm: 340 },
           bgcolor: 'background.paper',
           backgroundImage: 'none',
           borderRight: '1px solid',
           borderColor: 'divider',
+          transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
         },
       }}
     >
@@ -545,7 +553,7 @@ function SidebarContent({
   onLogout: () => void
 }) {
   const navItems: Array<{ page: AdminPage; label: string; icon: ReactNode }> = [
-    { page: 'overview', label: 'ภาพรวม', icon: <DashboardIcon /> },
+    { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <RoomServiceIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
   ]
@@ -914,9 +922,11 @@ function ServicesPage({
       <Box component="section" sx={{ pt: { xs: 9.5, lg: 10 } }}>
         <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
           <CardContent sx={{ p: 2.5 }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
-              <Typography variant="h2">รายการบริการของร้าน</Typography>
-              <Chip color="secondary" label={`${filteredServices.length} รายการ`} />
+            <Stack direction="row" spacing={1.5} sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between', minWidth: 0 }}>
+              <Typography variant="h2" sx={{ minWidth: 0, flex: 1 }}>
+                รายการบริการของร้าน
+              </Typography>
+              <Chip color="secondary" label={`${filteredServices.length} รายการ`} sx={{ flexShrink: 0, whiteSpace: 'nowrap' }} />
             </Stack>
 
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', sm: 'none' } }}>
