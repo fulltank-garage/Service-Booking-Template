@@ -156,7 +156,8 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	if booked >= int64(service.capacity) {
 		return models.Booking{}, ErrSlotUnavailable
 	}
-	if _, err := service.store.FindServiceByID(ctx, input.ServiceID); err != nil {
+	serviceItem, err := service.store.FindServiceByID(ctx, input.ServiceID)
+	if err != nil {
 		return models.Booking{}, err
 	}
 
@@ -174,6 +175,7 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	if err := service.store.CreateBooking(ctx, &booking); err != nil {
 		return models.Booking{}, err
 	}
+	booking.Service = serviceItem
 	if service.notifier != nil {
 		_ = service.notifier.BookingCreated(ctx, booking)
 	}

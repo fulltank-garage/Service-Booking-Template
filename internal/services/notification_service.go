@@ -14,6 +14,12 @@ import (
 
 const realtimeChannel = "service-booking:notifications"
 
+type RealtimeEvent struct {
+	Type         string               `json:"type"`
+	Notification *models.Notification `json:"notification,omitempty"`
+	Booking      *models.Booking      `json:"booking,omitempty"`
+}
+
 type NotificationService struct {
 	store repositories.Store
 	hub   *ws.Hub
@@ -31,7 +37,7 @@ func (service *NotificationService) BookingCreated(ctx context.Context, booking 
 		Body:      fmt.Sprintf("%s จองเวลา %s วันที่ %s", booking.CustomerName, booking.SlotTime, booking.BookingDate),
 		URL:       "/bookings",
 		BookingID: booking.ID,
-	})
+	}, &booking)
 }
 
 func (service *NotificationService) BookingUpdated(ctx context.Context, booking models.Booking) error {
@@ -41,7 +47,7 @@ func (service *NotificationService) BookingUpdated(ctx context.Context, booking 
 		Body:      fmt.Sprintf("%s เปลี่ยนเป็น %s", booking.BookingCode, booking.Status),
 		URL:       "/bookings",
 		BookingID: booking.ID,
-	})
+	}, &booking)
 }
 
 func (service *NotificationService) List(ctx context.Context, unreadOnly bool, limit int) ([]models.Notification, error) {
@@ -52,7 +58,14 @@ func (service *NotificationService) List(ctx context.Context, unreadOnly bool, l
 }
 
 func (service *NotificationService) MarkRead(ctx context.Context, id string) (models.Notification, error) {
-	return service.store.MarkNotificationRead(ctx, id)
+	notification, err := service.store.MarkNotificationRead(ctx, id)
+	if err != nil {
+		return models.Notification{}, err
+	}
+	if err := service.publish(ctx, RealtimeEvent{Type: "notification.read", Notification: &notification}); err != nil {
+		log.Printf("publish notification read: %v", err)
+	}
+	return notification, nil
 }
 
 func (service *NotificationService) SavePushSubscription(ctx context.Context, subscription *models.PushSubscription) error {
@@ -72,11 +85,15 @@ func (service *NotificationService) Subscribe(ctx context.Context) {
 	}
 }
 
-func (service *NotificationService) createAndPublish(ctx context.Context, notification *models.Notification) error {
+func (service *NotificationService) createAndPublish(ctx context.Context, notification *models.Notification, booking *models.Booking) error {
 	if err := service.store.CreateNotification(ctx, notification); err != nil {
 		return err
 	}
-	payload, err := json.Marshal(notification)
+	return service.publish(ctx, RealtimeEvent{Type: notification.Type, Notification: notification, Booking: booking})
+}
+
+func (service *NotificationService) publish(ctx context.Context, event RealtimeEvent) error {
+	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
