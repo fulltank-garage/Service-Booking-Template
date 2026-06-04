@@ -38,7 +38,8 @@ func main() {
 	go hub.Run()
 
 	store := repositories.NewGormStore(db)
-	notifier := services.NewNotificationService(store, hub, redisClient)
+	pushSender := services.NewWebPushSender(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.AdminEmail)
+	notifier := services.NewNotificationServiceWithPush(store, hub, redisClient, pushSender)
 	lineRichMenuService := services.NewLineRichMenuService(cfg.LineChannelToken, cfg.LineBookingSuccessRichMenuID)
 	bookingService := services.NewBookingService(store, notifier, lineRichMenuService, cfg.BookingSlotCapacity)
 	authService := services.NewAuthService(cfg.AdminDisplayName, cfg.AdminEmail, cfg.AdminPassword, cfg.AdminSessionSecret)

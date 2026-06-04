@@ -2,9 +2,16 @@ package ws
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+)
+
+const (
+	writeWait  = 10 * time.Second
+	pongWait   = 30 * time.Second
+	pingPeriod = 5 * time.Second
 )
 
 type Hub struct {
@@ -88,6 +95,12 @@ func (client *Client) readPump() {
 		client.hub.unregister <- client
 		_ = client.conn.Close()
 	}()
+	client.conn.SetReadLimit(1024)
+	_ = client.conn.SetReadDeadline(time.Now().Add(pongWait))
+	client.conn.SetPongHandler(func(string) error {
+		_ = client.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 	for {
 		if _, _, err := client.conn.ReadMessage(); err != nil {
 			break
@@ -96,12 +109,27 @@ func (client *Client) readPump() {
 }
 
 func (client *Client) writePump() {
+	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		ticker.Stop()
 		_ = client.conn.Close()
 	}()
-	for message := range client.send {
-		if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			break
+	for {
+		select {
+		case message, ok := <-client.send:
+			_ = client.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				_ = client.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				return
+			}
+		case <-ticker.C:
+			_ = client.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := client.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
 		}
 	}
 }

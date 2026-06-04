@@ -22,6 +22,7 @@ type Store interface {
 	ListNotifications(ctx context.Context, unreadOnly bool, limit int) ([]models.Notification, error)
 	MarkNotificationRead(ctx context.Context, id string) (models.Notification, error)
 	SavePushSubscription(ctx context.Context, subscription *models.PushSubscription) error
+	ListPushSubscriptions(ctx context.Context) ([]models.PushSubscription, error)
 }
 
 type GormStore struct {
@@ -151,4 +152,10 @@ func (store *GormStore) SavePushSubscription(ctx context.Context, subscription *
 		Where(models.PushSubscription{Endpoint: subscription.Endpoint}).
 		Assign(subscription).
 		FirstOrCreate(subscription).Error
+}
+
+func (store *GormStore) ListPushSubscriptions(ctx context.Context) ([]models.PushSubscription, error) {
+	var subscriptions []models.PushSubscription
+	err := store.db.WithContext(ctx).Order("created_at DESC").Find(&subscriptions).Error
+	return subscriptions, err
 }

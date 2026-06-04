@@ -24,10 +24,15 @@ type NotificationService struct {
 	store repositories.Store
 	hub   *ws.Hub
 	redis *redis.Client
+	push  PushSender
 }
 
 func NewNotificationService(store repositories.Store, hub *ws.Hub, redisClient *redis.Client) *NotificationService {
-	return &NotificationService{store: store, hub: hub, redis: redisClient}
+	return NewNotificationServiceWithPush(store, hub, redisClient, nil)
+}
+
+func NewNotificationServiceWithPush(store repositories.Store, hub *ws.Hub, redisClient *redis.Client, pushSender PushSender) *NotificationService {
+	return &NotificationService{store: store, hub: hub, redis: redisClient, push: pushSender}
 }
 
 func (service *NotificationService) BookingCreated(ctx context.Context, booking models.Booking) error {
@@ -89,7 +94,11 @@ func (service *NotificationService) createAndPublish(ctx context.Context, notifi
 	if err := service.store.CreateNotification(ctx, notification); err != nil {
 		return err
 	}
-	return service.publish(ctx, RealtimeEvent{Type: notification.Type, Notification: notification, Booking: booking})
+	if err := service.publish(ctx, RealtimeEvent{Type: notification.Type, Notification: notification, Booking: booking}); err != nil {
+		return err
+	}
+	service.sendPush(ctx, *notification)
+	return nil
 }
 
 func (service *NotificationService) publish(ctx context.Context, event RealtimeEvent) error {
@@ -106,4 +115,25 @@ func (service *NotificationService) publish(ctx context.Context, event RealtimeE
 		}
 	}
 	return nil
+}
+
+func (service *NotificationService) sendPush(ctx context.Context, notification models.Notification) {
+	if service.push == nil {
+		return
+	}
+	subscriptions, err := service.store.ListPushSubscriptions(ctx)
+	if err != nil {
+		log.Printf("list push subscriptions: %v", err)
+		return
+	}
+	message := PushMessage{
+		Title: notification.Title,
+		Body:  notification.Body,
+		URL:   notification.URL,
+	}
+	for _, subscription := range subscriptions {
+		if err := service.push.Send(ctx, subscription, message); err != nil {
+			log.Printf("send push subscription %s: %v", subscription.Endpoint, err)
+		}
+	}
 }

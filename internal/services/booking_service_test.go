@@ -120,3 +120,6 @@ func (store *fakeStore) MarkNotificationRead(context.Context, string) (models.No
 func (store *fakeStore) SavePushSubscription(context.Context, *models.PushSubscription) error {
 	return nil
 }
+func (store *fakeStore) ListPushSubscriptions(context.Context) ([]models.PushSubscription, error) {
+	return nil, nil
+}
