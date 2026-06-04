@@ -73,7 +73,7 @@ function StartupSplash({ isUpdated, progress }: { isUpdated: boolean; progress: 
       <Stack spacing={2.2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <BrandMark />
         <Typography sx={{ color: 'primary.main', fontSize: '1rem', fontWeight: 950 }}>
-          {isUpdated ? 'มีการอัพเดต app' : 'กำลังเข้าสู่ระบบ admin'}
+          {isUpdated ? 'มีการอัปเดตแอปพลิเคชั่น' : 'กำลังเข้าสู่ระบบแอดมิน'}
         </Typography>
         <Typography sx={{ color: 'text.primary', fontSize: '2.5rem', fontWeight: 950, lineHeight: 1 }}>
           {normalizedProgress}%

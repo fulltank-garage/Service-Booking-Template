@@ -31,17 +31,17 @@ select {
 }
 
 .app-update-pulse {
-  animation: app-update-pulse 1.15s ease-in-out infinite;
+  animation: app-update-pulse 0.9s ease-in-out infinite;
 }
 
 @keyframes app-update-pulse {
   0%,
   100% {
-    opacity: 0.55;
-    transform: scale(0.82);
+    opacity: 0.45;
+    transform: scale(0.72);
   }
   50% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1.24);
   }
 }

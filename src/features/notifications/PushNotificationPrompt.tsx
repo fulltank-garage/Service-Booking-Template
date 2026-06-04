@@ -18,7 +18,6 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
   const [permission, setPermission] = useState(() =>
     typeof window === 'undefined' ? 'unsupported' : getCurrentPushPermission(),
   )
-  const [isDismissed, setIsDismissed] = useState(false)
   const [isEnabling, setIsEnabling] = useState(false)
 
   const state = useMemo(() => {
@@ -28,7 +27,7 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
     return 'available'
   }, [permission])
 
-  if (!isTabletOrMobile || isDismissed || state === 'unsupported' || state === 'granted') {
+  if (!isTabletOrMobile || state === 'unsupported' || state === 'granted') {
     return null
   }
 
@@ -36,10 +35,11 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
     setIsEnabling(true)
     try {
       await enablePushNotifications()
-      setPermission(getCurrentPushPermission())
+      const nextPermission = getCurrentPushPermission()
+      setPermission(nextPermission)
       onNotice('เปิดการแจ้งเตือนแล้ว')
-      setIsDismissed(true)
     } catch (error) {
+      setPermission(getCurrentPushPermission())
       onNotice(error instanceof Error ? error.message : 'เปิดการแจ้งเตือนไม่สำเร็จ')
     } finally {
       setIsEnabling(false)
@@ -49,7 +49,6 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
   return (
     <Dialog
       open
-      onClose={() => setIsDismissed(true)}
       maxWidth="xs"
       fullWidth
       slotProps={{
@@ -65,16 +64,19 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
       }}
     >
       <DialogContent sx={{ p: 3 }}>
-        <Stack spacing={2} sx={{ alignItems: 'flex-start' }}>
+        <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
           <Stack
             sx={{
-              width: 52,
-              height: 52,
+              width: 64,
+              height: 64,
               borderRadius: 2,
               alignItems: 'center',
               justifyContent: 'center',
               bgcolor: 'secondary.main',
               color: 'primary.main',
+              '& svg': {
+                fontSize: 38,
+              },
             }}
           >
             <NotificationsActiveIcon />
@@ -91,12 +93,9 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
           </Stack>
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 3, pt: 0 }}>
-        <Button variant="outlined" onClick={() => setIsDismissed(true)}>
-          ไว้ก่อน
-        </Button>
-        <Button disabled={isEnabling || state === 'denied'} onClick={handleEnable} variant="contained">
-          {state === 'denied' ? 'ถูกปิดใน Browser' : isEnabling ? 'กำลังเปิด...' : 'เปิดแจ้งเตือน'}
+      <DialogActions sx={{ px: 3, pb: 3, pt: 0, justifyContent: 'center' }}>
+        <Button disabled={isEnabling} onClick={state === 'denied' ? () => setPermission(getCurrentPushPermission()) : handleEnable} variant="contained">
+          {state === 'denied' ? 'ตรวจสอบสิทธิ์อีกครั้ง' : isEnabling ? 'กำลังเปิด...' : 'เปิดแจ้งเตือน'}
         </Button>
       </DialogActions>
     </Dialog>

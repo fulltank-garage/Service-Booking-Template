@@ -6,6 +6,10 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Drawer,
   Grid,
   IconButton,
@@ -30,6 +34,8 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DashboardIcon from '@mui/icons-material/Dashboard'
+import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import HourglassTopIcon from '@mui/icons-material/HourglassTop'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
@@ -60,6 +66,10 @@ const pageLabels = {
 
 const formatThaiPrice = (priceCents: number) =>
   new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(priceCents / 100)
+
+const SIDEBAR_WIDTH = 280
+const MOBILE_TOPBAR_OFFSET = 'calc(104px + env(safe-area-inset-top))'
+const MOBILE_TOOLBAR_TOP = 'calc(104px + env(safe-area-inset-top) + 20px)'
 
 type AdminPage = keyof typeof pageLabels
 
@@ -196,7 +206,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
         onLogout={onLogout}
       />
 
-      <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100vh', pt: { xs: '72px', lg: 0 } }}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100vh', pt: { xs: MOBILE_TOPBAR_OFFSET, lg: 0 } }}>
         <Sidebar
           activePage={activePage}
           adminEmail={adminEmail}
@@ -239,6 +249,14 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                       setServices((current) => [service, ...current])
                       setNotice('เพิ่มบริการของร้านแล้ว')
                     }}
+                    onDeleteService={(serviceId) => {
+                      setServices((current) => current.filter((service) => service.id !== serviceId))
+                      setNotice('ลบบริการของร้านแล้ว')
+                    }}
+                    onUpdateService={(nextService) => {
+                      setServices((current) => current.map((service) => (service.id === nextService.id ? nextService : service)))
+                      setNotice('แก้ไขบริการของร้านแล้ว')
+                    }}
                   />
                 )}
               </>
@@ -267,18 +285,19 @@ function AdminTopbar({
       sx={{
         position: 'fixed',
         top: 0,
-        left: { xs: 0, lg: 280 },
+        left: { xs: 0, lg: SIDEBAR_WIDTH },
         right: 0,
         zIndex: 30,
         bgcolor: 'background.paper',
         borderBottom: '1px solid',
         borderColor: 'divider',
+        pt: { xs: 'env(safe-area-inset-top)', lg: 0 },
       }}
     >
       <Stack
         direction="row"
         sx={{
-          minHeight: 72,
+          minHeight: { xs: 104, sm: 92, lg: 72 },
           px: { xs: 2.5, sm: 2.5, lg: 2.5 },
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -305,13 +324,13 @@ function AdminTopbar({
               className="app-update-pulse"
               sx={{
                 position: 'absolute',
-                top: 5,
-                right: 5,
-                width: 10,
-                height: 10,
+                top: -3,
+                right: -3,
+                width: 14,
+                height: 14,
                 borderRadius: '50%',
-                bgcolor: 'secondary.main',
-                boxShadow: 'none',
+                bgcolor: '#FF008C',
+                border: '2px solid #FFFFFF',
               }}
             />
           )}
@@ -358,8 +377,8 @@ function AppNoticeSnackbar({ message, onClose }: { message: string; onClose: () 
       role="status"
       sx={{
         position: 'fixed',
-        top: { xs: 88, lg: 24 },
-        left: { xs: '50%', lg: 'calc(280px + ((100vw - 280px) / 2))' },
+        top: { xs: `calc(${MOBILE_TOPBAR_OFFSET} + 12px)`, lg: 24 },
+        left: { xs: '50%', lg: `calc(${SIDEBAR_WIDTH}px + ((100vw - ${SIDEBAR_WIDTH}px) / 2))` },
         zIndex: 1100,
         width: 'calc(100vw - 32px)',
         maxWidth: 420,
@@ -666,8 +685,10 @@ function AdminProfilePanel({
         </Box>
 
         <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, p: 1.4, bgcolor: 'background.default' }}>
-          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
-            <WifiTetheringIcon sx={{ color: statusColor, fontSize: 20, mt: 0.15, flexShrink: 0 }} />
+          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
+            <Box sx={{ width: 38, height: 38, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <WifiTetheringIcon sx={{ color: statusColor, fontSize: 30 }} />
+            </Box>
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'text.primary', lineHeight: 1.25 }}>
                 {statusLabel[realtimeStatus]}
@@ -699,16 +720,16 @@ function AdminProfilePanel({
             bgcolor: hasPendingAppUpdate ? '#F3F4F6' : 'background.default',
           }}
         >
-          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
-            <SystemUpdateAltIcon
-              className={hasPendingAppUpdate ? 'app-update-pulse' : undefined}
-              sx={{
-                color: hasPendingAppUpdate ? 'primary.main' : 'text.secondary',
-                fontSize: 20,
-                mt: 0.15,
-                flexShrink: 0,
-              }}
-            />
+          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
+            <Box sx={{ width: 38, height: 38, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <SystemUpdateAltIcon
+                className={hasPendingAppUpdate ? 'app-update-pulse' : undefined}
+                sx={{
+                  color: hasPendingAppUpdate ? 'primary.main' : 'text.secondary',
+                  fontSize: 30,
+                }}
+              />
+            </Box>
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'text.primary', lineHeight: 1.25 }}>
                 อัปเดตแอป
@@ -787,12 +808,18 @@ function BookingsPage({
 function ServicesPage({
   services,
   onAddService,
+  onDeleteService,
+  onUpdateService,
 }: {
   services: ServiceItem[]
   onAddService: (service: ServiceItem) => void
+  onDeleteService: (serviceId: string) => void
+  onUpdateService: (service: ServiceItem) => void
 }) {
   const [query, setQuery] = useState('')
   const [isEditorOpen, setIsEditorOpen] = useState(false)
+  const [editingService, setEditingService] = useState<ServiceItem | null>(null)
+  const [serviceToDelete, setServiceToDelete] = useState<ServiceItem | null>(null)
   const [nameTh, setNameTh] = useState('')
   const [priceBaht, setPriceBaht] = useState('')
   const [durationMinutes, setDurationMinutes] = useState('')
@@ -819,32 +846,67 @@ function ServicesPage({
     setDescriptionTh('')
   }
 
-  const closeEditor = () => {
-    setIsEditorOpen(false)
-    window.setTimeout(resetForm, 280)
+  const openEditor = (service?: ServiceItem) => {
+    if (service) {
+      setEditingService(service)
+      setNameTh(service.nameTh)
+      setPriceBaht(String(service.priceCents / 100))
+      setDurationMinutes(String(service.durationMinutes))
+      setDescriptionTh(service.descriptionTh ?? '')
+    } else {
+      setEditingService(null)
+      resetForm()
+    }
+    setIsEditorOpen(true)
   }
 
-  const handleAddService = () => {
+  const closeEditor = () => {
+    setIsEditorOpen(false)
+    window.setTimeout(() => {
+      setEditingService(null)
+      resetForm()
+    }, 280)
+  }
+
+  const handleSaveService = () => {
     if (!canAdd) return
 
-    onAddService({
-      id: `service-${Date.now()}`,
+    const nextService: ServiceItem = {
+      id: editingService?.id ?? `service-${Date.now()}`,
       nameTh: nameTh.trim(),
-      nameEn: nameTh.trim(),
+      nameEn: editingService?.nameEn ?? nameTh.trim(),
       descriptionTh: descriptionTh.trim(),
       durationMinutes: Number(durationMinutes),
       priceCents: Math.round(Number(priceBaht) * 100),
-      accentColor: '#FF008C',
-      isActive: true,
-    })
+      accentColor: editingService?.accentColor ?? '#FF008C',
+      isActive: editingService?.isActive ?? true,
+    }
+
+    if (editingService) {
+      onUpdateService(nextService)
+    } else {
+      onAddService(nextService)
+    }
+
     closeEditor()
   }
+
+  const handleDeleteService = () => {
+    if (!serviceToDelete) return
+    onDeleteService(serviceToDelete.id)
+    setServiceToDelete(null)
+  }
+
+  const previewName = nameTh.trim() || 'ตัวอย่างบริการ'
+  const previewDescription = descriptionTh.trim() || 'รายละเอียดบริการจะแสดงให้ลูกค้าเห็นตรงนี้'
+  const previewDuration = Number(durationMinutes) > 0 ? `${Number(durationMinutes)} นาที` : 'เวลาที่ใช้'
+  const previewPrice = Number(priceBaht) >= 0 ? formatThaiPrice(Math.round(Number(priceBaht) * 100)) : 'ราคา'
 
   return (
     <>
       <ManagementToolbar
         addLabel="เพิ่มบริการ"
-        onAdd={() => setIsEditorOpen(true)}
+        onAdd={() => openEditor()}
         onSearch={setQuery}
         placeholder="ค้นหาบริการ"
         query={query}
@@ -892,6 +954,19 @@ function ServicesPage({
                       </Box>
                       <Chip color={service.isActive ? 'secondary' : 'default'} label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} />
                     </Stack>
+                    <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                      <Button variant="outlined" startIcon={<EditIcon />} onClick={() => openEditor(service)}>
+                        แก้ไข
+                      </Button>
+                      <Button
+                        variant="contained"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => setServiceToDelete(service)}
+                        sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+                      >
+                        ลบ
+                      </Button>
+                    </Stack>
                   </Stack>
                 </Box>
               ))}
@@ -910,6 +985,7 @@ function ServicesPage({
                     <TableCell>ราคา</TableCell>
                     <TableCell>เวลา</TableCell>
                     <TableCell>สถานะ</TableCell>
+                    <TableCell align="right">จัดการ</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -926,11 +1002,26 @@ function ServicesPage({
                       <TableCell>
                         <Chip color={service.isActive ? 'secondary' : 'default'} label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} />
                       </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
+                          <Button variant="outlined" startIcon={<EditIcon />} onClick={() => openEditor(service)}>
+                            แก้ไข
+                          </Button>
+                          <Button
+                            variant="contained"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => setServiceToDelete(service)}
+                            sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+                          >
+                            ลบ
+                          </Button>
+                        </Stack>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filteredServices.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} sx={{ py: 5, textAlign: 'center', color: 'text.secondary', fontWeight: 800 }}>
+                      <TableCell colSpan={5} sx={{ py: 5, textAlign: 'center', color: 'text.secondary', fontWeight: 800 }}>
                         {services.length === 0 ? 'ยังไม่มีรายการบริการ' : 'ไม่พบบริการที่ค้นหา'}
                       </TableCell>
                     </TableRow>
@@ -942,8 +1033,8 @@ function ServicesPage({
         </Card>
       </Box>
 
-      <BottomEditorSheet isOpen={isEditorOpen} onClose={closeEditor} title="เพิ่มบริการ">
-        <Box component="form" onSubmit={(event) => { event.preventDefault(); handleAddService() }}>
+      <BottomEditorSheet isOpen={isEditorOpen} onClose={closeEditor} title={editingService ? 'แก้ไขบริการ' : 'เพิ่มบริการ'}>
+        <Box component="form" onSubmit={(event) => { event.preventDefault(); handleSaveService() }}>
           <Stack spacing={2}>
             <TextField fullWidth label="ชื่อบริการ" value={nameTh} onChange={(event) => setNameTh(event.target.value)} />
             <Grid container spacing={1.5}>
@@ -974,17 +1065,82 @@ function ServicesPage({
               value={descriptionTh}
               onChange={(event) => setDescriptionTh(event.target.value)}
             />
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, p: 1.5, bgcolor: 'background.default' }}>
+              <Typography sx={{ mb: 1, fontSize: '0.86rem', fontWeight: 900, color: 'text.primary' }}>
+                ตัวอย่างที่แสดงในหน้าลูกค้า
+              </Typography>
+              <Stack spacing={1.2}>
+                <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 950, lineHeight: 1.25 }}>
+                      {previewName}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: 'text.secondary',
+                        fontSize: '0.82rem',
+                        fontWeight: 760,
+                        lineHeight: 1.35,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {previewDescription}
+                    </Typography>
+                  </Box>
+                  <Chip color="secondary" label={previewDuration} />
+                </Stack>
+                <Typography sx={{ color: 'primary.main', fontWeight: 950 }}>{previewPrice}</Typography>
+              </Stack>
+            </Box>
             <Stack direction="row" spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
               <Button variant="outlined" onClick={closeEditor}>
                 ยกเลิก
               </Button>
               <Button variant="contained" type="submit" disabled={!canAdd}>
-                บันทึกบริการ
+                {editingService ? 'บันทึกการแก้ไข' : 'บันทึกบริการ'}
               </Button>
             </Stack>
           </Stack>
         </Box>
       </BottomEditorSheet>
+
+      <Dialog
+        open={Boolean(serviceToDelete)}
+        onClose={() => setServiceToDelete(null)}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: 'none',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 950 }}>ยืนยันการลบบริการ</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+            ต้องการลบ {serviceToDelete?.nameTh ?? 'บริการนี้'} ใช่หรือไม่
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button variant="outlined" onClick={() => setServiceToDelete(null)}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleDeleteService}
+            sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+          >
+            ยืนยันลบ
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }
@@ -1006,8 +1162,8 @@ function ManagementToolbar({
     <Box
       sx={{
         position: 'fixed',
-        top: { xs: 84, lg: 88 },
-        left: { xs: 20, sm: 20, lg: 300 },
+        top: { xs: MOBILE_TOOLBAR_TOP, lg: 88 },
+        left: { xs: 20, sm: 20, lg: SIDEBAR_WIDTH + 20 },
         right: { xs: 20, sm: 20, lg: 20 },
         zIndex: 25,
         border: '1px solid',
@@ -1071,67 +1227,67 @@ function BottomEditorSheet({
         aria-hidden={!isOpen}
         data-testid="service-editor-overlay"
         sx={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        zIndex: 1200,
-        pointerEvents: isOpen ? 'auto' : 'none',
-      }}
-    >
-      <Box
-        component="button"
-        aria-label="ปิดฟอร์ม"
-        type="button"
-        onClick={onClose}
-        sx={{
-          position: 'absolute',
+          position: 'fixed',
           top: 0,
           right: 0,
           bottom: 0,
-          left: 0,
-          border: 0,
-          bgcolor: 'rgba(17, 24, 39, 0.42)',
-          opacity: isOpen ? 1 : 0,
-          transition: 'opacity 260ms ease',
-        }}
-      />
-      <Box
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        sx={{
-          position: 'absolute',
-          left: { xs: 12, sm: 24, lg: 32 },
-          right: { xs: 12, sm: 24, lg: 32 },
-          bottom: { xs: 12, sm: 24, lg: 32 },
-          top: { xs: 20, lg: 20 },
-          maxWidth: 720,
-          mx: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 3,
-          bgcolor: 'background.paper',
-          boxShadow: 'none',
-          transform: isOpen ? 'translateY(0)' : 'translateY(calc(100% + 6rem))',
-          transition: 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)',
-          willChange: 'transform',
+          left: { xs: 0, lg: SIDEBAR_WIDTH },
+          zIndex: 1200,
+          pointerEvents: isOpen ? 'auto' : 'none',
         }}
       >
-        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider', p: 1.5 }}>
-          <Typography component="h2" sx={{ fontSize: '1.1rem', fontWeight: 950 }}>{title}</Typography>
-          <IconButton aria-label="ปิดฟอร์ม" onClick={onClose} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-            <CloseIcon />
-          </IconButton>
-        </Stack>
-        <Box sx={{ minHeight: 0, flex: 1, overflowY: 'auto', p: 2.5 }}>
-          {children}
+        <Box
+          component="button"
+          aria-label="ปิดฟอร์ม"
+          type="button"
+          onClick={onClose}
+          sx={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            border: 0,
+            bgcolor: 'rgba(17, 24, 39, 0.42)',
+            opacity: isOpen ? 1 : 0,
+            transition: 'opacity 260ms ease',
+          }}
+        />
+        <Box
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: { xs: 'calc(100% - 40px)', sm: 720 },
+            maxWidth: 'calc(100% - 40px)',
+            maxHeight: 'calc(100dvh - 40px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 3,
+            bgcolor: 'background.paper',
+            boxShadow: 'none',
+            transform: isOpen ? 'translate(-50%, -50%)' : 'translate(-50%, calc(60% + 80px))',
+            opacity: isOpen ? 1 : 0,
+            transition: 'transform 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease',
+            willChange: 'transform',
+          }}
+        >
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider', p: 1.5 }}>
+            <Typography component="h2" sx={{ fontSize: '1.1rem', fontWeight: 950 }}>{title}</Typography>
+            <IconButton aria-label="ปิดฟอร์ม" onClick={onClose} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+              <CloseIcon />
+            </IconButton>
+          </Stack>
+          <Box sx={{ minHeight: 0, overflowY: 'auto', p: 2.5 }}>
+            {children}
+          </Box>
         </Box>
-      </Box>
       </Box>
     </Portal>
   )
@@ -1237,8 +1393,8 @@ function ServicesSkeleton() {
       <Box
         sx={{
           position: 'fixed',
-          top: { xs: 84, lg: 88 },
-          left: { xs: 20, sm: 20, lg: 300 },
+          top: { xs: MOBILE_TOOLBAR_TOP, lg: 88 },
+          left: { xs: 20, sm: 20, lg: SIDEBAR_WIDTH + 20 },
           right: { xs: 20, sm: 20, lg: 20 },
           zIndex: 25,
           border: '1px solid',

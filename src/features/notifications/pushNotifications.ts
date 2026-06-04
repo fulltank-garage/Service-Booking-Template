@@ -42,11 +42,6 @@ export const enablePushNotifications = async () => {
     throw new Error('อุปกรณ์นี้ยังไม่รองรับการแจ้งเตือน')
   }
 
-  const publicKey = await adminApi.getPushPublicKey()
-  if (!publicKey.configured || !publicKey.publicKey) {
-    throw new Error('ยังไม่ได้ตั้งค่าการแจ้งเตือน')
-  }
-
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') {
     throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือน')
@@ -57,6 +52,11 @@ export const enablePushNotifications = async () => {
   if (currentSubscription) {
     await adminApi.subscribePush(currentSubscription.toJSON())
     return currentSubscription
+  }
+
+  const publicKey = await adminApi.getPushPublicKey()
+  if (!publicKey.configured || !publicKey.publicKey) {
+    throw new Error('เปิดสิทธิ์แจ้งเตือนแล้ว แต่ยังไม่ได้ตั้งค่าคีย์แจ้งเตือน')
   }
 
   const subscription = await registration.pushManager.subscribe({

@@ -19,14 +19,18 @@ export function BrandMark() {
         <Typography
           component="p"
           sx={{
-            color: 'text.primary',
             fontFamily: '"Roboto", sans-serif',
             fontSize: '1.16rem',
             fontWeight: 900,
             lineHeight: 1.02,
           }}
         >
-          BookingQueue
+          <Box component="span" sx={{ color: 'text.primary' }}>
+            Booking
+          </Box>
+          <Box component="span" sx={{ color: '#FF008C' }}>
+            Queue
+          </Box>
         </Typography>
         <Typography
           component="p"
