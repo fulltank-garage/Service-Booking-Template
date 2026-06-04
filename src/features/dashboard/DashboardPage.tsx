@@ -39,6 +39,8 @@ import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import RoomServiceIcon from '@mui/icons-material/RoomService'
 import SearchIcon from '@mui/icons-material/Search'
+import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
+import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
 import { adminApi } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
@@ -631,7 +633,7 @@ function AdminProfilePanel({
     reconnecting: 'กำลังเชื่อมต่อใหม่',
     off: 'ปิดข้อมูลสด',
   }
-  const statusColor = realtimeStatus === 'connected' ? '#10B981' : realtimeStatus === 'off' ? '#6B7280' : 'secondary.main'
+  const statusColor = realtimeStatus === 'off' ? 'text.secondary' : 'primary.main'
   const latestLabel = latestRealtimeAt
     ? new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(latestRealtimeAt)
     : 'ยังไม่มีข้อมูลอัปเดต'
@@ -640,29 +642,40 @@ function AdminProfilePanel({
     <Box
       sx={{
         border: '1px solid',
-        borderColor: 'rgba(255,255,255,0.14)',
+        borderColor: 'divider',
         borderRadius: 3,
-        bgcolor: '#1F1F1F',
-        color: '#FFFFFF',
+        bgcolor: 'background.paper',
+        color: 'text.primary',
         p: 2,
       }}
     >
       <Stack spacing={1.6}>
         <Box>
           <Typography sx={{ fontSize: '1rem', fontWeight: 950, lineHeight: 1.2 }}>{adminName}</Typography>
-          <Typography sx={{ mt: 0.45, color: 'rgba(255,255,255,0.55)', fontSize: '0.84rem', fontWeight: 800, wordBreak: 'break-word' }}>
+          <Typography sx={{ mt: 0.45, color: 'text.secondary', fontSize: '0.84rem', fontWeight: 800, wordBreak: 'break-word' }}>
             {adminEmail}
           </Typography>
         </Box>
 
-        <Box sx={{ border: '1px solid', borderColor: 'rgba(255,255,255,0.10)', borderRadius: 2.5, p: 1.5, bgcolor: '#080205' }}>
+        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, p: 1.4, bgcolor: 'background.default' }}>
           <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
-            <Box sx={{ mt: 0.55, width: 10, height: 10, borderRadius: '50%', bgcolor: statusColor, flexShrink: 0 }} />
+            <WifiTetheringIcon sx={{ color: statusColor, fontSize: 20, mt: 0.15, flexShrink: 0 }} />
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'rgba(255,255,255,0.88)', lineHeight: 1.25 }}>
+              <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'text.primary', lineHeight: 1.25 }}>
                 {statusLabel[realtimeStatus]}
               </Typography>
-              <Typography sx={{ mt: 0.7, color: 'rgba(255,255,255,0.44)', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.5 }}>
+              <Typography
+                sx={{
+                  mt: 0.35,
+                  color: 'text.secondary',
+                  fontSize: '0.66rem',
+                  fontWeight: 800,
+                  lineHeight: 1.25,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 ข้อมูลล่าสุด {latestLabel}
               </Typography>
             </Box>
@@ -672,29 +685,38 @@ function AdminProfilePanel({
         <Box
           sx={{
             border: '1px solid',
-            borderColor: hasPendingAppUpdate ? 'rgba(255,0,140,0.36)' : 'rgba(255,255,255,0.10)',
+            borderColor: hasPendingAppUpdate ? 'primary.main' : 'divider',
             borderRadius: 2.5,
-            p: 1.5,
-            bgcolor: hasPendingAppUpdate ? 'rgba(255,0,140,0.10)' : '#080205',
+            p: 1.4,
+            bgcolor: hasPendingAppUpdate ? '#F3F4F6' : 'background.default',
           }}
         >
           <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
-            <Box
+            <SystemUpdateAltIcon
               className={hasPendingAppUpdate ? 'app-update-pulse' : undefined}
               sx={{
-                mt: 0.55,
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                bgcolor: hasPendingAppUpdate ? 'primary.main' : 'rgba(255,255,255,0.22)',
+                color: hasPendingAppUpdate ? 'primary.main' : 'text.secondary',
+                fontSize: 20,
+                mt: 0.15,
                 flexShrink: 0,
               }}
             />
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'rgba(255,255,255,0.88)', lineHeight: 1.25 }}>
+              <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'text.primary', lineHeight: 1.25 }}>
                 อัปเดตแอป
               </Typography>
-              <Typography sx={{ mt: 0.7, color: 'rgba(255,255,255,0.44)', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.5 }}>
+              <Typography
+                sx={{
+                  mt: 0.35,
+                  color: 'text.secondary',
+                  fontSize: '0.66rem',
+                  fontWeight: 800,
+                  lineHeight: 1.25,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {hasPendingAppUpdate ? 'มีเวอร์ชันใหม่พร้อมใช้งาน' : 'กำลังใช้เวอร์ชันล่าสุด'}
               </Typography>
             </Box>
@@ -712,12 +734,12 @@ function AdminProfilePanel({
           startIcon={<LogoutIcon />}
           variant="outlined"
           sx={{
-            borderColor: 'rgba(255,255,255,0.14)',
-            color: 'rgba(255,255,255,0.78)',
+            borderColor: 'divider',
+            color: 'text.primary',
             bgcolor: 'transparent',
             '&:hover': {
-              borderColor: 'rgba(255,255,255,0.24)',
-              bgcolor: 'rgba(255,255,255,0.04)',
+              borderColor: 'primary.main',
+              bgcolor: 'background.default',
             },
           }}
         >

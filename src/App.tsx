@@ -9,13 +9,31 @@ import { useAppUpdate } from './hooks/useAppUpdate'
 function App() {
   const [session, setSession] = useState<StoredAdminSession | null>(() => authStorage.getSession())
   const [isBooting, setIsBooting] = useState(true)
+  const [bootProgress, setBootProgress] = useState(8)
   const { applyAppUpdate, hasPendingAppUpdate, isInitialUpdateCheckDone } = useAppUpdate()
+
+  useEffect(() => {
+    if (!isBooting) return undefined
+
+    const timer = window.setInterval(() => {
+      setBootProgress((current) => {
+        if (isInitialUpdateCheckDone) return 100
+        return Math.min(94, current + 11)
+      })
+    }, 120)
+
+    return () => window.clearInterval(timer)
+  }, [isBooting, isInitialUpdateCheckDone])
 
   useEffect(() => {
     if (!isInitialUpdateCheckDone) return undefined
 
+    const progressTimer = window.setTimeout(() => setBootProgress(100), 0)
     const timer = window.setTimeout(() => setIsBooting(false), 700)
-    return () => window.clearTimeout(timer)
+    return () => {
+      window.clearTimeout(progressTimer)
+      window.clearTimeout(timer)
+    }
   }, [isInitialUpdateCheckDone])
 
   const handleAuthenticated = (nextSession: StoredAdminSession) => {
@@ -29,7 +47,7 @@ function App() {
   }
 
   if (isBooting) {
-    return <StartupSplash isUpdated={hasPendingAppUpdate} />
+    return <StartupSplash isUpdated={hasPendingAppUpdate} progress={bootProgress} />
   }
 
   if (!session) {
@@ -47,21 +65,18 @@ function App() {
   )
 }
 
-function StartupSplash({ isUpdated }: { isUpdated: boolean }) {
+function StartupSplash({ isUpdated, progress }: { isUpdated: boolean; progress: number }) {
+  const normalizedProgress = Math.min(100, Math.max(0, Math.round(progress)))
+
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: '#080205', color: '#FFFFFF', px: 3 }}>
-      <Stack
-        spacing={2.2}
-        sx={{
-          alignItems: 'center',
-          textAlign: 'center',
-          '& .MuiTypography-root': { color: '#FFFFFF' },
-          '& .MuiTypography-caption': { color: 'rgba(255,255,255,0.58)' },
-        }}
-      >
+    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default', px: 3 }}>
+      <Stack spacing={2.2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <BrandMark />
         <Typography sx={{ color: 'primary.main', fontSize: '1rem', fontWeight: 950 }}>
           {isUpdated ? 'มีการอัพเดต app' : 'กำลังเข้าสู่ระบบ admin'}
+        </Typography>
+        <Typography sx={{ color: 'text.primary', fontSize: '2.5rem', fontWeight: 950, lineHeight: 1 }}>
+          {normalizedProgress}%
         </Typography>
       </Stack>
     </Box>
