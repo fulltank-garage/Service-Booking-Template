@@ -15,6 +15,7 @@ import (
 var ErrInvalidCredentials = errors.New("invalid admin credentials")
 
 type AuthService struct {
+	name     string
 	email    string
 	password string
 	secret   []byte
@@ -22,13 +23,15 @@ type AuthService struct {
 }
 
 type AdminSession struct {
+	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
-func NewAuthService(email string, password string, sessionSecret string) *AuthService {
+func NewAuthService(name string, email string, password string, sessionSecret string) *AuthService {
 	return &AuthService{
+		name:     strings.TrimSpace(name),
 		email:    strings.TrimSpace(email),
 		password: password,
 		secret:   []byte(sessionSecret),
@@ -43,7 +46,7 @@ func (service *AuthService) Login(email string, password string) (AdminSession, 
 
 	expiresAt := service.now().Add(24 * time.Hour)
 	token := service.sign(service.email, expiresAt)
-	return AdminSession{Email: service.email, Token: token, ExpiresAt: expiresAt}, nil
+	return AdminSession{Name: service.name, Email: service.email, Token: token, ExpiresAt: expiresAt}, nil
 }
 
 func (service *AuthService) Validate(token string) bool {

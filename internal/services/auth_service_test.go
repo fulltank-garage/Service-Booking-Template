@@ -6,7 +6,7 @@ import (
 )
 
 func TestAuthServiceLoginAndValidate(t *testing.T) {
-	service := NewAuthService("admin@example.com", "password123", "session-secret")
+	service := NewAuthService("FULLTANK Garage Admin", "admin@example.com", "password123", "session-secret")
 	fixedNow := time.Date(2026, 6, 3, 10, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return fixedNow }
 
@@ -17,13 +17,16 @@ func TestAuthServiceLoginAndValidate(t *testing.T) {
 	if session.Token == "" {
 		t.Fatal("expected token")
 	}
+	if session.Name != "FULLTANK Garage Admin" {
+		t.Fatalf("expected session name, got %q", session.Name)
+	}
 	if !service.Validate(session.Token) {
 		t.Fatal("expected token to validate")
 	}
 }
 
 func TestAuthServiceRejectsInvalidCredentials(t *testing.T) {
-	service := NewAuthService("admin@example.com", "password123", "session-secret")
+	service := NewAuthService("FULLTANK Garage Admin", "admin@example.com", "password123", "session-secret")
 
 	if _, err := service.Login("admin@example.com", "wrong"); err != ErrInvalidCredentials {
 		t.Fatalf("expected invalid credentials, got %v", err)
