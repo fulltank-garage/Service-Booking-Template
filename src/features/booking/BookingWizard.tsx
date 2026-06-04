@@ -25,6 +25,7 @@ import type { LineProfile } from '../../integrations/liff'
 
 type BookingWizardProps = {
   lineProfile: LineProfile | null
+  onBookingConfirmed?: (booking: Booking) => void
 }
 
 type CalendarDay = {
@@ -82,7 +83,7 @@ const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
   })
 }
 
-export function BookingWizard({ lineProfile }: BookingWizardProps) {
+export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizardProps) {
   const [services, setServices] = useState<ServiceItem[]>([])
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [bookingDate, setBookingDate] = useState(todayISO)
@@ -168,6 +169,7 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
     try {
       const booking = await bookingApi.createBooking(payload)
       setConfirmedBooking(booking)
+      onBookingConfirmed?.(booking)
     } catch {
       setError('ส่งคำขอจองคิวไม่สำเร็จ กรุณาลองใหม่')
     } finally {

@@ -20,6 +20,7 @@ export type Booking = {
   id: string
   bookingCode: string
   serviceId: string
+  service?: ServiceItem
   customerName: string
   phone: string
   lineUserId?: string

@@ -60,5 +60,34 @@ test('customer can complete a booking request', async ({ page }) => {
   await page.getByLabel('ชื่อผู้จอง').fill('สมชาย ใจดี')
   await page.getByLabel('เบอร์โทร').fill('0890000000')
   await page.getByRole('button', { name: /ยืนยันการจอง/ }).click()
-  await expect(page.getByRole('heading', { name: 'จองคิวเรียบร้อย' })).toBeVisible()
+  await expect(page).toHaveURL(/\/booking\/success$/)
+  await expect(page.getByRole('heading', { name: 'ข้อมูลการจอง' })).toBeVisible()
+  await expect(page.getByText('SB-TEST-0001')).toBeVisible()
+})
+
+test('customer can view shop services from the rich menu route', async ({ page }) => {
+  await page.route('**/api/v1/services', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'service-1',
+            nameTh: 'ทำเล็บเจลสีพื้น',
+            nameEn: 'Gel Color',
+            descriptionTh: 'ทาเล็บเจลสีพื้น เลือกสีได้ตามต้องการ',
+            durationMinutes: 45,
+            priceCents: 35000,
+            accentColor: '#FF008C',
+            isActive: true,
+          },
+        ],
+      }),
+    })
+  })
+
+  await page.goto('/services')
+  await expect(page.getByRole('heading', { name: 'บริการทางร้าน' })).toBeVisible()
+  await expect(page.getByText('ทำเล็บเจลสีพื้น')).toBeVisible()
+  await expect(page.getByText('350 บาท')).toBeVisible()
 })

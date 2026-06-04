@@ -18,4 +18,11 @@ export const bookingApi = {
     const response = await httpClient.post<ApiEnvelope<Booking>>('/bookings', payload)
     return response.data.data
   },
+
+  latestBookingByLineUser: async (lineUserId: string) => {
+    const response = await httpClient.get<ApiEnvelope<Booking>>('/bookings/latest', {
+      params: { lineUserId },
+    })
+    return response.data.data
+  },
 }
