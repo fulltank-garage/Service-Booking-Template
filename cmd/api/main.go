@@ -39,7 +39,8 @@ func main() {
 
 	store := repositories.NewGormStore(db)
 	notifier := services.NewNotificationService(store, hub, redisClient)
-	bookingService := services.NewBookingService(store, notifier, cfg.BookingSlotCapacity)
+	lineRichMenuService := services.NewLineRichMenuService(cfg.LineChannelToken, cfg.LineBookingSuccessRichMenuID)
+	bookingService := services.NewBookingService(store, notifier, lineRichMenuService, cfg.BookingSlotCapacity)
 	authService := services.NewAuthService(cfg.AdminDisplayName, cfg.AdminEmail, cfg.AdminPassword, cfg.AdminSessionSecret)
 	if redisClient != nil {
 		go notifier.Subscribe(context.Background())

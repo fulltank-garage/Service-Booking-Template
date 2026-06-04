@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -51,21 +52,34 @@ type BookingNotifier interface {
 	BookingUpdated(ctx context.Context, booking models.Booking) error
 }
 
-type BookingService struct {
-	store    repositories.Store
-	notifier BookingNotifier
-	capacity int
+type BookingSuccessRichMenuSwitcher interface {
+	SwitchToBookingSuccess(ctx context.Context, lineUserID string) error
 }
 
-func NewBookingService(store repositories.Store, notifier BookingNotifier, capacity int) *BookingService {
+type BookingService struct {
+	store            repositories.Store
+	notifier         BookingNotifier
+	richMenuSwitcher BookingSuccessRichMenuSwitcher
+	capacity         int
+}
+
+func NewBookingService(store repositories.Store, notifier BookingNotifier, richMenuSwitcher BookingSuccessRichMenuSwitcher, capacity int) *BookingService {
 	if capacity <= 0 {
 		capacity = 1
 	}
-	return &BookingService{store: store, notifier: notifier, capacity: capacity}
+	return &BookingService{store: store, notifier: notifier, richMenuSwitcher: richMenuSwitcher, capacity: capacity}
 }
 
 func (service *BookingService) ListServices(ctx context.Context) ([]models.Service, error) {
 	return service.store.ListServices(ctx)
+}
+
+func (service *BookingService) LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error) {
+	lineUserID = strings.TrimSpace(lineUserID)
+	if lineUserID == "" {
+		return models.Booking{}, errors.New("line user id is required")
+	}
+	return service.store.LatestBookingByLineUser(ctx, lineUserID)
 }
 
 func (service *BookingService) CreateService(ctx context.Context, input ServiceInput) (models.Service, error) {
@@ -178,6 +192,11 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	booking.Service = serviceItem
 	if service.notifier != nil {
 		_ = service.notifier.BookingCreated(ctx, booking)
+	}
+	if service.richMenuSwitcher != nil && booking.LineUserID != "" {
+		if err := service.richMenuSwitcher.SwitchToBookingSuccess(ctx, booking.LineUserID); err != nil {
+			log.Printf("switch line rich menu to booking success: %v", err)
+		}
 	}
 	return booking, nil
 }

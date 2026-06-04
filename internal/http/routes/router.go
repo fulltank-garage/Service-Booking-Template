@@ -31,6 +31,7 @@ func New(deps Dependencies) *gin.Engine {
 	api.GET("/health", healthHandler.Health)
 	api.GET("/services", bookingHandler.ListServices)
 	api.GET("/availability", bookingHandler.Availability)
+	api.GET("/bookings/latest", bookingHandler.LatestBooking)
 	api.POST("/bookings", bookingHandler.CreateBooking)
 
 	admin := api.Group("/admin")

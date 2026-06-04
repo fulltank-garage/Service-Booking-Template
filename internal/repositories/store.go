@@ -15,6 +15,7 @@ type Store interface {
 	DeleteService(ctx context.Context, id string) error
 	CountBookingsForSlot(ctx context.Context, serviceID string, date string, slotTime string) (int64, error)
 	CreateBooking(ctx context.Context, booking *models.Booking) error
+	LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error)
 	ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, id string, status string) (models.Booking, error)
 	CreateNotification(ctx context.Context, notification *models.Notification) error
@@ -73,6 +74,16 @@ func (store *GormStore) CountBookingsForSlot(ctx context.Context, serviceID stri
 
 func (store *GormStore) CreateBooking(ctx context.Context, booking *models.Booking) error {
 	return store.db.WithContext(ctx).Create(booking).Error
+}
+
+func (store *GormStore) LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error) {
+	var booking models.Booking
+	err := store.db.WithContext(ctx).
+		Preload("Service").
+		Where("line_user_id = ?", lineUserID).
+		Order("created_at DESC").
+		First(&booking).Error
+	return booking, err
 }
 
 func (store *GormStore) ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error) {

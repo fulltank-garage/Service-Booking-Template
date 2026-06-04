@@ -10,7 +10,7 @@ import (
 
 func TestCreateBookingRejectsFullSlot(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}, slotCount: 2}
-	service := NewBookingService(store, nil, 2)
+	service := NewBookingService(store, nil, nil, 2)
 
 	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    "svc-1",
@@ -27,7 +27,7 @@ func TestCreateBookingRejectsFullSlot(t *testing.T) {
 
 func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
-	service := NewBookingService(store, nil, 3)
+	service := NewBookingService(store, nil, nil, 3)
 
 	booking, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    " svc-1 ",
@@ -53,7 +53,7 @@ func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 
 func TestListAvailabilityReturnsSixteenBusinessSlots(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
-	service := NewBookingService(store, nil, 3)
+	service := NewBookingService(store, nil, nil, 3)
 
 	slots, err := service.ListAvailability(context.Background(), "svc-1", "2026-06-10")
 	if err != nil {
@@ -100,6 +100,9 @@ func (store *fakeStore) CountBookingsForSlot(context.Context, string, string, st
 func (store *fakeStore) CreateBooking(_ context.Context, booking *models.Booking) error {
 	store.created = booking
 	return nil
+}
+func (store *fakeStore) LatestBookingByLineUser(context.Context, string) (models.Booking, error) {
+	return models.Booking{}, nil
 }
 func (store *fakeStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
 	return nil, nil

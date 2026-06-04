@@ -105,6 +105,19 @@ func (handler *BookingHandler) CreateBooking(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"data": booking})
 }
 
+func (handler *BookingHandler) LatestBooking(c *gin.Context) {
+	booking, err := handler.service.LatestBookingByLineUser(c.Request.Context(), c.Query("lineUserId"))
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, errorBody(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": booking})
+}
+
 func (handler *BookingHandler) ListBookings(c *gin.Context) {
 	items, err := handler.service.ListBookings(c.Request.Context(), models.BookingFilter{Status: c.Query("status"), Date: c.Query("date")})
 	if err != nil {

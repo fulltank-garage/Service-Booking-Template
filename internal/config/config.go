@@ -14,20 +14,23 @@ type RedisConfig struct {
 }
 
 type Config struct {
-	AppEnv              string
-	HTTPPort            string
-	DatabaseURL         string
-	Redis               RedisConfig
-	PublicWebURL        string
-	AdminWebURL         string
-	AdminDisplayName    string
-	AdminEmail          string
-	AdminPassword       string
-	AdminSessionSecret  string
-	BookingSlotCapacity int
-	VAPIDPublicKey      string
-	VAPIDPrivateKey     string
-	AllowedOrigins      []string
+	AppEnv                       string
+	HTTPPort                     string
+	DatabaseURL                  string
+	Redis                        RedisConfig
+	PublicWebURL                 string
+	AdminWebURL                  string
+	AdminDisplayName             string
+	AdminEmail                   string
+	AdminPassword                string
+	AdminSessionSecret           string
+	BookingSlotCapacity          int
+	VAPIDPublicKey               string
+	VAPIDPrivateKey              string
+	LineChannelToken             string
+	LineBookingRichMenuID        string
+	LineBookingSuccessRichMenuID string
+	AllowedOrigins               []string
 }
 
 func Load() Config {
@@ -55,10 +58,13 @@ func Load() Config {
 			DB:       getEnvInt("REDIS_DB", 0),
 			URL:      os.Getenv("REDIS_URL"),
 		},
-		BookingSlotCapacity: getEnvInt("BOOKING_SLOT_CAPACITY", 3),
-		VAPIDPublicKey:      os.Getenv("VAPID_PUBLIC_KEY"),
-		VAPIDPrivateKey:     os.Getenv("VAPID_PRIVATE_KEY"),
-		AllowedOrigins:      parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", publicURL+","+adminURL)),
+		BookingSlotCapacity:          getEnvInt("BOOKING_SLOT_CAPACITY", 3),
+		VAPIDPublicKey:               os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey:              os.Getenv("VAPID_PRIVATE_KEY"),
+		LineChannelToken:             os.Getenv("LINE_CHANNEL_ACCESS_TOKEN"),
+		LineBookingRichMenuID:        os.Getenv("LINE_RICH_MENU_BOOKING_ID"),
+		LineBookingSuccessRichMenuID: os.Getenv("LINE_RICH_MENU_BOOKING_SUCCESS_ID"),
+		AllowedOrigins:               parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", publicURL+","+adminURL)),
 	}
 }
 
