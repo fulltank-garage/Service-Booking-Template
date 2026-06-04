@@ -9,5 +9,3 @@ export const httpClient = axios.create({
     'Content-Type': 'application/json',
   },
 })
-
-export const isApiFallbackEnabled = import.meta.env.VITE_ENABLE_MOCK_FALLBACK !== 'false'
