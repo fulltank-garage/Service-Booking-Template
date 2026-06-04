@@ -19,5 +19,14 @@ func OpenPostgres(databaseURL string) (*gorm.DB, error) {
 }
 
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(&models.Service{}, &models.Staff{}, &models.Booking{}, &models.Notification{}, &models.PushSubscription{})
+	return db.AutoMigrate(
+		&models.AdminUser{},
+		&models.AdminSessionRecord{},
+		&models.Service{},
+		&models.Staff{},
+		&models.Booking{},
+		&models.BookingSettings{},
+		&models.Notification{},
+		&models.PushSubscription{},
+	)
 }

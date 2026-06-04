@@ -47,6 +47,14 @@ type AvailabilitySlot struct {
 	Available bool   `json:"available"`
 }
 
+type BookingSettingsInput struct {
+	OpenTime            string `json:"openTime"`
+	CloseTime           string `json:"closeTime"`
+	SlotIntervalMinutes int    `json:"slotIntervalMinutes"`
+	SlotCapacity        int    `json:"slotCapacity"`
+	ClosedWeekdays      string `json:"closedWeekdays"`
+}
+
 type BookingNotifier interface {
 	BookingCreated(ctx context.Context, booking models.Booking) error
 	BookingUpdated(ctx context.Context, booking models.Booking) error
@@ -134,25 +142,60 @@ func (service *BookingService) DeleteService(ctx context.Context, id string) err
 	return service.store.DeleteService(ctx, strings.TrimSpace(id))
 }
 
+func (service *BookingService) GetBookingSettings(ctx context.Context) (models.BookingSettings, error) {
+	settings, err := service.loadBookingSettings(ctx)
+	if err != nil {
+		return models.BookingSettings{}, err
+	}
+	return settings, nil
+}
+
+func (service *BookingService) SaveBookingSettings(ctx context.Context, input BookingSettingsInput) (models.BookingSettings, error) {
+	settings := normalizeBookingSettingsInput(input, service.capacity)
+	if err := validateBookingSettings(settings); err != nil {
+		return models.BookingSettings{}, err
+	}
+	if err := service.store.SaveBookingSettings(ctx, &settings); err != nil {
+		return models.BookingSettings{}, err
+	}
+	return settings, nil
+}
+
 func (service *BookingService) ListAvailability(ctx context.Context, serviceID string, date string) ([]AvailabilitySlot, error) {
 	if strings.TrimSpace(serviceID) == "" {
 		return nil, ErrServiceRequired
 	}
-	if _, err := time.Parse("2006-01-02", date); err != nil {
+	bookingDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
 		return nil, fmt.Errorf("%w: bookingDate", ErrInvalidBooking)
 	}
 	if _, err := service.store.FindServiceByID(ctx, serviceID); err != nil {
 		return nil, err
 	}
+	settings, err := service.loadBookingSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if isClosedWeekday(settings.ClosedWeekdays, bookingDate.Weekday()) {
+		return []AvailabilitySlot{}, nil
+	}
 
-	slots := businessSlots()
+	slots, err := businessSlots(settings)
+	if err != nil {
+		return nil, err
+	}
 	availability := make([]AvailabilitySlot, 0, len(slots))
 	for _, slot := range slots {
 		count, err := service.store.CountBookingsForSlot(ctx, serviceID, date, slot)
 		if err != nil {
 			return nil, err
 		}
-		availability = append(availability, AvailabilitySlot{Time: slot, Booked: count, Capacity: service.capacity, Available: count < int64(service.capacity)})
+		availability = append(availability, AvailabilitySlot{
+			Time:      slot,
+			Booked:    count,
+			Capacity:  settings.SlotCapacity,
+			Available: count < int64(settings.SlotCapacity),
+		})
 	}
 	return availability, nil
 }
@@ -163,11 +206,29 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 		return models.Booking{}, err
 	}
 
+	settings, err := service.loadBookingSettings(ctx)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	bookingDate, err := time.Parse("2006-01-02", input.BookingDate)
+	if err != nil {
+		return models.Booking{}, fmt.Errorf("%w: bookingDate", ErrInvalidBooking)
+	}
+	if isClosedWeekday(settings.ClosedWeekdays, bookingDate.Weekday()) {
+		return models.Booking{}, ErrSlotUnavailable
+	}
+	slots, err := businessSlots(settings)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	if !containsSlot(slots, input.SlotTime) {
+		return models.Booking{}, ErrSlotUnavailable
+	}
 	booked, err := service.store.CountBookingsForSlot(ctx, input.ServiceID, input.BookingDate, input.SlotTime)
 	if err != nil {
 		return models.Booking{}, err
 	}
-	if booked >= int64(service.capacity) {
+	if booked >= int64(settings.SlotCapacity) {
 		return models.Booking{}, ErrSlotUnavailable
 	}
 	serviceItem, err := service.store.FindServiceByID(ctx, input.ServiceID)
@@ -199,6 +260,14 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 		}
 	}
 	return booking, nil
+}
+
+func (service *BookingService) loadBookingSettings(ctx context.Context) (models.BookingSettings, error) {
+	settings, err := service.store.GetBookingSettings(ctx)
+	if err != nil {
+		return models.BookingSettings{}, err
+	}
+	return normalizeBookingSettings(settings, service.capacity), nil
 }
 
 func (service *BookingService) ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error) {
@@ -273,13 +342,102 @@ func validateBookingInput(input CreateBookingInput) error {
 	return nil
 }
 
-func businessSlots() []string {
-	slots := make([]string, 0, 16)
-	start := time.Date(2000, 1, 1, 9, 0, 0, 0, time.UTC)
-	for i := 0; i < 16; i++ {
-		slots = append(slots, start.Add(time.Duration(i)*30*time.Minute).Format("15:04"))
+func normalizeBookingSettingsInput(input BookingSettingsInput, fallbackCapacity int) models.BookingSettings {
+	return normalizeBookingSettings(models.BookingSettings{
+		OpenTime:            input.OpenTime,
+		CloseTime:           input.CloseTime,
+		SlotIntervalMinutes: input.SlotIntervalMinutes,
+		SlotCapacity:        input.SlotCapacity,
+		ClosedWeekdays:      input.ClosedWeekdays,
+	}, fallbackCapacity)
+}
+
+func normalizeBookingSettings(settings models.BookingSettings, fallbackCapacity int) models.BookingSettings {
+	settings.OpenTime = strings.TrimSpace(settings.OpenTime)
+	settings.CloseTime = strings.TrimSpace(settings.CloseTime)
+	settings.ClosedWeekdays = strings.TrimSpace(settings.ClosedWeekdays)
+	if settings.OpenTime == "" {
+		settings.OpenTime = "09:00"
 	}
-	return slots
+	if settings.CloseTime == "" {
+		settings.CloseTime = "17:00"
+	}
+	if settings.SlotIntervalMinutes <= 0 {
+		settings.SlotIntervalMinutes = 30
+	}
+	if settings.SlotCapacity <= 0 {
+		if fallbackCapacity <= 0 {
+			fallbackCapacity = 1
+		}
+		settings.SlotCapacity = fallbackCapacity
+	}
+	return settings
+}
+
+func validateBookingSettings(settings models.BookingSettings) error {
+	openAt, err := parseClock(settings.OpenTime)
+	if err != nil {
+		return fmt.Errorf("%w: openTime", ErrInvalidBooking)
+	}
+	closeAt, err := parseClock(settings.CloseTime)
+	if err != nil {
+		return fmt.Errorf("%w: closeTime", ErrInvalidBooking)
+	}
+	if !closeAt.After(openAt) {
+		return fmt.Errorf("%w: closeTime", ErrInvalidBooking)
+	}
+	if settings.SlotIntervalMinutes < 5 || settings.SlotIntervalMinutes > 240 {
+		return fmt.Errorf("%w: slotIntervalMinutes", ErrInvalidBooking)
+	}
+	if settings.SlotCapacity <= 0 || settings.SlotCapacity > 100 {
+		return fmt.Errorf("%w: slotCapacity", ErrInvalidBooking)
+	}
+	for _, raw := range strings.Split(settings.ClosedWeekdays, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		if raw < "0" || raw > "6" {
+			return fmt.Errorf("%w: closedWeekdays", ErrInvalidBooking)
+		}
+	}
+	return nil
+}
+
+func businessSlots(settings models.BookingSettings) ([]string, error) {
+	if err := validateBookingSettings(settings); err != nil {
+		return nil, err
+	}
+	start, _ := parseClock(settings.OpenTime)
+	closeAt, _ := parseClock(settings.CloseTime)
+	slots := make([]string, 0, 16)
+	for current := start; current.Before(closeAt); current = current.Add(time.Duration(settings.SlotIntervalMinutes) * time.Minute) {
+		slots = append(slots, current.Format("15:04"))
+	}
+	return slots, nil
+}
+
+func parseClock(value string) (time.Time, error) {
+	return time.Parse("15:04", value)
+}
+
+func isClosedWeekday(value string, weekday time.Weekday) bool {
+	target := fmt.Sprintf("%d", int(weekday))
+	for _, raw := range strings.Split(value, ",") {
+		if strings.TrimSpace(raw) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func containsSlot(slots []string, slot string) bool {
+	for _, item := range slots {
+		if item == slot {
+			return true
+		}
+	}
+	return false
 }
 
 func bookingCode(date string) string {

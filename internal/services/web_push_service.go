@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,6 +21,20 @@ type PushMessage struct {
 
 type PushSender interface {
 	Send(ctx context.Context, subscription models.PushSubscription, message PushMessage) error
+}
+
+var ErrExpiredPushSubscription = errors.New("expired push subscription")
+
+type PushError struct {
+	StatusCode int
+}
+
+func (err *PushError) Error() string {
+	return fmt.Sprintf("web push response status %d", err.StatusCode)
+}
+
+func (err *PushError) Is(target error) bool {
+	return target == ErrExpiredPushSubscription && (err.StatusCode == 404 || err.StatusCode == 410)
 }
 
 type WebPushSender struct {
@@ -71,7 +86,7 @@ func (sender *WebPushSender) Send(ctx context.Context, subscription models.PushS
 		_, _ = io.Copy(io.Discard, response.Body)
 		_ = response.Body.Close()
 		if response.StatusCode >= 400 {
-			return fmt.Errorf("web push response status %d", response.StatusCode)
+			return &PushError{StatusCode: response.StatusCode}
 		}
 	}
 	if err != nil {

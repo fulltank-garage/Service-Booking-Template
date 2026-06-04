@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
@@ -134,6 +135,11 @@ func (service *NotificationService) sendPush(ctx context.Context, notification m
 	for _, subscription := range subscriptions {
 		if err := service.push.Send(ctx, subscription, message); err != nil {
 			log.Printf("send push subscription %s: %v", subscription.Endpoint, err)
+			if errors.Is(err, ErrExpiredPushSubscription) {
+				if deleteErr := service.store.DeletePushSubscription(ctx, subscription.Endpoint); deleteErr != nil {
+					log.Printf("delete expired push subscription %s: %v", subscription.Endpoint, deleteErr)
+				}
+			}
 		}
 	}
 }

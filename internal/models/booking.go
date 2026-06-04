@@ -26,3 +26,12 @@ type BookingFilter struct {
 	Date   string
 	Limit  int
 }
+
+type BookingSettings struct {
+	BaseModel
+	OpenTime            string `json:"openTime" gorm:"size:5;not null;default:'09:00'"`
+	CloseTime           string `json:"closeTime" gorm:"size:5;not null;default:'17:00'"`
+	SlotIntervalMinutes int    `json:"slotIntervalMinutes" gorm:"not null;default:30"`
+	SlotCapacity        int    `json:"slotCapacity" gorm:"not null;default:1"`
+	ClosedWeekdays      string `json:"closedWeekdays" gorm:"size:32;not null;default:''"`
+}

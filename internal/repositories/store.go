@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
 	"gorm.io/gorm"
@@ -13,16 +14,24 @@ type Store interface {
 	CreateService(ctx context.Context, service *models.Service) error
 	UpdateService(ctx context.Context, service *models.Service) error
 	DeleteService(ctx context.Context, id string) error
+	FindAdminUserByEmail(ctx context.Context, email string) (models.AdminUser, error)
+	CreateAdminUser(ctx context.Context, user *models.AdminUser) error
+	CreateAdminSession(ctx context.Context, session *models.AdminSessionRecord) error
+	FindAdminSessionByTokenHash(ctx context.Context, tokenHash string) (models.AdminSessionRecord, error)
+	RevokeAdminSession(ctx context.Context, tokenHash string) error
 	CountBookingsForSlot(ctx context.Context, serviceID string, date string, slotTime string) (int64, error)
 	CreateBooking(ctx context.Context, booking *models.Booking) error
 	LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error)
 	ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, id string, status string) (models.Booking, error)
+	GetBookingSettings(ctx context.Context) (models.BookingSettings, error)
+	SaveBookingSettings(ctx context.Context, settings *models.BookingSettings) error
 	CreateNotification(ctx context.Context, notification *models.Notification) error
 	ListNotifications(ctx context.Context, unreadOnly bool, limit int) ([]models.Notification, error)
 	MarkNotificationRead(ctx context.Context, id string) (models.Notification, error)
 	SavePushSubscription(ctx context.Context, subscription *models.PushSubscription) error
 	ListPushSubscriptions(ctx context.Context) ([]models.PushSubscription, error)
+	DeletePushSubscription(ctx context.Context, endpoint string) error
 }
 
 type GormStore struct {
@@ -62,6 +71,31 @@ func (store *GormStore) DeleteService(ctx context.Context, id string) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+func (store *GormStore) FindAdminUserByEmail(ctx context.Context, email string) (models.AdminUser, error) {
+	var user models.AdminUser
+	err := store.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	return user, err
+}
+
+func (store *GormStore) CreateAdminUser(ctx context.Context, user *models.AdminUser) error {
+	return store.db.WithContext(ctx).Create(user).Error
+}
+
+func (store *GormStore) CreateAdminSession(ctx context.Context, session *models.AdminSessionRecord) error {
+	return store.db.WithContext(ctx).Create(session).Error
+}
+
+func (store *GormStore) FindAdminSessionByTokenHash(ctx context.Context, tokenHash string) (models.AdminSessionRecord, error) {
+	var session models.AdminSessionRecord
+	err := store.db.WithContext(ctx).Preload("AdminUser").Where("token_hash = ?", tokenHash).First(&session).Error
+	return session, err
+}
+
+func (store *GormStore) RevokeAdminSession(ctx context.Context, tokenHash string) error {
+	now := time.Now().UTC()
+	return store.db.WithContext(ctx).Model(&models.AdminSessionRecord{}).Where("token_hash = ?", tokenHash).Update("revoked_at", &now).Error
 }
 
 func (store *GormStore) CountBookingsForSlot(ctx context.Context, serviceID string, date string, slotTime string) (int64, error) {
@@ -118,6 +152,20 @@ func (store *GormStore) UpdateBookingStatus(ctx context.Context, id string, stat
 	return booking, err
 }
 
+func (store *GormStore) GetBookingSettings(ctx context.Context) (models.BookingSettings, error) {
+	var settings models.BookingSettings
+	err := store.db.WithContext(ctx).First(&settings, "id = ?", "default").Error
+	if err == gorm.ErrRecordNotFound {
+		return models.BookingSettings{}, nil
+	}
+	return settings, err
+}
+
+func (store *GormStore) SaveBookingSettings(ctx context.Context, settings *models.BookingSettings) error {
+	settings.ID = "default"
+	return store.db.WithContext(ctx).Save(settings).Error
+}
+
 func (store *GormStore) CreateNotification(ctx context.Context, notification *models.Notification) error {
 	return store.db.WithContext(ctx).Create(notification).Error
 }
@@ -158,4 +206,8 @@ func (store *GormStore) ListPushSubscriptions(ctx context.Context) ([]models.Pus
 	var subscriptions []models.PushSubscription
 	err := store.db.WithContext(ctx).Order("created_at DESC").Find(&subscriptions).Error
 	return subscriptions, err
+}
+
+func (store *GormStore) DeletePushSubscription(ctx context.Context, endpoint string) error {
+	return store.db.WithContext(ctx).Where("endpoint = ?", endpoint).Delete(&models.PushSubscription{}).Error
 }

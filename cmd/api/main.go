@@ -42,7 +42,10 @@ func main() {
 	notifier := services.NewNotificationServiceWithPush(store, hub, redisClient, pushSender)
 	lineRichMenuService := services.NewLineRichMenuService(cfg.LineChannelToken, cfg.LineBookingSuccessRichMenuID)
 	bookingService := services.NewBookingService(store, notifier, lineRichMenuService, cfg.BookingSlotCapacity)
-	authService := services.NewAuthService(cfg.AdminDisplayName, cfg.AdminEmail, cfg.AdminPassword, cfg.AdminSessionSecret)
+	authService := services.NewAuthServiceWithStore(store, cfg.AdminDisplayName, cfg.AdminEmail, cfg.AdminPassword, cfg.AdminSessionSecret)
+	if err := authService.Bootstrap(context.Background()); err != nil {
+		log.Fatalf("bootstrap admin auth: %v", err)
+	}
 	if redisClient != nil {
 		go notifier.Subscribe(context.Background())
 	}
