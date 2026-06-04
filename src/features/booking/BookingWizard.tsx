@@ -254,6 +254,21 @@ export function BookingWizard({ lineProfile }: BookingWizardProps) {
               disabled={isLoadingServices}
               onChange={(event) => setSelectedServiceId(event.target.value)}
               displayEmpty
+              sx={{
+                bgcolor: 'background.default',
+                borderRadius: 2,
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#111827',
+                  borderWidth: 1.4,
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#FF008C',
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#FF008C',
+                  borderWidth: 2,
+                },
+              }}
             >
               <MenuItem value="" disabled>
                 เลือกบริการของคุณ
