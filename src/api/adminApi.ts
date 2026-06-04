@@ -5,6 +5,7 @@ import axios from 'axios'
 
 type AdminLoginResponse = {
   email: string
+  name: string
   token: string
   expiresAt: string
 }

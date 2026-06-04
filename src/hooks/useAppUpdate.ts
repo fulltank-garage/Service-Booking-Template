@@ -5,6 +5,7 @@ const updateCheckIntervalMs = 60_000
 
 export function useAppUpdate() {
   const [hasPendingAppUpdate, setHasPendingAppUpdate] = useState(false)
+  const [isInitialUpdateCheckDone, setIsInitialUpdateCheckDone] = useState(false)
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null)
   const watchedRegistrationsRef = useRef(new Set<ServiceWorkerRegistration>())
   const isApplyingRef = useRef(false)
@@ -72,16 +73,21 @@ export function useAppUpdate() {
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {
-      return undefined
+      const unsupportedTimer = window.setTimeout(() => setIsInitialUpdateCheckDone(true), 0)
+      return () => window.clearTimeout(unsupportedTimer)
     }
+
+    const initialCheckTimer = window.setTimeout(() => setIsInitialUpdateCheckDone(true), 1_800)
 
     navigator.serviceWorker
       .register(serviceWorkerPath, { scope: '/' })
       .then((registration) => {
         watchRegistration(registration)
-        return registration.update()
+        return registration.update().finally(() => {
+          window.setTimeout(() => setIsInitialUpdateCheckDone(true), 180)
+        })
       })
-      .catch(() => undefined)
+      .catch(() => setIsInitialUpdateCheckDone(true))
 
     const handleControllerChange = () => {
       if (isApplyingRef.current) {
@@ -104,6 +110,7 @@ export function useAppUpdate() {
     window.addEventListener('focus', handleActiveCheck)
 
     return () => {
+      window.clearTimeout(initialCheckTimer)
       window.clearInterval(timer)
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
       document.removeEventListener('visibilitychange', handleActiveCheck)
@@ -111,5 +118,5 @@ export function useAppUpdate() {
     }
   }, [checkForUpdate, watchRegistration])
 
-  return { applyAppUpdate, checkForUpdate, hasPendingAppUpdate }
+  return { applyAppUpdate, checkForUpdate, hasPendingAppUpdate, isInitialUpdateCheckDone }
 }

@@ -12,7 +12,13 @@ vi.stubGlobal('WebSocket', class {
 const renderPage = () =>
   render(
     <ThemeProvider theme={appTheme}>
-      <DashboardPage adminEmail="admin@example.com" onLogout={vi.fn()} />
+      <DashboardPage
+        adminEmail="admin@example.com"
+        adminName="FULLTANK Garage Admin"
+        applyAppUpdate={vi.fn()}
+        hasPendingAppUpdate={false}
+        onLogout={vi.fn()}
+      />
     </ThemeProvider>,
   )
 
@@ -20,7 +26,8 @@ describe('DashboardPage', () => {
   it('renders dashboard summary and booking table from fallback data', async () => {
     renderPage()
     expect(await screen.findByText('จัดการคิวจองบริการ')).toBeInTheDocument()
-    expect(await screen.findByText('รายการจองล่าสุด')).toBeInTheDocument()
-    expect(await screen.findByText('SB-20260610-1201')).toBeInTheDocument()
+    expect(await screen.findAllByText('FULLTANK Garage Admin')).not.toHaveLength(0)
+    expect(await screen.findByText('คิวทั้งหมด')).toBeInTheDocument()
+    expect(screen.queryByText('รายการจองล่าสุด')).not.toBeInTheDocument()
   })
 })

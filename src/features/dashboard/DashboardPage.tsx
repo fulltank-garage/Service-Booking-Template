@@ -6,10 +6,14 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Drawer,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   Select,
   Skeleton,
@@ -24,6 +28,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -33,11 +38,9 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import RoomServiceIcon from '@mui/icons-material/RoomService'
-import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
-import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
+import SearchIcon from '@mui/icons-material/Search'
 import { adminApi } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
-import { useAppUpdate } from '../../hooks/useAppUpdate'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
 import type { AdminNotification, Booking, BookingStatus, ServiceItem } from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
@@ -56,14 +59,20 @@ const pageLabels = {
   services: 'บริการของร้าน',
 } as const
 
+const formatThaiPrice = (priceCents: number) =>
+  new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(priceCents / 100)
+
 type AdminPage = keyof typeof pageLabels
 
 type DashboardPageProps = {
   adminEmail: string
+  adminName: string
+  applyAppUpdate: () => void
+  hasPendingAppUpdate: boolean
   onLogout: () => void
 }
 
-export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
+export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendingAppUpdate, onLogout }: DashboardPageProps) {
   const [activePage, setActivePage] = useState<AdminPage>('overview')
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -73,7 +82,6 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting')
   const [latestRealtimeAt, setLatestRealtimeAt] = useState<Date | null>(null)
   const [notice, setNotice] = useState('')
-  const { applyAppUpdate, hasPendingAppUpdate } = useAppUpdate()
 
   const loadData = useCallback(async () => {
     setIsLoading((bookings.length === 0 && notifications.length === 0) || false)
@@ -167,6 +175,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
       <MobileNavDrawer
         activePage={activePage}
         adminEmail={adminEmail}
+        adminName={adminName}
         hasPendingAppUpdate={hasPendingAppUpdate}
         latestRealtimeAt={latestRealtimeAt}
         open={isNavOpen}
@@ -181,6 +190,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
         <Sidebar
           activePage={activePage}
           adminEmail={adminEmail}
+          adminName={adminName}
           hasPendingAppUpdate={hasPendingAppUpdate}
           latestRealtimeAt={latestRealtimeAt}
           realtimeStatus={realtimeStatus}
@@ -207,12 +217,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
             ) : (
               <>
                 {activePage === 'overview' && (
-                  <OverviewPage
-                    bookings={bookings}
-                    notifications={notifications}
-                    summary={summary}
-                    onStatusChange={handleStatusChange}
-                  />
+                  <OverviewPage summary={summary} />
                 )}
                 {activePage === 'bookings' && (
                   <BookingsPage bookings={bookings} onStatusChange={handleStatusChange} />
@@ -369,6 +374,7 @@ function AppNoticeSnackbar({ message, onClose }: { message: string; onClose: () 
 function MobileNavDrawer({
   activePage,
   adminEmail,
+  adminName,
   hasPendingAppUpdate,
   latestRealtimeAt,
   open,
@@ -380,6 +386,7 @@ function MobileNavDrawer({
 }: {
   activePage: AdminPage
   adminEmail: string
+  adminName: string
   hasPendingAppUpdate: boolean
   latestRealtimeAt: Date | null
   open: boolean
@@ -409,6 +416,7 @@ function MobileNavDrawer({
       <SidebarContent
         activePage={activePage}
         adminEmail={adminEmail}
+        adminName={adminName}
         compact={false}
         hasPendingAppUpdate={hasPendingAppUpdate}
         headerAction={
@@ -433,6 +441,7 @@ function MobileNavDrawer({
 function Sidebar({
   activePage,
   adminEmail,
+  adminName,
   hasPendingAppUpdate,
   latestRealtimeAt,
   realtimeStatus,
@@ -442,6 +451,7 @@ function Sidebar({
 }: {
   activePage: AdminPage
   adminEmail: string
+  adminName: string
   hasPendingAppUpdate: boolean
   latestRealtimeAt: Date | null
   realtimeStatus: RealtimeStatus
@@ -468,6 +478,7 @@ function Sidebar({
       <SidebarContent
         activePage={activePage}
         adminEmail={adminEmail}
+        adminName={adminName}
         compact={false}
         hasPendingAppUpdate={hasPendingAppUpdate}
         latestRealtimeAt={latestRealtimeAt}
@@ -483,6 +494,7 @@ function Sidebar({
 function SidebarContent({
   activePage,
   adminEmail,
+  adminName,
   compact,
   hasPendingAppUpdate,
   headerAction,
@@ -494,6 +506,7 @@ function SidebarContent({
 }: {
   activePage: AdminPage
   adminEmail: string
+  adminName: string
   compact: boolean
   hasPendingAppUpdate: boolean
   headerAction?: ReactNode
@@ -582,125 +595,142 @@ function SidebarContent({
         })}
       </Stack>
       <Box sx={{ flex: 1 }} />
-      <Stack spacing={1}>
-        <SidebarStatusPanel latestRealtimeAt={latestRealtimeAt} status={realtimeStatus} />
-        <SidebarUpdatePanel hasPendingAppUpdate={hasPendingAppUpdate} onApplyAppUpdate={onApplyAppUpdate} />
-        <Typography
-          variant="body2"
-          sx={{ color: 'text.secondary', display: compact ? 'none' : 'block', fontWeight: 760, wordBreak: 'break-word' }}
-        >
-          {adminEmail}
-        </Typography>
-        <Tooltip title={compact ? 'ออกจากระบบ' : ''} placement="right">
-          <Button
-            variant="outlined"
-            onClick={onLogout}
-            startIcon={<LogoutIcon />}
-            aria-label="ออกจากระบบ"
-            sx={{
-              justifyContent: compact ? 'center' : 'flex-start',
-              minWidth: 0,
-              px: compact ? 0 : 2.25,
-              '& .MuiButton-startIcon': {
-                mr: compact ? 0 : 1,
-                ml: 0,
-              },
-            }}
-          >
-            <Box component="span" sx={{ display: compact ? 'none' : 'inline' }}>
-              ออกจากระบบ
-            </Box>
-          </Button>
-        </Tooltip>
-      </Stack>
+      <AdminProfilePanel
+        adminEmail={adminEmail}
+        adminName={adminName}
+        hasPendingAppUpdate={hasPendingAppUpdate}
+        latestRealtimeAt={latestRealtimeAt}
+        onApplyAppUpdate={onApplyAppUpdate}
+        onLogout={onLogout}
+        realtimeStatus={realtimeStatus}
+      />
     </Stack>
   )
 }
 
-function SidebarStatusPanel({
+function AdminProfilePanel({
+  adminEmail,
+  adminName,
+  hasPendingAppUpdate,
   latestRealtimeAt,
-  status,
+  onApplyAppUpdate,
+  onLogout,
+  realtimeStatus,
 }: {
+  adminEmail: string
+  adminName: string
+  hasPendingAppUpdate: boolean
   latestRealtimeAt: Date | null
-  status: RealtimeStatus
+  onApplyAppUpdate: () => void
+  onLogout: () => void
+  realtimeStatus: RealtimeStatus
 }) {
   const statusLabel: Record<RealtimeStatus, string> = {
-    connected: 'เชื่อมต่อข้อมูลสด',
+    connected: 'เชื่อมต่อข้อมูลล่าสุด',
     connecting: 'กำลังเชื่อมต่อ',
     reconnecting: 'กำลังเชื่อมต่อใหม่',
     off: 'ปิดข้อมูลสด',
   }
-  const statusColor = status === 'connected' ? 'primary.main' : status === 'off' ? 'divider' : 'secondary.main'
+  const statusColor = realtimeStatus === 'connected' ? '#10B981' : realtimeStatus === 'off' ? '#6B7280' : 'secondary.main'
   const latestLabel = latestRealtimeAt
     ? new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(latestRealtimeAt)
-    : 'ยังไม่มีข้อมูล'
+    : 'ยังไม่มีข้อมูลอัปเดต'
 
-  return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5, bgcolor: 'background.default' }}>
-      <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
-        <WifiTetheringIcon sx={{ color: statusColor, fontSize: 20, mt: 0.2 }} />
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 850, lineHeight: 1.2 }}>
-            {statusLabel[status]}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            ข้อมูลล่าสุด {latestLabel}
-          </Typography>
-        </Box>
-      </Stack>
-    </Box>
-  )
-}
-
-function SidebarUpdatePanel({
-  hasPendingAppUpdate,
-  onApplyAppUpdate,
-}: {
-  hasPendingAppUpdate: boolean
-  onApplyAppUpdate: () => void
-}) {
   return (
     <Box
       sx={{
         border: '1px solid',
-        borderColor: hasPendingAppUpdate ? 'primary.main' : 'divider',
-        borderRadius: 2,
-        p: 1.5,
-        bgcolor: hasPendingAppUpdate ? '#F3F4F6' : 'background.default',
+        borderColor: 'rgba(255,255,255,0.14)',
+        borderRadius: 3,
+        bgcolor: '#1F1F1F',
+        color: '#FFFFFF',
+        p: 2,
       }}
     >
-      <Stack spacing={1.2}>
-        <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
-          <SystemUpdateAltIcon sx={{ color: hasPendingAppUpdate ? 'primary.main' : 'text.primary', fontSize: 20, mt: 0.2 }} />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="body2" sx={{ fontWeight: 850, lineHeight: 1.2 }}>
-              อัปเดตแอป
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {hasPendingAppUpdate ? 'มีเวอร์ชันใหม่พร้อมใช้งาน' : 'กำลังใช้เวอร์ชันล่าสุด'}
-            </Typography>
-          </Box>
-        </Stack>
-        {hasPendingAppUpdate && (
-          <Button fullWidth variant="contained" onClick={onApplyAppUpdate}>
-            อัปเดตตอนนี้
-          </Button>
-        )}
+      <Stack spacing={1.6}>
+        <Box>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 950, lineHeight: 1.2 }}>{adminName}</Typography>
+          <Typography sx={{ mt: 0.45, color: 'rgba(255,255,255,0.55)', fontSize: '0.84rem', fontWeight: 800, wordBreak: 'break-word' }}>
+            {adminEmail}
+          </Typography>
+        </Box>
+
+        <Box sx={{ border: '1px solid', borderColor: 'rgba(255,255,255,0.10)', borderRadius: 2.5, p: 1.5, bgcolor: '#080205' }}>
+          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
+            <Box sx={{ mt: 0.55, width: 10, height: 10, borderRadius: '50%', bgcolor: statusColor, flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'rgba(255,255,255,0.88)', lineHeight: 1.25 }}>
+                {statusLabel[realtimeStatus]}
+              </Typography>
+              <Typography sx={{ mt: 0.7, color: 'rgba(255,255,255,0.44)', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.5 }}>
+                ข้อมูลล่าสุด {latestLabel}
+              </Typography>
+            </Box>
+          </Stack>
+        </Box>
+
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: hasPendingAppUpdate ? 'rgba(255,0,140,0.36)' : 'rgba(255,255,255,0.10)',
+            borderRadius: 2.5,
+            p: 1.5,
+            bgcolor: hasPendingAppUpdate ? 'rgba(255,0,140,0.10)' : '#080205',
+          }}
+        >
+          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'flex-start' }}>
+            <Box
+              className={hasPendingAppUpdate ? 'app-update-pulse' : undefined}
+              sx={{
+                mt: 0.55,
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                bgcolor: hasPendingAppUpdate ? 'primary.main' : 'rgba(255,255,255,0.22)',
+                flexShrink: 0,
+              }}
+            />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: '0.88rem', fontWeight: 950, color: 'rgba(255,255,255,0.88)', lineHeight: 1.25 }}>
+                อัปเดตแอป
+              </Typography>
+              <Typography sx={{ mt: 0.7, color: 'rgba(255,255,255,0.44)', fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.5 }}>
+                {hasPendingAppUpdate ? 'มีเวอร์ชันใหม่พร้อมใช้งาน' : 'กำลังใช้เวอร์ชันล่าสุด'}
+              </Typography>
+            </Box>
+          </Stack>
+          {hasPendingAppUpdate && (
+            <Button fullWidth variant="contained" onClick={onApplyAppUpdate} sx={{ mt: 1.4 }}>
+              อัพเดตเลย
+            </Button>
+          )}
+        </Box>
+
+        <Button
+          fullWidth
+          onClick={onLogout}
+          startIcon={<LogoutIcon />}
+          variant="outlined"
+          sx={{
+            borderColor: 'rgba(255,255,255,0.14)',
+            color: 'rgba(255,255,255,0.78)',
+            bgcolor: 'transparent',
+            '&:hover': {
+              borderColor: 'rgba(255,255,255,0.24)',
+              bgcolor: 'rgba(255,255,255,0.04)',
+            },
+          }}
+        >
+          ออกจากระบบ
+        </Button>
       </Stack>
     </Box>
   )
 }
-
 function OverviewPage({
-  bookings,
-  notifications,
   summary,
-  onStatusChange,
 }: {
-  bookings: Booking[]
-  notifications: AdminNotification[]
   summary: { pending: number; confirmed: number; unread: number; total: number }
-  onStatusChange: (booking: Booking, status: BookingStatus) => void
 }) {
   return (
     <Stack spacing={2.5}>
@@ -709,15 +739,6 @@ function OverviewPage({
         <SummaryCard icon={<CheckCircleIcon />} label="ยืนยันแล้ว" value={summary.confirmed} color="#111827" />
         <SummaryCard icon={<CalendarMonthIcon />} label="คิวทั้งหมด" value={summary.total} color="#FF008C" />
         <SummaryCard icon={<NotificationsIcon />} label="แจ้งเตือนยังไม่อ่าน" value={summary.unread} color="#111827" />
-      </Grid>
-
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <BookingsCard bookings={bookings.slice(0, 5)} onStatusChange={onStatusChange} />
-        </Grid>
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <NotificationsCard notifications={notifications.slice(0, 5)} />
-        </Grid>
       </Grid>
     </Stack>
   )
@@ -740,6 +761,8 @@ function ServicesPage({
   services: ServiceItem[]
   onAddService: (service: ServiceItem) => void
 }) {
+  const [query, setQuery] = useState('')
+  const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [nameTh, setNameTh] = useState('')
   const [priceBaht, setPriceBaht] = useState('')
   const [durationMinutes, setDurationMinutes] = useState('')
@@ -747,8 +770,29 @@ function ServicesPage({
 
   const canAdd = Boolean(nameTh.trim() && Number(priceBaht) >= 0 && Number(durationMinutes) > 0)
 
-  const formatPrice = (priceCents: number) =>
-    new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(priceCents / 100)
+  const filteredServices = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    if (!term) return services
+
+    return services.filter((service) =>
+      [service.nameTh, service.nameEn, service.descriptionTh, service.durationMinutes.toString(), formatThaiPrice(service.priceCents)]
+        .join(' ')
+        .toLowerCase()
+        .includes(term),
+    )
+  }, [query, services])
+
+  const resetForm = () => {
+    setNameTh('')
+    setPriceBaht('')
+    setDurationMinutes('')
+    setDescriptionTh('')
+  }
+
+  const closeEditor = () => {
+    setIsEditorOpen(false)
+    resetForm()
+  }
 
   const handleAddService = () => {
     if (!canAdd) return
@@ -763,83 +807,59 @@ function ServicesPage({
       accentColor: '#FF008C',
       isActive: true,
     })
-    setNameTh('')
-    setPriceBaht('')
-    setDurationMinutes('')
-    setDescriptionTh('')
+    closeEditor()
   }
 
   return (
-    <Grid container spacing={2.5}>
-      <Grid size={{ xs: 12, lg: 4 }}>
-        <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h2" sx={{ mb: 2 }}>
-              เพิ่มบริการ
-            </Typography>
-            <Stack spacing={2}>
-              <TextField
-                fullWidth
-                label="ชื่อบริการ"
-                value={nameTh}
-                onChange={(event) => setNameTh(event.target.value)}
-              />
-              <Grid container spacing={1.5}>
-                <Grid size={{ xs: 12, sm: 6, lg: 12 }}>
-                  <TextField
-                    fullWidth
-                    label="ราคา"
-                    type="number"
-                    value={priceBaht}
-                    onChange={(event) => setPriceBaht(event.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, lg: 12 }}>
-                  <TextField
-                    fullWidth
-                    label="เวลาที่ใช้ (นาที)"
-                    type="number"
-                    value={durationMinutes}
-                    onChange={(event) => setDurationMinutes(event.target.value)}
-                  />
-                </Grid>
-              </Grid>
-              <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                label="รายละเอียดบริการ"
-                value={descriptionTh}
-                onChange={(event) => setDescriptionTh(event.target.value)}
-              />
-              <Button variant="contained" onClick={handleAddService} disabled={!canAdd}>
-                เพิ่มรายการบริการ
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-      </Grid>
+    <>
+      <Stack spacing={2.5}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.5}
+          sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
+        >
+          <TextField
+            placeholder="ค้นหาบริการ"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            sx={{ width: { xs: '100%', sm: 360 } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsEditorOpen(true)}>
+            เพิ่มบริการ
+          </Button>
+        </Stack>
 
-      <Grid size={{ xs: 12, lg: 8 }}>
         <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
           <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-            <Typography variant="h2" sx={{ mb: 2 }}>
-              รายการบริการของร้าน
-            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+              <Typography variant="h2">รายการบริการของร้าน</Typography>
+              <Chip color="secondary" label={`${filteredServices.length} รายการ`} />
+            </Stack>
+
             <Stack spacing={1.5} sx={{ display: { xs: 'flex', sm: 'none' } }}>
-              {services.map((service) => (
+              {filteredServices.map((service) => (
                 <Box
                   key={service.id}
                   sx={{
                     border: '1px solid',
                     borderColor: 'divider',
-                    borderRadius: 2,
+                    borderRadius: 2.5,
                     p: 1.5,
+                    bgcolor: 'background.default',
                   }}
                 >
                   <Stack spacing={1.25}>
                     <Box>
-                      <Typography sx={{ fontWeight: 850 }}>{service.nameTh}</Typography>
+                      <Typography sx={{ fontWeight: 900 }}>{service.nameTh}</Typography>
                       <Typography variant="body2" color="text.secondary">
                         {service.descriptionTh || service.nameEn}
                       </Typography>
@@ -849,23 +869,26 @@ function ServicesPage({
                         <Typography variant="caption" color="text.secondary">
                           ราคา
                         </Typography>
-                        <Typography sx={{ fontWeight: 800 }}>{formatPrice(service.priceCents)}</Typography>
+                        <Typography sx={{ fontWeight: 850 }}>{formatThaiPrice(service.priceCents)}</Typography>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
                           เวลา
                         </Typography>
-                        <Typography sx={{ fontWeight: 800 }}>{service.durationMinutes} นาที</Typography>
+                        <Typography sx={{ fontWeight: 850 }}>{service.durationMinutes} นาที</Typography>
                       </Box>
-                      <Chip
-                        color={service.isActive ? 'secondary' : 'default'}
-                        label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                      />
+                      <Chip color={service.isActive ? 'secondary' : 'default'} label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} />
                     </Stack>
                   </Stack>
                 </Box>
               ))}
+              {filteredServices.length === 0 && (
+                <Typography sx={{ py: 4, textAlign: 'center', color: 'text.secondary', fontWeight: 800 }}>
+                  {services.length === 0 ? 'ยังไม่มีรายการบริการ' : 'ไม่พบบริการที่ค้นหา'}
+                </Typography>
+              )}
             </Stack>
+
             <TableContainer sx={{ display: { xs: 'none', sm: 'block' } }}>
               <Table aria-label="service table">
                 <TableHead>
@@ -877,31 +900,95 @@ function ServicesPage({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {services.map((service) => (
+                  {filteredServices.map((service) => (
                     <TableRow key={service.id}>
                       <TableCell>
-                        <Typography sx={{ fontWeight: 800 }}>{service.nameTh}</Typography>
+                        <Typography sx={{ fontWeight: 850 }}>{service.nameTh}</Typography>
                         <Typography variant="body2" color="text.secondary">
                           {service.descriptionTh || service.nameEn}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 760 }}>{formatPrice(service.priceCents)}</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>{formatThaiPrice(service.priceCents)}</TableCell>
                       <TableCell>{service.durationMinutes} นาที</TableCell>
                       <TableCell>
-                        <Chip
-                          color={service.isActive ? 'secondary' : 'default'}
-                          label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                        />
+                        <Chip color={service.isActive ? 'secondary' : 'default'} label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} />
                       </TableCell>
                     </TableRow>
                   ))}
+                  {filteredServices.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} sx={{ py: 5, textAlign: 'center', color: 'text.secondary', fontWeight: 800 }}>
+                        {services.length === 0 ? 'ยังไม่มีรายการบริการ' : 'ไม่พบบริการที่ค้นหา'}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
           </CardContent>
         </Card>
-      </Grid>
-    </Grid>
+      </Stack>
+
+      <Dialog
+        fullWidth
+        maxWidth="sm"
+        open={isEditorOpen}
+        onClose={closeEditor}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 24px 70px rgba(17, 24, 39, 0.18)',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1, fontWeight: 950 }}>เพิ่มบริการ</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField fullWidth label="ชื่อบริการ" value={nameTh} onChange={(event) => setNameTh(event.target.value)} />
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="ราคา"
+                  type="number"
+                  value={priceBaht}
+                  onChange={(event) => setPriceBaht(event.target.value)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="เวลาที่ใช้ (นาที)"
+                  type="number"
+                  value={durationMinutes}
+                  onChange={(event) => setDurationMinutes(event.target.value)}
+                />
+              </Grid>
+            </Grid>
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              label="รายละเอียดบริการ"
+              value={descriptionTh}
+              onChange={(event) => setDescriptionTh(event.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button variant="outlined" onClick={closeEditor}>
+            ยกเลิก
+          </Button>
+          <Button variant="contained" onClick={handleAddService} disabled={!canAdd}>
+            บันทึกบริการ
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   )
 }
 
@@ -967,34 +1054,6 @@ function BookingsCard({
   )
 }
 
-function NotificationsCard({ notifications }: { notifications: AdminNotification[] }) {
-  return (
-    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
-      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-        <Typography variant="h2" sx={{ mb: 2 }}>
-          รายการแจ้งเตือน
-        </Typography>
-        <Stack spacing={2}>
-          {notifications.map((notification, index) => (
-            <Box key={notification.id}>
-              <Stack spacing={0.8}>
-                <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between' }}>
-                  <Typography sx={{ fontWeight: 820 }}>{notification.title}</Typography>
-                  {!notification.isRead && <Chip size="small" color="secondary" label="ใหม่" />}
-                </Stack>
-                <Typography variant="body2" color="text.secondary">
-                  {notification.body}
-                </Typography>
-              </Stack>
-              {index < notifications.length - 1 && <Divider sx={{ mt: 2 }} />}
-            </Box>
-          ))}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
-
 function DashboardSkeleton({ activePage }: { activePage: AdminPage }) {
   if (activePage === 'services') {
     return <ServicesSkeleton />
@@ -1022,14 +1081,6 @@ function DashboardSkeleton({ activePage }: { activePage: AdminPage }) {
             </Card>
           </Grid>
         ))}
-      </Grid>
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <TableSkeleton />
-        </Grid>
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <NotificationsSkeleton />
-        </Grid>
       </Grid>
     </Stack>
   )
@@ -1075,25 +1126,6 @@ function TableSkeleton() {
               <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
               <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
               <Skeleton variant="rectangular" height={42} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-            </Box>
-          ))}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
-}
-
-function NotificationsSkeleton() {
-  return (
-    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
-      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-        <Skeleton variant="text" width={180} height={38} sx={{ mb: 2, bgcolor: 'divider' }} />
-        <Stack spacing={2}>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Box key={`notification-skeleton-${index}`}>
-              <Skeleton variant="text" width="75%" height={28} sx={{ bgcolor: 'divider' }} />
-              <Skeleton variant="text" width="100%" height={24} sx={{ bgcolor: 'divider' }} />
-              {index < 4 && <Divider sx={{ mt: 2 }} />}
             </Box>
           ))}
         </Stack>
