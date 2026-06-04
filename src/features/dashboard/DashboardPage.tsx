@@ -11,6 +11,7 @@ import {
   IconButton,
   InputAdornment,
   MenuItem,
+  Portal,
   Select,
   Skeleton,
   Stack,
@@ -77,6 +78,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [shouldShowDataSkeleton, setShouldShowDataSkeleton] = useState(false)
   const hasLoadedDataRef = useRef(false)
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting')
   const [latestRealtimeAt, setLatestRealtimeAt] = useState<Date | null>(null)
@@ -104,6 +106,11 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
       setIsLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShouldShowDataSkeleton(isLoading), isLoading ? 180 : 0)
+    return () => window.clearTimeout(timer)
+  }, [isLoading])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -207,15 +214,15 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           sx={{
             flex: 1,
             minWidth: 0,
-            px: { xs: 2, sm: 2.5, lg: 3.5 },
-            pt: { xs: 2, sm: 2.5, lg: '88px' },
-            pb: { xs: 2, sm: 2.5, lg: 3.5 },
+            px: { xs: 2.5, sm: 2.5, lg: 2.5 },
+            pt: { xs: 2.5, sm: 2.5, lg: '92px' },
+            pb: { xs: 2.5, sm: 2.5, lg: 2.5 },
           }}
         >
           <Stack spacing={2.5}>
             <PushNotificationPrompt onNotice={setNotice} />
 
-            {isLoading ? (
+            {isLoading && !shouldShowDataSkeleton ? null : shouldShowDataSkeleton ? (
               <DashboardSkeleton activePage={activePage} />
             ) : (
               <>
@@ -272,7 +279,7 @@ function AdminTopbar({
         direction="row"
         sx={{
           minHeight: 72,
-          px: { xs: 1.5, sm: 2.5, lg: 3.5 },
+          px: { xs: 2.5, sm: 2.5, lg: 2.5 },
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 2,
@@ -304,7 +311,7 @@ function AdminTopbar({
                 height: 10,
                 borderRadius: '50%',
                 bgcolor: 'secondary.main',
-                boxShadow: '0 0 0 4px rgba(245, 255, 0, 0.28)',
+                boxShadow: 'none',
               }}
             />
           )}
@@ -364,7 +371,7 @@ function AppNoticeSnackbar({ message, onClose }: { message: string; onClose: () 
         borderRadius: 2.5,
         px: 2,
         py: 1.35,
-        boxShadow: '0 14px 34px rgba(255, 0, 140, 0.24)',
+        boxShadow: 'none',
         textAlign: 'center',
         fontWeight: 850,
       }}
@@ -736,11 +743,11 @@ function AdminProfilePanel({
           variant="outlined"
           sx={{
             borderColor: '#DC2626',
-            color: '#DC2626',
-            bgcolor: 'transparent',
+            color: '#FFFFFF',
+            bgcolor: '#DC2626',
             '&:hover': {
               borderColor: '#B91C1C',
-              bgcolor: '#FEF2F2',
+              bgcolor: '#B91C1C',
             },
           }}
         >
@@ -845,7 +852,7 @@ function ServicesPage({
 
       <Box component="section" sx={{ pt: { xs: 9.5, lg: 10 } }}>
         <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+          <CardContent sx={{ p: 2.5 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
               <Typography variant="h2">รายการบริการของร้าน</Typography>
               <Chip color="secondary" label={`${filteredServices.length} รายการ`} />
@@ -1000,15 +1007,15 @@ function ManagementToolbar({
       sx={{
         position: 'fixed',
         top: { xs: 84, lg: 88 },
-        left: { xs: 16, sm: 20, lg: 312 },
-        right: { xs: 16, sm: 20, lg: 32 },
+        left: { xs: 20, sm: 20, lg: 300 },
+        right: { xs: 20, sm: 20, lg: 20 },
         zIndex: 25,
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 3,
         bgcolor: 'background.paper',
         p: 1.2,
-        boxShadow: '0 18px 48px rgba(17, 24, 39, 0.10)',
+        boxShadow: 'none',
       }}
     >
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0 }}>
@@ -1059,12 +1066,16 @@ function BottomEditorSheet({
   }, [isOpen])
 
   return (
-    <Box
-      aria-hidden={!isOpen}
-      sx={{
+    <Portal>
+      <Box
+        aria-hidden={!isOpen}
+        data-testid="service-editor-overlay"
+        sx={{
         position: 'fixed',
-        inset: 0,
-        left: { lg: 280 },
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
         zIndex: 1200,
         pointerEvents: isOpen ? 'auto' : 'none',
       }}
@@ -1076,10 +1087,12 @@ function BottomEditorSheet({
         onClick={onClose}
         sx={{
           position: 'absolute',
-          inset: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
           border: 0,
           bgcolor: 'rgba(17, 24, 39, 0.42)',
-          backdropFilter: 'blur(8px)',
           opacity: isOpen ? 1 : 0,
           transition: 'opacity 260ms ease',
         }}
@@ -1093,7 +1106,7 @@ function BottomEditorSheet({
           left: { xs: 12, sm: 24, lg: 32 },
           right: { xs: 12, sm: 24, lg: 32 },
           bottom: { xs: 12, sm: 24, lg: 32 },
-          top: { xs: 84, lg: 88 },
+          top: { xs: 20, lg: 20 },
           maxWidth: 720,
           mx: 'auto',
           display: 'flex',
@@ -1103,7 +1116,7 @@ function BottomEditorSheet({
           borderColor: 'divider',
           borderRadius: 3,
           bgcolor: 'background.paper',
-          boxShadow: '0 -28px 80px rgba(17, 24, 39, 0.22)',
+          boxShadow: 'none',
           transform: isOpen ? 'translateY(0)' : 'translateY(calc(100% + 6rem))',
           transition: 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)',
           willChange: 'transform',
@@ -1115,11 +1128,12 @@ function BottomEditorSheet({
             <CloseIcon />
           </IconButton>
         </Stack>
-        <Box sx={{ minHeight: 0, flex: 1, overflowY: 'auto', p: { xs: 2, sm: 2.5 } }}>
+        <Box sx={{ minHeight: 0, flex: 1, overflowY: 'auto', p: 2.5 }}>
           {children}
         </Box>
       </Box>
-    </Box>
+      </Box>
+    </Portal>
   )
 }
 
@@ -1132,7 +1146,7 @@ function BookingsCard({
 }) {
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+      <CardContent sx={{ p: 2.5 }}>
         <Typography variant="h2" sx={{ mb: 2 }}>
           รายการจองล่าสุด
         </Typography>
@@ -1224,15 +1238,15 @@ function ServicesSkeleton() {
         sx={{
           position: 'fixed',
           top: { xs: 84, lg: 88 },
-          left: { xs: 16, sm: 20, lg: 312 },
-          right: { xs: 16, sm: 20, lg: 32 },
+          left: { xs: 20, sm: 20, lg: 300 },
+          right: { xs: 20, sm: 20, lg: 20 },
           zIndex: 25,
           border: '1px solid',
           borderColor: 'divider',
           borderRadius: 3,
           bgcolor: 'background.paper',
           p: 1.2,
-          boxShadow: '0 18px 48px rgba(17, 24, 39, 0.10)',
+          boxShadow: 'none',
         }}
       >
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -1250,7 +1264,7 @@ function ServicesSkeleton() {
 function TableSkeleton({ columns = 5, rows = 6, titleWidth = 190 }: { columns?: number; rows?: number; titleWidth?: number } = {}) {
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+      <CardContent sx={{ p: 2.5 }}>
         <Skeleton variant="text" width={titleWidth} height={38} sx={{ mb: 2, bgcolor: 'divider' }} />
         <Stack spacing={1.5} sx={{ display: { xs: 'flex', sm: 'none' } }}>
           {Array.from({ length: Math.min(rows, 4) }).map((_, index) => (

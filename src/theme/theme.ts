@@ -35,7 +35,15 @@ export const appTheme = createTheme({
   components: {
     MuiButton: {
       styleOverrides: {
-        root: { borderRadius: 12, minHeight: 42, paddingInline: 18 },
+        root: {
+          borderRadius: 12,
+          minHeight: 42,
+          paddingInline: 18,
+          boxShadow: 'none',
+          '&:hover': { boxShadow: 'none' },
+          '&:active': { boxShadow: 'none' },
+          '&.Mui-focusVisible': { boxShadow: 'none' },
+        },
       },
     },
     MuiPaper: {
