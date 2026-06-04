@@ -1315,9 +1315,72 @@ function BookingsCard({
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
       <CardContent sx={{ p: 2.5 }}>
         <Typography variant="h2" sx={{ mb: 2 }}>
-          รายการจองล่าสุด
+          รายการจอง
         </Typography>
-        <TableContainer>
+
+        {bookings.length === 0 ? (
+          <Box
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2.5,
+              bgcolor: 'background.default',
+              py: 5,
+              px: 2,
+              textAlign: 'center',
+            }}
+          >
+            <Typography sx={{ fontWeight: 900, color: 'text.primary' }}>ยังไม่มีรายการจอง</Typography>
+          </Box>
+        ) : (
+          <>
+            <Stack data-testid="booking-mobile-list" spacing={1.5} sx={{ display: { xs: 'flex', sm: 'none' } }}>
+              {bookings.map((booking) => (
+                <Box
+                  key={booking.id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2.5,
+                    bgcolor: 'background.default',
+                    p: 1.5,
+                  }}
+                >
+                  <Stack spacing={1.25}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 950, lineHeight: 1.25 }}>{booking.bookingCode}</Typography>
+                        <Typography sx={{ color: 'text.secondary', fontSize: '0.86rem', fontWeight: 760 }}>
+                          {booking.customerName}
+                        </Typography>
+                      </Box>
+                      <Chip color={booking.status === 'pending' ? 'primary' : 'secondary'} label={statusLabels[booking.status]} sx={{ flexShrink: 0 }} />
+                    </Stack>
+                    <Box>
+                      <Typography sx={{ fontSize: '0.86rem', fontWeight: 850 }}>{booking.service?.nameTh ?? '-'}</Typography>
+                      <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', fontWeight: 760 }}>
+                        {booking.bookingDate} {booking.slotTime} · {booking.phone}
+                      </Typography>
+                    </Box>
+                    <Select
+                      fullWidth
+                      size="small"
+                      value={booking.status}
+                      onChange={(event) => onStatusChange(booking, event.target.value as BookingStatus)}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      {Object.entries(statusLabels).map(([status, label]) => (
+                        <MenuItem key={status} value={status}>
+                          {label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </Stack>
+                </Box>
+              ))}
+            </Stack>
+
+            <TableContainer data-testid="booking-table" sx={{ display: { xs: 'none', sm: 'block' } }}>
           <Table aria-label="booking table">
             <TableHead>
               <TableRow>
@@ -1361,6 +1424,8 @@ function BookingsCard({
             </TableBody>
           </Table>
         </TableContainer>
+          </>
+        )}
       </CardContent>
     </Card>
   )

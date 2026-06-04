@@ -44,6 +44,23 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
 
   if (testInfo.project.name === 'mobile-chromium') {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()
+    await page.getByRole('button', { name: 'รายการจอง' }).click()
+  } else {
+    await page.getByRole('button', { name: 'รายการจอง' }).click()
+  }
+
+  await expect(page.getByRole('heading', { name: 'รายการจอง' })).toBeVisible()
+  if (testInfo.project.name === 'mobile-chromium') {
+    await expect(page.locator('p').filter({ hasText: 'สมชาย ใจดี', visible: true })).toBeVisible()
+    await expect(page.locator('p').filter({ hasText: 'SB-20260610-1201', visible: true })).toBeVisible()
+  } else {
+    const bookingTable = page.getByRole('table', { name: 'booking table' })
+    await expect(bookingTable.getByText('สมชาย ใจดี')).toBeVisible()
+    await expect(bookingTable.getByText('SB-20260610-1201')).toBeVisible()
+  }
+
+  if (testInfo.project.name === 'mobile-chromium') {
+    await page.getByRole('button', { name: 'เปิดเมนู' }).click()
     await page.getByRole('button', { name: 'บริการของร้าน' }).click()
   } else {
     await page.getByRole('button', { name: 'บริการของร้าน' }).click()
