@@ -9,8 +9,22 @@ import type { Booking } from './types/booking'
 
 const latestBookingStorageKey = 'bookingQueue.latestBooking'
 
+const getLiffStatePath = () => {
+  const liffState = new URLSearchParams(window.location.search).get('liff.state')
+  if (!liffState) {
+    return ''
+  }
+
+  try {
+    const decodedPath = decodeURIComponent(liffState)
+    return decodedPath.startsWith('/') ? decodedPath.split('?')[0] : ''
+  } catch {
+    return liffState.startsWith('/') ? liffState.split('?')[0] : ''
+  }
+}
+
 const getCurrentPath = () => {
-  const path = window.location.pathname
+  const path = getLiffStatePath() || window.location.pathname
   if (path === '/services') return 'services'
   if (path === '/booking/success') return 'success'
   return 'booking'

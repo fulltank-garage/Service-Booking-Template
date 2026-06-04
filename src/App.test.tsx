@@ -54,6 +54,26 @@ describe('App routing', () => {
     expect(mockedInitializeLiff).not.toHaveBeenCalled()
   })
 
+  it('uses the LIFF state path before rendering the first customer page', async () => {
+    window.history.replaceState({}, '', '/?liff.state=%2Fservices')
+
+    renderApp()
+
+    expect(await screen.findByText('ทำเล็บเจลสีพื้น')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'จองคิว' })).not.toBeInTheDocument()
+    expect(mockedInitializeLiff).not.toHaveBeenCalled()
+  })
+
+  it('uses the LIFF state success path before rendering the first customer page', async () => {
+    window.history.replaceState({}, '', '/?liff.state=%2Fbooking%2Fsuccess')
+
+    renderApp()
+
+    expect(await screen.findByRole('heading', { name: 'ยังไม่พบข้อมูลการจอง' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'จองคิว' })).not.toBeInTheDocument()
+    expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
+  })
+
   it('starts LIFF only on customer booking routes', async () => {
     renderApp()
 
