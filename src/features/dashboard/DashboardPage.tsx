@@ -302,14 +302,14 @@ function AdminTopbar({
           )}
         </IconButton>
         <Box sx={{ flex: 1 }} />
-        <Box sx={{ display: { xs: 'none', lg: 'block' }, minWidth: 0, textAlign: 'right' }}>
+        <Box sx={{ minWidth: 0, textAlign: 'right' }}>
           <Typography
             variant="caption"
             sx={{ color: 'primary.main', display: 'block', fontWeight: 850, lineHeight: 1.1 }}
           >
             Service Booking Admin
           </Typography>
-          <Typography sx={{ fontSize: { xs: '1.08rem', lg: '1.55rem' }, fontWeight: 900, lineHeight: 1.1 }}>
+          <Typography sx={{ fontSize: { xs: '1rem', sm: '1.16rem', lg: '1.55rem' }, fontWeight: 900, lineHeight: 1.1 }}>
             {pageLabels[activePage]}
           </Typography>
         </Box>
