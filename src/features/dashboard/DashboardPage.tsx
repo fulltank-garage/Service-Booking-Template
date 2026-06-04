@@ -301,11 +301,8 @@ function AdminTopbar({
             />
           )}
         </IconButton>
-        <Box sx={{ display: { xs: 'flex', lg: 'none' }, justifyContent: 'center', flex: 1, mx: 1.5 }}>
-          <BrandMark />
-        </Box>
-        <Box sx={{ display: { xs: 'none', lg: 'block' }, flex: 1 }} />
-        <Box sx={{ minWidth: 0, textAlign: 'right' }}>
+        <Box sx={{ flex: 1 }} />
+        <Box sx={{ display: { xs: 'none', lg: 'block' }, minWidth: 0, textAlign: 'right' }}>
           <Typography
             variant="caption"
             sx={{ color: 'primary.main', display: 'block', fontWeight: 850, lineHeight: 1.1 }}
