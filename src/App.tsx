@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material'
-import { DashboardPage } from './features/dashboard/DashboardPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { authStorage, type StoredAdminSession } from './features/auth/authStorage'
 import { BrandMark } from './components/BrandMark'
 import { useAppUpdate } from './hooks/useAppUpdate'
+import { adminApi } from './api/adminApi'
+
+const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 
 function App() {
   const [session, setSession] = useState<StoredAdminSession | null>(() => authStorage.getSession())
@@ -42,6 +44,7 @@ function App() {
   }
 
   const handleLogout = () => {
+    void adminApi.logout().catch(() => undefined)
     authStorage.clear()
     setSession(null)
   }
@@ -55,13 +58,15 @@ function App() {
   }
 
   return (
-    <DashboardPage
-      adminEmail={session.email}
-      adminName={session.name}
-      applyAppUpdate={applyAppUpdate}
-      hasPendingAppUpdate={hasPendingAppUpdate}
-      onLogout={handleLogout}
-    />
+    <Suspense fallback={<StartupSplash isUpdated={hasPendingAppUpdate} progress={100} />}>
+      <DashboardPage
+        adminEmail={session.email}
+        adminName={session.name}
+        applyAppUpdate={applyAppUpdate}
+        hasPendingAppUpdate={hasPendingAppUpdate}
+        onLogout={handleLogout}
+      />
+    </Suspense>
   )
 }
 

@@ -15,6 +15,9 @@ vi.mock('../../api/adminApi', () => ({
     listBookings: vi.fn(),
     listNotifications: vi.fn(),
     listServices: vi.fn(),
+    getBookingSettings: vi.fn(),
+    updateBookingSettings: vi.fn(),
+    markNotificationRead: vi.fn(),
   },
 }))
 
@@ -45,6 +48,16 @@ describe('DashboardPage', () => {
     mockedAdminApi.listBookings.mockReset()
     mockedAdminApi.listNotifications.mockReset()
     mockedAdminApi.listServices.mockReset()
+    mockedAdminApi.getBookingSettings.mockReset()
+    mockedAdminApi.updateBookingSettings.mockReset()
+    mockedAdminApi.markNotificationRead.mockReset()
+    mockedAdminApi.getBookingSettings.mockResolvedValue({
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: '',
+    })
   })
 
   it('renders dashboard summary from API data', async () => {
@@ -95,5 +108,33 @@ describe('DashboardPage', () => {
     })
 
     expect(await screen.findByRole('status')).toHaveTextContent('มีคิวจองใหม่')
+  })
+
+  it('renders notification history and marks unread notifications as read', async () => {
+    const notification: AdminNotification = {
+      id: 'notification-1',
+      type: 'booking.created',
+      title: 'มีคิวจองใหม่',
+      body: 'ลูกค้าทดสอบจองเวลา 10:00',
+      url: '/bookings',
+      isRead: false,
+      bookingId: 'booking-1',
+      createdAt: '2026-06-05T02:00:00.000Z',
+    }
+
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([notification])
+    mockedAdminApi.markNotificationRead.mockResolvedValue({ ...notification, isRead: true })
+
+    renderPage()
+    expect(await screen.findByText('คิวทั้งหมด')).toBeInTheDocument()
+
+    screen.getByRole('button', { name: 'รายการแจ้งเตือน' }).click()
+    expect(await screen.findByRole('heading', { name: 'รายการแจ้งเตือน' })).toBeInTheDocument()
+    expect(screen.getByText('ลูกค้าทดสอบจองเวลา 10:00')).toBeInTheDocument()
+
+    screen.getByRole('button', { name: 'อ่านแล้ว' }).click()
+    expect(mockedAdminApi.markNotificationRead).toHaveBeenCalledWith('notification-1')
   })
 })

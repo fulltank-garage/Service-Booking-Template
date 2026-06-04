@@ -1,5 +1,5 @@
 import { httpClient } from './httpClient'
-import type { AdminNotification, ApiEnvelope, Booking, BookingStatus, ServiceItem } from '../types/admin'
+import type { AdminNotification, ApiEnvelope, Booking, BookingSettings, BookingStatus, ServiceItem } from '../types/admin'
 
 type AdminLoginResponse = {
   email: string
@@ -22,6 +22,10 @@ export const adminApi = {
   login: async (email: string, password: string) => {
     const response = await httpClient.post<ApiEnvelope<AdminLoginResponse>>('/admin/auth/login', { email, password })
     return response.data.data
+  },
+
+  logout: async () => {
+    await httpClient.post('/admin/auth/logout')
   },
 
   listBookings: async () => {
@@ -50,6 +54,16 @@ export const adminApi = {
 
   updateBookingStatus: async (id: string, status: BookingStatus) => {
     const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}/status`, { status })
+    return response.data.data
+  },
+
+  getBookingSettings: async () => {
+    const response = await httpClient.get<ApiEnvelope<BookingSettings>>('/admin/booking-settings')
+    return response.data.data
+  },
+
+  updateBookingSettings: async (payload: BookingSettings) => {
+    const response = await httpClient.put<ApiEnvelope<BookingSettings>>('/admin/booking-settings', payload)
     return response.data.data
   },
 

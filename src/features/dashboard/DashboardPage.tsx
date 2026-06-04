@@ -42,12 +42,13 @@ import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import RoomServiceIcon from '@mui/icons-material/RoomService'
 import SearchIcon from '@mui/icons-material/Search'
+import SettingsIcon from '@mui/icons-material/Settings'
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
 import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
 import { adminApi, type ServicePayload } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
-import type { AdminNotification, AdminRealtimeEvent, Booking, BookingStatus, ServiceItem } from '../../types/admin'
+import type { AdminNotification, AdminRealtimeEvent, Booking, BookingSettings, BookingStatus, ServiceItem } from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
 import { registerAdminServiceWorker } from '../notifications/pushNotifications'
 
@@ -62,6 +63,8 @@ const pageLabels = {
   overview: 'จัดการคิวจองบริการ',
   bookings: 'รายการจอง',
   services: 'บริการของร้าน',
+  notifications: 'รายการแจ้งเตือน',
+  settings: 'ตั้งค่าการจอง',
 } as const
 
 const formatThaiPrice = (priceCents: number) =>
@@ -95,6 +98,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
+  const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [shouldShowDataSkeleton, setShouldShowDataSkeleton] = useState(false)
   const hasLoadedDataRef = useRef(false)
@@ -122,10 +126,11 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
 
     try {
-      const [bookingItems, notificationItems, serviceItems] = await Promise.all([
+      const [bookingItems, notificationItems, serviceItems, settings] = await Promise.all([
         adminApi.listBookings(),
         adminApi.listNotifications(),
         adminApi.listServices(),
+        adminApi.getBookingSettings(),
       ])
       const newBookingNotification = hasLoadedDataRef.current
         ? notificationItems.find(
@@ -139,6 +144,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
       setBookings(bookingItems)
       setServices(serviceItems)
       setNotifications(notificationItems)
+      setBookingSettings(settings)
       setLatestRealtimeAt(new Date())
       knownNotificationIdsRef.current = new Set(notificationItems.map((notification) => notification.id))
       hasLoadedDataRef.current = true
@@ -230,6 +236,19 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
   }
 
+  const handleMarkNotificationRead = async (notification: AdminNotification) => {
+    if (notification.isRead) return
+    setNotifications((current) => current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)))
+    try {
+      const nextNotification = await adminApi.markNotificationRead(notification.id)
+      setNotifications((current) => current.map((item) => (item.id === nextNotification.id ? nextNotification : item)))
+      setNotice('อ่านแจ้งเตือนแล้ว')
+    } catch {
+      setNotice('อัปเดตแจ้งเตือนไม่สำเร็จ')
+      void loadData()
+    }
+  }
+
   const handleChangePage = (page: AdminPage) => {
     setActivePage(page)
     setIsNavOpen(false)
@@ -311,6 +330,21 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                       setNotice('แก้ไขบริการของร้านแล้ว')
                     }}
                     onError={() => setNotice('บันทึกข้อมูลบริการไม่สำเร็จ')}
+                  />
+                )}
+                {activePage === 'notifications' && (
+                  <NotificationsPage notifications={notifications} onMarkRead={handleMarkNotificationRead} />
+                )}
+                {activePage === 'settings' && (
+                  <BookingSettingsPage
+                    key={bookingSettings ? JSON.stringify(bookingSettings) : 'empty-booking-settings'}
+                    settings={bookingSettings}
+                    onSave={async (payload) => {
+                      const nextSettings = await adminApi.updateBookingSettings(payload)
+                      setBookingSettings(nextSettings)
+                      setNotice('บันทึกตั้งค่าการจองแล้ว')
+                    }}
+                    onError={() => setNotice('บันทึกตั้งค่าการจองไม่สำเร็จ')}
                   />
                 )}
               </>
@@ -610,6 +644,8 @@ function SidebarContent({
     { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <RoomServiceIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
+    { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon /> },
+    { page: 'settings', label: 'ตั้งค่าการจอง', icon: <SettingsIcon /> },
   ]
 
   return (
@@ -864,6 +900,183 @@ function BookingsPage({
   onStatusChange: (booking: Booking, status: BookingStatus) => void
 }) {
   return <BookingsCard bookings={bookings} onStatusChange={onStatusChange} />
+}
+
+function NotificationsPage({
+  notifications,
+  onMarkRead,
+}: {
+  notifications: AdminNotification[]
+  onMarkRead: (notification: AdminNotification) => void
+}) {
+  return (
+    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack direction="row" spacing={1.5} sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="h2">รายการแจ้งเตือน</Typography>
+          <Chip color="secondary" label={`${notifications.filter((item) => !item.isRead).length} ยังไม่อ่าน`} />
+        </Stack>
+
+        <Stack spacing={1.4}>
+          {notifications.map((notification) => (
+            <Box
+              key={notification.id}
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2.5,
+                bgcolor: notification.isRead ? 'background.default' : 'secondary.main',
+                p: 1.6,
+              }}
+            >
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography sx={{ fontWeight: 950, lineHeight: 1.25 }}>{notification.title}</Typography>
+                  <Typography sx={{ mt: 0.4, color: 'text.secondary', fontSize: '0.86rem', fontWeight: 760, lineHeight: 1.45 }}>
+                    {notification.body}
+                  </Typography>
+                  <Typography sx={{ mt: 0.6, color: 'text.secondary', fontSize: '0.72rem', fontWeight: 760 }}>
+                    {new Intl.DateTimeFormat('th-TH', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(notification.createdAt))}
+                  </Typography>
+                </Box>
+                <Button
+                  variant={notification.isRead ? 'outlined' : 'contained'}
+                  disabled={notification.isRead}
+                  onClick={() => onMarkRead(notification)}
+                >
+                  {notification.isRead ? 'อ่านแล้ว' : 'อ่านแล้ว'}
+                </Button>
+              </Stack>
+            </Box>
+          ))}
+          {notifications.length === 0 && (
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, py: 5, textAlign: 'center' }}>
+              <Typography sx={{ color: 'text.secondary', fontWeight: 850 }}>ยังไม่มีรายการแจ้งเตือน</Typography>
+            </Box>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
+function BookingSettingsPage({
+  onError,
+  onSave,
+  settings,
+}: {
+  onError: () => void
+  onSave: (payload: BookingSettings) => Promise<void>
+  settings: BookingSettings | null
+}) {
+  const [openTime, setOpenTime] = useState(settings?.openTime ?? '09:00')
+  const [closeTime, setCloseTime] = useState(settings?.closeTime ?? '17:00')
+  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState(String(settings?.slotIntervalMinutes ?? 30))
+  const [slotCapacity, setSlotCapacity] = useState(String(settings?.slotCapacity ?? 1))
+  const [closedWeekdays, setClosedWeekdays] = useState(settings?.closedWeekdays ?? '')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const toggleWeekday = (day: string) => {
+    const days = new Set(closedWeekdays.split(',').map((value) => value.trim()).filter(Boolean))
+    if (days.has(day)) {
+      days.delete(day)
+    } else {
+      days.add(day)
+    }
+    setClosedWeekdays(Array.from(days).sort().join(','))
+  }
+
+  const handleSave = async () => {
+    if (isSaving) return
+    setIsSaving(true)
+    try {
+      await onSave({
+        openTime,
+        closeTime,
+        slotIntervalMinutes: Number(slotIntervalMinutes),
+        slotCapacity: Number(slotCapacity),
+        closedWeekdays,
+      })
+    } catch {
+      onError()
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const weekdayOptions = [
+    ['0', 'อา.'],
+    ['1', 'จ.'],
+    ['2', 'อ.'],
+    ['3', 'พ.'],
+    ['4', 'พฤ.'],
+    ['5', 'ศ.'],
+    ['6', 'ส.'],
+  ] as const
+  const selectedDays = new Set(closedWeekdays.split(',').map((value) => value.trim()).filter(Boolean))
+
+  return (
+    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Typography variant="h2" sx={{ mb: 2 }}>
+          ตั้งค่าการจอง
+        </Typography>
+        <Stack spacing={2}>
+          <Grid container spacing={1.5}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="เวลาเปิดร้าน" value={openTime} onChange={(event) => setOpenTime(event.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="เวลาปิดร้าน" value={closeTime} onChange={(event) => setCloseTime(event.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="ระยะห่างสล็อต (นาที)"
+                type="number"
+                value={slotIntervalMinutes}
+                onChange={(event) => setSlotIntervalMinutes(event.target.value)}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="จำนวนคิวต่อเวลา"
+                type="number"
+                value={slotCapacity}
+                onChange={(event) => setSlotCapacity(event.target.value)}
+              />
+            </Grid>
+          </Grid>
+
+          <Box>
+            <Typography sx={{ mb: 1, fontSize: '0.9rem', fontWeight: 900 }}>วันปิดร้าน</Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+              {weekdayOptions.map(([value, label]) => (
+                <Button
+                  key={value}
+                  variant={selectedDays.has(value) ? 'contained' : 'outlined'}
+                  onClick={() => toggleWeekday(value)}
+                  sx={{ minWidth: 54 }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </Stack>
+          </Box>
+
+          <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>
+            <Button variant="contained" disabled={isSaving} onClick={handleSave}>
+              {isSaving ? 'กำลังบันทึก...' : 'บันทึกตั้งค่า'}
+            </Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  )
 }
 
 function ServicesPage({

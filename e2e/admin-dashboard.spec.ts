@@ -48,6 +48,20 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
       body: JSON.stringify({ data: [] }),
     })
   })
+  await page.route('**/api/v1/admin/booking-settings', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          openTime: '09:00',
+          closeTime: '17:00',
+          slotIntervalMinutes: 30,
+          slotCapacity: 1,
+          closedWeekdays: '',
+        },
+      }),
+    })
+  })
   await page.route('**/api/v1/admin/services', async (route) => {
     if (route.request().method() === 'POST') {
       await route.fulfill({

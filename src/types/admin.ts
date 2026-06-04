@@ -34,6 +34,14 @@ export type AdminNotification = {
   createdAt: string
 }
 
+export type BookingSettings = {
+  openTime: string
+  closeTime: string
+  slotIntervalMinutes: number
+  slotCapacity: number
+  closedWeekdays: string
+}
+
 export type AdminRealtimeEvent = {
   type: 'booking.created' | 'booking.updated' | 'notification.created' | 'notification.read' | 'dashboard.summary.updated' | string
   notification?: AdminNotification
