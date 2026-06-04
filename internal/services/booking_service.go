@@ -29,6 +29,16 @@ type CreateBookingInput struct {
 	Notes        string `json:"notes"`
 }
 
+type ServiceInput struct {
+	NameTH          string `json:"nameTh"`
+	NameEN          string `json:"nameEn"`
+	DescriptionTH   string `json:"descriptionTh"`
+	DurationMinutes int    `json:"durationMinutes"`
+	PriceCents      int64  `json:"priceCents"`
+	AccentColor     string `json:"accentColor"`
+	IsActive        bool   `json:"isActive"`
+}
+
 type AvailabilitySlot struct {
 	Time      string `json:"time"`
 	Booked    int64  `json:"booked"`
@@ -56,6 +66,58 @@ func NewBookingService(store repositories.Store, notifier BookingNotifier, capac
 
 func (service *BookingService) ListServices(ctx context.Context) ([]models.Service, error) {
 	return service.store.ListServices(ctx)
+}
+
+func (service *BookingService) CreateService(ctx context.Context, input ServiceInput) (models.Service, error) {
+	input = normalizeServiceInput(input)
+	if err := validateServiceInput(input); err != nil {
+		return models.Service{}, err
+	}
+	item := models.Service{
+		NameTH:          input.NameTH,
+		NameEN:          input.NameEN,
+		DescriptionTH:   input.DescriptionTH,
+		DurationMinutes: input.DurationMinutes,
+		PriceCents:      input.PriceCents,
+		AccentColor:     input.AccentColor,
+		IsActive:        input.IsActive,
+	}
+	if err := service.store.CreateService(ctx, &item); err != nil {
+		return models.Service{}, err
+	}
+	return item, nil
+}
+
+func (service *BookingService) UpdateService(ctx context.Context, id string, input ServiceInput) (models.Service, error) {
+	input = normalizeServiceInput(input)
+	if strings.TrimSpace(id) == "" {
+		return models.Service{}, ErrServiceRequired
+	}
+	if err := validateServiceInput(input); err != nil {
+		return models.Service{}, err
+	}
+	item, err := service.store.FindServiceByID(ctx, strings.TrimSpace(id))
+	if err != nil {
+		return models.Service{}, err
+	}
+	item.NameTH = input.NameTH
+	item.NameEN = input.NameEN
+	item.DescriptionTH = input.DescriptionTH
+	item.DurationMinutes = input.DurationMinutes
+	item.PriceCents = input.PriceCents
+	item.AccentColor = input.AccentColor
+	item.IsActive = input.IsActive
+	if err := service.store.UpdateService(ctx, &item); err != nil {
+		return models.Service{}, err
+	}
+	return item, nil
+}
+
+func (service *BookingService) DeleteService(ctx context.Context, id string) error {
+	if strings.TrimSpace(id) == "" {
+		return ErrServiceRequired
+	}
+	return service.store.DeleteService(ctx, strings.TrimSpace(id))
 }
 
 func (service *BookingService) ListAvailability(ctx context.Context, serviceID string, date string) ([]AvailabilitySlot, error) {
@@ -137,6 +199,33 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 		_ = service.notifier.BookingUpdated(ctx, booking)
 	}
 	return booking, nil
+}
+
+func normalizeServiceInput(input ServiceInput) ServiceInput {
+	input.NameTH = strings.TrimSpace(input.NameTH)
+	input.NameEN = strings.TrimSpace(input.NameEN)
+	input.DescriptionTH = strings.TrimSpace(input.DescriptionTH)
+	input.AccentColor = strings.TrimSpace(input.AccentColor)
+	if input.NameEN == "" {
+		input.NameEN = input.NameTH
+	}
+	if input.AccentColor == "" {
+		input.AccentColor = "#FF008C"
+	}
+	return input
+}
+
+func validateServiceInput(input ServiceInput) error {
+	if input.NameTH == "" {
+		return errors.New("service name is required")
+	}
+	if input.DurationMinutes <= 0 {
+		return errors.New("service duration must be greater than zero")
+	}
+	if input.PriceCents < 0 {
+		return errors.New("service price must be zero or greater")
+	}
+	return nil
 }
 
 func normalizeBookingInput(input CreateBookingInput) CreateBookingInput {

@@ -82,6 +82,18 @@ func (store *fakeStore) FindServiceByID(_ context.Context, id string) (models.Se
 	}
 	return store.service, nil
 }
+func (store *fakeStore) CreateService(_ context.Context, service *models.Service) error {
+	store.service = *service
+	return nil
+}
+func (store *fakeStore) UpdateService(_ context.Context, service *models.Service) error {
+	store.service = *service
+	return nil
+}
+func (store *fakeStore) DeleteService(context.Context, string) error {
+	store.service.IsActive = false
+	return nil
+}
 func (store *fakeStore) CountBookingsForSlot(context.Context, string, string, string) (int64, error) {
 	return store.slotCount, nil
 }

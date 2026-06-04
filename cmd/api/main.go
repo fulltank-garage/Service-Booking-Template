@@ -28,9 +28,6 @@ func main() {
 	if err := database.AutoMigrate(db); err != nil {
 		log.Fatalf("migrate postgres: %v", err)
 	}
-	if err := database.Seed(db); err != nil {
-		log.Fatalf("seed postgres: %v", err)
-	}
 
 	redisClient, err := database.OpenRedis(cfg.Redis)
 	if err != nil {
