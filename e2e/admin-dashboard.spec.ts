@@ -26,9 +26,9 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
 
   if (testInfo.project.name === 'mobile-chromium') {
     await expect(page.getByRole('button', { name: 'เปิดเมนู' })).toBeVisible()
-    await expect(page.getByText('Booking Center')).toBeHidden()
+    await expect(page.locator('header').getByText('Booking Center')).toHaveCount(0)
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()
-    await expect(page.getByText('Booking Center')).toBeHidden()
+    await expect(page.locator('.MuiDrawer-paper').getByText('Booking Center')).toBeVisible()
     await page.getByRole('button', { name: 'ปิดเมนู' }).click()
   } else {
     await expect(page.getByText('จัดการคิวจองบริการ')).toBeVisible()
