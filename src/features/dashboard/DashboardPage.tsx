@@ -56,12 +56,6 @@ const pageLabels = {
   services: 'บริการของร้าน',
 } as const
 
-const pageDescriptions: Record<AdminPage, string> = {
-  overview: 'ติดตามคิวใหม่ อัปเดตสถานะ และดูรายการแจ้งเตือนของงานบริการ',
-  bookings: 'ดูรายการจองทั้งหมดและอัปเดตสถานะของแต่ละคิว',
-  services: 'กำหนดรายการบริการ ราคา และระยะเวลาที่ใช้สำหรับให้ลูกค้าเลือกจอง',
-}
-
 type AdminPage = keyof typeof pageLabels
 
 type DashboardPageProps = {
@@ -206,15 +200,6 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
           }}
         >
           <Stack spacing={2.5}>
-            <Stack spacing={1.5}>
-              <Box>
-                <Typography variant="h1">{pageLabels[activePage]}</Typography>
-                <Typography sx={{ mt: 0.8, maxWidth: 760, color: 'text.secondary' }}>
-                  {pageDescriptions[activePage]}
-                </Typography>
-              </Box>
-            </Stack>
-
             <PushNotificationPrompt onNotice={setNotice} />
 
             {isLoading ? (

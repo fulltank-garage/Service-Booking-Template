@@ -24,7 +24,7 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
     await page.getByRole('button', { name: 'ไว้ก่อน' }).click()
   }
 
-  await expect(page.getByRole('heading', { name: 'จัดการคิวจองบริการ' })).toBeVisible()
+  await expect(page.getByText('จัดการคิวจองบริการ')).toBeVisible()
   await expect(page.getByText('รายการจองล่าสุด')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'รายการแจ้งเตือน' })).toBeVisible()
 })
