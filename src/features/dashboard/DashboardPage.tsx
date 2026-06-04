@@ -134,7 +134,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
         if (isNewBooking && 'Notification' in window && Notification.permission === 'granted') {
           new Notification('มีคิวจองใหม่', {
             body: notification.body || 'มีรายการจองใหม่ในระบบ',
-            icon: '/pwa-icons/icon-192.svg',
+            icon: '/pwa-icons/booking-queue-icon-192.png',
           })
         }
       },

@@ -38,8 +38,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      badge: '/logo.svg',
-      icon: '/pwa-icons/icon-192.svg',
+      badge: '/pwa-icons/booking-queue-icon-192.png',
+      icon: '/pwa-icons/booking-queue-icon-192.png',
       data: { url: payload.url || '/' },
     }),
   )
