@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material'
+import { Box } from '@mui/material'
 
 type BrandMarkProps = {
   compact?: boolean
@@ -6,23 +6,18 @@ type BrandMarkProps = {
 
 export function BrandMark({ compact = false }: BrandMarkProps) {
   return (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25 }}>
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
       <Box
         component="img"
-        src="/logo.svg"
-        alt="Booking"
-        sx={{ width: compact ? 34 : 42, height: compact ? 34 : 42, borderRadius: 2 }}
+        src="/booking-queue-logo.png"
+        alt="BookingQueue"
+        sx={{
+          width: compact ? 72 : 146,
+          height: compact ? 42 : 58,
+          borderRadius: 2,
+          objectFit: 'contain',
+        }}
       />
-      {!compact && (
-        <Box>
-          <Typography component="p" sx={{ fontWeight: 850, lineHeight: 1, color: 'text.primary' }}>
-            Booking
-          </Typography>
-          <Typography component="p" variant="caption" sx={{ color: 'text.secondary' }}>
-            ระบบจองคิว
-          </Typography>
-        </Box>
-      )}
     </Box>
   )
 }
