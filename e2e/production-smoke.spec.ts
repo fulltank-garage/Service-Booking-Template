@@ -13,5 +13,5 @@ test('production services rich menu route renders shop services', async ({ page 
 
 test('production booking success rich menu route renders latest booking surface', async ({ page }) => {
   await page.goto('/?liff.state=%2Fbooking%2Fsuccess')
-  await expect(page.getByRole('heading', { name: 'ข้อมูลการจอง' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /ข้อมูลการจอง|ยังไม่พบข้อมูลการจอง/ })).toBeVisible()
 })

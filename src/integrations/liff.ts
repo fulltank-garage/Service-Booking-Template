@@ -18,6 +18,9 @@ export const initializeLiff = async (): Promise<LineProfile | null> => {
   profilePromise ??= (async () => {
     await liff.init({ liffId })
     if (!liff.isLoggedIn()) {
+      if (!liff.isInClient()) {
+        return null
+      }
       if (!loginStarted) {
         loginStarted = true
         liff.login({ redirectUri: window.location.href })
