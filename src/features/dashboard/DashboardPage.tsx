@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -33,7 +32,6 @@ import HourglassTopIcon from '@mui/icons-material/HourglassTop'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import NotificationsIcon from '@mui/icons-material/Notifications'
-import RefreshIcon from '@mui/icons-material/Refresh'
 import RoomServiceIcon from '@mui/icons-material/RoomService'
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
 import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
@@ -56,14 +54,12 @@ const pageLabels = {
   overview: 'จัดการคิวจองบริการ',
   bookings: 'รายการจอง',
   services: 'บริการของร้าน',
-  notifications: 'แจ้งเตือน',
 } as const
 
 const pageDescriptions: Record<AdminPage, string> = {
   overview: 'ติดตามคิวใหม่ อัปเดตสถานะ และดูรายการแจ้งเตือนของงานบริการ',
   bookings: 'ดูรายการจองทั้งหมดและอัปเดตสถานะของแต่ละคิว',
   services: 'กำหนดรายการบริการ ราคา และระยะเวลาที่ใช้สำหรับให้ลูกค้าเลือกจอง',
-  notifications: 'ดูรายการแจ้งเตือนที่เกิดขึ้นในระบบจองคิว',
 }
 
 type AdminPage = keyof typeof pageLabels
@@ -83,11 +79,9 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting')
   const [latestRealtimeAt, setLatestRealtimeAt] = useState<Date | null>(null)
   const [notice, setNotice] = useState('')
-  const [error, setError] = useState('')
   const { applyAppUpdate, hasPendingAppUpdate } = useAppUpdate()
 
   const loadData = useCallback(async () => {
-    setError('')
     setIsLoading((bookings.length === 0 && notifications.length === 0) || false)
     try {
       const [bookingItems, notificationItems, serviceItems] = await Promise.all([
@@ -100,7 +94,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
       setNotifications(notificationItems)
       setLatestRealtimeAt(new Date())
     } catch {
-      setError('โหลดข้อมูลไม่สำเร็จ')
+      setNotice('')
     } finally {
       setIsLoading(false)
     }
@@ -121,7 +115,16 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
     onNotification: useCallback(
       (notification) => {
         setNotifications((current) => [notification, ...current])
-        setNotice(notification.title)
+        const isNewBooking = notification.type === 'booking.created'
+        const message = isNewBooking ? 'มีคิวจองใหม่' : notification.title
+        setNotice(message)
+
+        if (isNewBooking && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification('มีคิวจองใหม่', {
+            body: notification.body || 'มีรายการจองใหม่ในระบบ',
+            icon: '/pwa-icons/icon-192.svg',
+          })
+        }
       },
       [],
     ),
@@ -150,7 +153,7 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
       await adminApi.updateBookingStatus(booking.id, status)
       setNotice('อัปเดตสถานะคิวแล้ว')
     } catch {
-      setError('อัปเดตสถานะไม่สำเร็จ')
+      setNotice('อัปเดตสถานะไม่สำเร็จ')
       void loadData()
     }
   }
@@ -162,7 +165,11 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <MobileHeader hasPendingAppUpdate={hasPendingAppUpdate} onOpenNav={() => setIsNavOpen(true)} />
+      <AdminTopbar
+        activePage={activePage}
+        hasPendingAppUpdate={hasPendingAppUpdate}
+        onOpenNav={() => setIsNavOpen(true)}
+      />
       <MobileNavDrawer
         activePage={activePage}
         adminEmail={adminEmail}
@@ -188,30 +195,27 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
           onLogout={onLogout}
         />
 
-        <Box component="main" sx={{ flex: 1, minWidth: 0, px: { xs: 2, sm: 2.5, lg: 3.5 }, py: { xs: 2, sm: 2.5, lg: 3.5 } }}>
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            px: { xs: 2, sm: 2.5, lg: 3.5 },
+            pt: { xs: 2, sm: 2.5, lg: '88px' },
+            pb: { xs: 2, sm: 2.5, lg: 3.5 },
+          }}
+        >
           <Stack spacing={2.5}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.5}
-              sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}
-            >
+            <Stack spacing={1.5}>
               <Box>
                 <Typography variant="h1">{pageLabels[activePage]}</Typography>
                 <Typography sx={{ mt: 0.8, maxWidth: 760, color: 'text.secondary' }}>
                   {pageDescriptions[activePage]}
                 </Typography>
               </Box>
-              <Button variant="contained" onClick={loadData} startIcon={<RefreshIcon />}>
-                รีเฟรชข้อมูล
-              </Button>
             </Stack>
 
             <PushNotificationPrompt onNotice={setNotice} />
-            {error && (
-              <Alert severity="error" sx={{ borderRadius: 2.5 }}>
-                {error}
-              </Alert>
-            )}
 
             {isLoading ? (
               <DashboardSkeleton activePage={activePage} />
@@ -237,7 +241,6 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
                     }}
                   />
                 )}
-                {activePage === 'notifications' && <NotificationsPage notifications={notifications} />}
               </>
             )}
           </Stack>
@@ -249,10 +252,12 @@ export function DashboardPage({ adminEmail, onLogout }: DashboardPageProps) {
   )
 }
 
-function MobileHeader({
+function AdminTopbar({
+  activePage,
   hasPendingAppUpdate,
   onOpenNav,
 }: {
+  activePage: AdminPage
   hasPendingAppUpdate: boolean
   onOpenNav: () => void
 }) {
@@ -260,18 +265,26 @@ function MobileHeader({
     <Box
       component="header"
       sx={{
-        display: { xs: 'block', lg: 'none' },
         position: 'fixed',
         top: 0,
-        left: 0,
+        left: { xs: 0, lg: 280 },
         right: 0,
-        zIndex: 20,
+        zIndex: 30,
         bgcolor: 'background.paper',
         borderBottom: '1px solid',
         borderColor: 'divider',
       }}
     >
-      <Stack direction="row" sx={{ minHeight: 72, px: { xs: 1.5, sm: 2.5 }, alignItems: 'center', justifyContent: 'space-between' }}>
+      <Stack
+        direction="row"
+        sx={{
+          minHeight: 72,
+          px: { xs: 1.5, sm: 2.5, lg: 3.5 },
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
         <IconButton
           aria-label="เปิดเมนู"
           onClick={onOpenNav}
@@ -282,6 +295,7 @@ function MobileHeader({
             border: '1px solid',
             borderColor: 'divider',
             color: 'text.primary',
+            display: { xs: 'inline-flex', lg: 'none' },
           }}
         >
           <MenuIcon />
@@ -302,10 +316,21 @@ function MobileHeader({
             />
           )}
         </IconButton>
-        <Box sx={{ display: 'flex', justifyContent: 'center', flex: 1, mx: 1.5 }}>
+        <Box sx={{ display: { xs: 'flex', lg: 'none' }, justifyContent: 'center', flex: 1, mx: 1.5 }}>
           <BrandMark />
         </Box>
-        <Box sx={{ width: 46, height: 46 }} />
+        <Box sx={{ display: { xs: 'none', lg: 'block' }, flex: 1 }} />
+        <Box sx={{ minWidth: 0, textAlign: 'right' }}>
+          <Typography
+            variant="caption"
+            sx={{ color: 'primary.main', display: 'block', fontWeight: 850, lineHeight: 1.1 }}
+          >
+            Service Booking Admin
+          </Typography>
+          <Typography sx={{ fontSize: { xs: '1.08rem', lg: '1.55rem' }, fontWeight: 900, lineHeight: 1.1 }}>
+            {pageLabels[activePage]}
+          </Typography>
+        </Box>
       </Stack>
     </Box>
   )
@@ -500,7 +525,6 @@ function SidebarContent({
     { page: 'overview', label: 'ภาพรวม', icon: <DashboardIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <RoomServiceIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
-    { page: 'notifications', label: 'แจ้งเตือน', icon: <NotificationsIcon /> },
   ]
 
   return (
@@ -706,10 +730,6 @@ function BookingsPage({
   onStatusChange: (booking: Booking, status: BookingStatus) => void
 }) {
   return <BookingsCard bookings={bookings} onStatusChange={onStatusChange} />
-}
-
-function NotificationsPage({ notifications }: { notifications: AdminNotification[] }) {
-  return <NotificationsCard notifications={notifications} />
 }
 
 function ServicesPage({
@@ -977,10 +997,6 @@ function NotificationsCard({ notifications }: { notifications: AdminNotification
 function DashboardSkeleton({ activePage }: { activePage: AdminPage }) {
   if (activePage === 'services') {
     return <ServicesSkeleton />
-  }
-
-  if (activePage === 'notifications') {
-    return <NotificationsSkeleton />
   }
 
   if (activePage === 'bookings') {

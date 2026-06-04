@@ -19,7 +19,7 @@ const renderPage = () =>
 describe('DashboardPage', () => {
   it('renders dashboard summary and booking table from fallback data', async () => {
     renderPage()
-    expect(await screen.findByText('จัดการคิวจองบริการ')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'จัดการคิวจองบริการ' })).toBeInTheDocument()
     expect(await screen.findByText('รายการจองล่าสุด')).toBeInTheDocument()
     expect(await screen.findByText('SB-20260610-1201')).toBeInTheDocument()
   })
