@@ -550,12 +550,18 @@ function SidebarContent({
                 onClick={() => onChangePage(item.page)}
                 sx={{
                   justifyContent: compact ? 'center' : 'flex-start',
+                  minHeight: compact ? 50 : 58,
                   minWidth: 0,
-                  px: compact ? 0 : 2.25,
+                  px: compact ? 0 : 2.5,
+                  fontSize: '1rem',
+                  fontWeight: 900,
                   bgcolor: isActive ? 'primary.main' : 'background.default',
                   '& .MuiButton-startIcon': {
-                    mr: compact ? 0 : 1,
+                    mr: compact ? 0 : 1.25,
                     ml: 0,
+                    '& svg': {
+                      fontSize: 23,
+                    },
                   },
                 }}
               >
