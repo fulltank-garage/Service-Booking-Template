@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 
 :root {
-  font-family: "Noto Sans Thai", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Roboto", "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   background: #FFFFFF;
   color: #111827;
   font-synthesis: none;

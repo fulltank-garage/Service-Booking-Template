@@ -24,7 +24,7 @@ export const appTheme = createTheme({
   },
   shape: { borderRadius: 6.4 },
   typography: {
-    fontFamily: '"Noto Sans Thai", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+    fontFamily: '"Roboto", "Noto Sans Thai", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     h1: { fontSize: 'clamp(2rem, 4vw, 3.4rem)', lineHeight: 1.08, fontWeight: 850, letterSpacing: 0 },
     h2: { fontSize: 'clamp(1.45rem, 2.4vw, 2.2rem)', lineHeight: 1.15, fontWeight: 820, letterSpacing: 0 },
     h3: { fontSize: '1.2rem', lineHeight: 1.25, fontWeight: 800, letterSpacing: 0 },
