@@ -518,10 +518,25 @@ function SidebarContent({
       }}
       spacing={2}
     >
-      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: compact ? 'center' : 'flex-start', '& p': { display: compact ? 'none' : 'block' } }}>
-          <BrandMark />
-        </Box>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'center',
+          justifyContent: headerAction ? 'flex-end' : 'space-between',
+          gap: 1.5,
+        }}
+      >
+        {!headerAction && (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: compact ? 'center' : 'flex-start',
+              '& p': { display: compact ? 'none' : 'block' },
+            }}
+          >
+            <BrandMark />
+          </Box>
+        )}
         {headerAction}
       </Stack>
       <Stack spacing={1}>
