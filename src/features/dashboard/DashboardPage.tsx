@@ -65,7 +65,7 @@ const pageLabels = {
 } as const
 
 const formatThaiPrice = (priceCents: number) =>
-  new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(priceCents / 100)
+  `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
 
 const SIDEBAR_WIDTH = 280
 const MOBILE_TOPBAR_OFFSET = 'calc(104px + env(safe-area-inset-top))'
