@@ -117,4 +117,9 @@ export const adminApi = {
     await httpClient.post('/admin/push/subscribe', subscription)
     return true
   },
+
+  testPush: async () => {
+    const response = await httpClient.post<ApiEnvelope<{ attempted: number; sent: number; expired: number; failed: number }>>('/admin/push/test')
+    return response.data.data
+  },
 }

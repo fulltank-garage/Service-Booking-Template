@@ -314,7 +314,11 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadData()
-      void registerAdminServiceWorker().then(() => refreshPushSubscription()).catch(() => undefined)
+      void registerAdminServiceWorker()
+        .then(() => refreshPushSubscription())
+        .catch((error) => {
+          setNotice(error instanceof Error ? error.message : 'ซิงก์แจ้งเตือนไม่สำเร็จ')
+        })
     }, 0)
 
     return () => {
