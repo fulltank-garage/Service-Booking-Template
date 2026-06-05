@@ -20,6 +20,9 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 5173',
+    env: {
+      VITE_E2E_LINE_PROFILE: 'true',
+    },
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: true,
   },

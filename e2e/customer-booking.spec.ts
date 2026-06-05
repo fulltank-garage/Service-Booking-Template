@@ -73,9 +73,32 @@ test('customer can complete a booking request', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'จองคิว' })).toBeVisible()
   await expect(page.getByText('เลือกวันที่')).toBeVisible()
   await expect(page.getByText('เลือกบริการของคุณ')).toBeVisible()
+  const serviceControlMetrics = await page.evaluate(() => {
+    const serviceSelect = document.querySelector('[aria-label="บริการ"]')?.closest('.MuiOutlinedInput-root')
+    const toMetrics = (element?: Element | null) => {
+      const rect = element?.getBoundingClientRect()
+      const style = element ? window.getComputedStyle(element) : null
+      return {
+        height: rect?.height ?? 0,
+        borderRadius: style?.borderRadius ?? '',
+      }
+    }
+    return toMetrics(serviceSelect)
+  })
+  expect(serviceControlMetrics.height).toBe(56)
+  expect(serviceControlMetrics.borderRadius).toBe('12px')
   await page.getByLabel('บริการ').click()
+  const serviceMenuMetrics = await page.locator('.MuiMenu-paper').evaluate((element) => {
+    const style = window.getComputedStyle(element)
+    return {
+      borderTopWidth: style.borderTopWidth,
+      borderRadius: style.borderRadius,
+    }
+  })
+  expect(serviceMenuMetrics.borderTopWidth).toBe('1px')
+  expect(serviceMenuMetrics.borderRadius).toBe('12px')
   await page.getByRole('option', { name: 'บริการทดสอบ' }).click()
-  await page.getByLabel('ชื่อผู้จอง').fill('สมชาย ใจดี')
+  await expect(page.getByLabel('ชื่อผู้จองจาก LINE')).toHaveValue('สมชาย ใจดี')
   await page.getByLabel('เบอร์โทร').fill('0890000000')
   await page.getByRole('button', { name: /ยืนยันการจอง/ }).click()
   await expect(page).toHaveURL(/\/booking\/success$/)

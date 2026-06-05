@@ -10,6 +10,13 @@ let profilePromise: Promise<LineProfile | null> | null = null
 let loginStarted = false
 
 export const initializeLiff = async (): Promise<LineProfile | null> => {
+  if (import.meta.env.DEV && import.meta.env.VITE_E2E_LINE_PROFILE === 'true') {
+    return {
+      userId: 'line-e2e-user',
+      displayName: 'สมชาย ใจดี',
+    }
+  }
+
   const liffId = import.meta.env.VITE_LIFF_ID
   if (!liffId) {
     return null

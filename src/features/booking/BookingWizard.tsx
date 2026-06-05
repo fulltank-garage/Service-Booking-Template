@@ -275,7 +275,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
       }}
     >
       <CardContent sx={{ p: 2.25 }}>
-        <Stack spacing={2.75}>
+        <Stack spacing={2.25}>
           <Box>
             <Typography variant="h2" sx={{ fontSize: '1.8rem' }}>
               จองคิว
@@ -308,18 +308,20 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               onChange={(event) => setSelectedServiceId(event.target.value)}
               displayEmpty
               renderValue={(value) => {
-                if (!value) return <Typography sx={{ color: 'text.primary', fontWeight: 850 }}>เลือกบริการของคุณ</Typography>
+                if (!value) {
+                  return (
+                    <Typography component="span" sx={{ color: 'text.primary', fontWeight: 850, lineHeight: 1.4375 }}>
+                      เลือกบริการของคุณ
+                    </Typography>
+                  )
+                }
                 return services.find((service) => service.id === value)?.nameTh ?? ''
               }}
               sx={{
                 bgcolor: 'background.default',
-                borderRadius: 2.5,
-                minHeight: 64,
                 '& .MuiSelect-select': {
                   display: 'flex',
                   alignItems: 'center',
-                  minHeight: '64px !important',
-                  py: 0,
                 },
                 '& .MuiOutlinedInput-notchedOutline': {
                   borderColor: '#111827',
@@ -386,7 +388,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             )}
           </Box>
 
-          <Grid container spacing={2}>
+          <Grid container spacing={1.5}>
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
@@ -540,7 +542,7 @@ function BookingWizardSkeleton() {
       sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}
     >
       <CardContent sx={{ p: 2.25 }}>
-        <Stack spacing={2.75}>
+        <Stack spacing={2.25}>
           <Box>
             <Skeleton variant="text" width={110} height={42} sx={{ bgcolor: 'divider' }} />
             <Skeleton variant="text" width={260} height={28} sx={{ bgcolor: 'divider' }} />
@@ -581,7 +583,7 @@ function BookingWizardSkeleton() {
             </Grid>
           </Box>
 
-          <Stack spacing={2}>
+          <Stack spacing={1.5}>
             <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
             <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
           </Stack>
