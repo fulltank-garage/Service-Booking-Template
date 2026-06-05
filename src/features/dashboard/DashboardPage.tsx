@@ -80,8 +80,8 @@ const upsertById = <T extends { id: string }>(items: T[], nextItem: T) => {
 }
 
 const SIDEBAR_WIDTH = 280
-const MOBILE_TOPBAR_OFFSET = '72px'
-const MOBILE_TOOLBAR_TOP = '84px'
+const MOBILE_TOPBAR_OFFSET = 'calc(104px + env(safe-area-inset-top, 0px))'
+const MOBILE_FLOATING_TOP = 'calc(116px + env(safe-area-inset-top, 0px))'
 
 type AdminPage = keyof typeof pageLabels
 
@@ -481,7 +481,7 @@ function AppNoticeSnackbar({ message, onClose }: { message: string; onClose: () 
       role="status"
       sx={{
         position: 'fixed',
-        top: { xs: `calc(${MOBILE_TOPBAR_OFFSET} + 12px)`, lg: 24 },
+        top: { xs: MOBILE_FLOATING_TOP, lg: 24 },
         left: { xs: '50%', lg: `calc(${SIDEBAR_WIDTH}px + ((100vw - ${SIDEBAR_WIDTH}px) / 2))` },
         zIndex: 1100,
         width: 'calc(100vw - 32px)',
@@ -1507,7 +1507,7 @@ function ManagementToolbar({
     <Box
       sx={{
         position: 'fixed',
-        top: { xs: MOBILE_TOOLBAR_TOP, lg: 88 },
+        top: { xs: MOBILE_FLOATING_TOP, lg: 88 },
         left: { xs: 20, sm: 20, lg: SIDEBAR_WIDTH + 20 },
         right: { xs: 20, sm: 20, lg: 20 },
         zIndex: 25,
@@ -1835,7 +1835,7 @@ function ServicesSkeleton() {
       <Box
         sx={{
           position: 'fixed',
-          top: { xs: MOBILE_TOOLBAR_TOP, lg: 88 },
+          top: { xs: MOBILE_FLOATING_TOP, lg: 88 },
           left: { xs: 20, sm: 20, lg: SIDEBAR_WIDTH + 20 },
           right: { xs: 20, sm: 20, lg: 20 },
           zIndex: 25,
