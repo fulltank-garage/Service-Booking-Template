@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test'
 
+const expectWhiteBlurBackdrop = async (page: import('@playwright/test').Page) => {
+  const backdropMetrics = await page.locator('.MuiBackdrop-root').evaluate((element) => {
+    const style = window.getComputedStyle(element)
+    return {
+      backgroundColor: style.backgroundColor,
+      backdropFilter: style.backdropFilter,
+    }
+  })
+  expect(backdropMetrics.backgroundColor).toBe('rgba(255, 255, 255, 0.72)')
+  expect(backdropMetrics.backdropFilter).toContain('blur')
+}
+
 test('customer can complete a booking request', async ({ page }) => {
   await page.route('**/api/v1/booking-rules', async (route) => {
     await route.fulfill({
@@ -104,6 +116,9 @@ test('customer can complete a booking request', async ({ page }) => {
   await expect(page).toHaveURL(/\/booking\/success$/)
   await expect(page.getByRole('heading', { name: 'ข้อมูลการจอง' })).toBeVisible()
   await expect(page.getByText('SB-TEST-0001')).toBeVisible()
+  await page.getByRole('button', { name: 'เลื่อนนัด' }).click()
+  await expect(page.getByRole('heading', { name: 'เลื่อนนัด' })).toBeVisible()
+  await expectWhiteBlurBackdrop(page)
 })
 
 test('customer can view shop services from the rich menu route', async ({ page }) => {

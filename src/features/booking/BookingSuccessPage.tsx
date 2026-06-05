@@ -296,7 +296,7 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
             <FormControl fullWidth>
               <Select
                 aria-label="เวลาใหม่"
-                value={rescheduleSlot}
+                value={isLoadingSlots ? '' : rescheduleSlot}
                 disabled={isLoadingSlots}
                 onChange={(event) => setRescheduleSlot(event.target.value)}
                 displayEmpty
