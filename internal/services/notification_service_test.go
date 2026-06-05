@@ -201,3 +201,9 @@ func TestPushErrorStatusHelpers(t *testing.T) {
 		t.Fatal("expected 500 push error to not match expired subscription sentinel")
 	}
 }
+
+func TestWebPushTTLIsLongEnoughForClosedMobileApps(t *testing.T) {
+	if webPushTTLSeconds < 24*60*60 {
+		t.Fatalf("expected at least one day TTL for closed mobile apps, got %d", webPushTTLSeconds)
+	}
+}

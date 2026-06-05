@@ -43,6 +43,8 @@ type WebPushSender struct {
 	subject    string
 }
 
+const webPushTTLSeconds = 24 * 60 * 60
+
 func NewWebPushSender(publicKey string, privateKey string, subject string) *WebPushSender {
 	publicKey = strings.TrimSpace(publicKey)
 	privateKey = strings.TrimSpace(privateKey)
@@ -80,7 +82,8 @@ func (sender *WebPushSender) Send(ctx context.Context, subscription models.PushS
 		Subscriber:      sender.subject,
 		VAPIDPublicKey:  sender.publicKey,
 		VAPIDPrivateKey: sender.privateKey,
-		TTL:             60,
+		TTL:             webPushTTLSeconds,
+		Urgency:         webpush.UrgencyHigh,
 	})
 	if response != nil {
 		_, _ = io.Copy(io.Discard, response.Body)

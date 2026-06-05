@@ -49,7 +49,7 @@ func (handler *NotificationHandler) Subscribe(c *gin.Context) {
 		} `json:"keys"`
 		AdminProfileID string `json:"adminProfileId"`
 	}
-	if err := c.ShouldBindJSON(&payload); err != nil || payload.Endpoint == "" {
+	if err := c.ShouldBindJSON(&payload); err != nil || payload.Endpoint == "" || payload.Keys.P256DH == "" || payload.Keys.Auth == "" {
 		c.JSON(http.StatusBadRequest, errorBody("ข้อมูล subscription ไม่ถูกต้อง"))
 		return
 	}
