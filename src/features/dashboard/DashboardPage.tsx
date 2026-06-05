@@ -99,6 +99,14 @@ const formatThaiPrice = (priceCents: number) =>
 
 const digitsOnly = (value: string) => value.replace(/\D/g, '')
 
+const resetPageScroll = () => {
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+  if (!navigator.userAgent.includes('jsdom')) {
+    window.scrollTo({ top: 0, left: 0 })
+  }
+}
+
 const shopTimeOptions = Array.from({ length: 48 }, (_, index) => {
   const hours = Math.floor(index / 2)
   const minutes = index % 2 === 0 ? '00' : '30'
@@ -164,6 +172,7 @@ const bookingMatchesFilters = (
 }
 
 const SIDEBAR_WIDTH = 280
+const SAFE_AREA_TOP = 'env(safe-area-inset-top, 0px)'
 const MOBILE_TOPBAR_OFFSET = 'calc(72px + env(safe-area-inset-top, 0px))'
 const MOBILE_FLOATING_TOP = 'calc(92px + env(safe-area-inset-top, 0px))'
 
@@ -464,10 +473,11 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const handleChangePage = (page: AdminPage) => {
     setActivePage(page)
     setIsNavOpen(false)
+    window.requestAnimationFrame(resetPageScroll)
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       <AdminTopbar
         activePage={activePage}
         hasPendingAppUpdate={hasPendingAppUpdate}
@@ -488,7 +498,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           onLogout={onLogout}
       />
 
-      <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100vh', pt: { xs: MOBILE_TOPBAR_OFFSET, lg: 0 } }}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100dvh', pt: { xs: MOBILE_TOPBAR_OFFSET, lg: 0 } }}>
         <Sidebar
           activePage={activePage}
           adminEmail={adminEmail}
@@ -626,12 +636,13 @@ function AdminTopbar({
         bgcolor: 'background.paper',
         borderBottom: '1px solid',
         borderColor: 'divider',
+        pt: { xs: SAFE_AREA_TOP, lg: 0 },
       }}
     >
       <Stack
         direction="row"
         sx={{
-          minHeight: 72,
+          minHeight: { xs: 72, lg: 72 },
           px: { xs: 2.5, sm: 2.5, lg: 2.5 },
           alignItems: 'center',
           justifyContent: 'space-between',
