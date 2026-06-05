@@ -110,6 +110,11 @@ export const appTheme = createTheme({
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
           transition: 'opacity 340ms ease',
+          '.MuiPopover-root &': {
+            backgroundColor: 'transparent',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+          },
         },
       },
     },

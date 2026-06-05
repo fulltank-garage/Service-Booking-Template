@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 const expectWhiteBlurBackdrop = async (page: import('@playwright/test').Page) => {
-  const backdropMetrics = await page.locator('.MuiBackdrop-root').evaluate((element) => {
+  const backdropMetrics = await page.locator('.MuiDialog-backdrop').evaluate((element) => {
     const style = window.getComputedStyle(element)
     return {
       backgroundColor: style.backgroundColor,
@@ -10,6 +10,18 @@ const expectWhiteBlurBackdrop = async (page: import('@playwright/test').Page) =>
   })
   expect(backdropMetrics.backgroundColor).toBe('rgba(255, 255, 255, 0.72)')
   expect(backdropMetrics.backdropFilter).toContain('blur')
+}
+
+const expectDropdownHasNoOverlay = async (page: import('@playwright/test').Page) => {
+  const backdropMetrics = await page.locator('.MuiPopover-root .MuiBackdrop-root').evaluate((element) => {
+    const style = window.getComputedStyle(element)
+    return {
+      backgroundColor: style.backgroundColor,
+      backdropFilter: style.backdropFilter,
+    }
+  })
+  expect(backdropMetrics.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+  expect(backdropMetrics.backdropFilter).toBe('none')
 }
 
 test('customer can complete a booking request', async ({ page }) => {
@@ -109,6 +121,7 @@ test('customer can complete a booking request', async ({ page }) => {
   })
   expect(serviceMenuMetrics.borderTopWidth).toBe('1px')
   expect(serviceMenuMetrics.borderRadius).toBe('12px')
+  await expectDropdownHasNoOverlay(page)
   await page.getByRole('option', { name: 'บริการทดสอบ' }).click()
   await expect(page.getByLabel('ชื่อผู้จองจาก LINE')).toHaveValue('สมชาย ใจดี')
   await page.getByLabel('เบอร์โทร').fill('0890000000')
