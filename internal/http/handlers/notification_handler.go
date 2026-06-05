@@ -37,7 +37,10 @@ func (handler *NotificationHandler) MarkRead(c *gin.Context) {
 }
 
 func (handler *NotificationHandler) PublicKey(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"configured": handler.cfg.VAPIDPublicKey != "", "publicKey": handler.cfg.VAPIDPublicKey})
+	c.JSON(http.StatusOK, gin.H{
+		"configured": handler.cfg.VAPIDPublicKey != "" && handler.cfg.VAPIDPrivateKey != "",
+		"publicKey":  handler.cfg.VAPIDPublicKey,
+	})
 }
 
 func (handler *NotificationHandler) Subscribe(c *gin.Context) {
