@@ -83,6 +83,28 @@ const upsertById = <T extends { id: string }>(items: T[], nextItem: T) => {
   return items.map((item) => (item.id === nextItem.id ? nextItem : item))
 }
 
+const bookingMatchesFilters = (
+  booking: Booking,
+  filters: { date: string; query: string; status: BookingStatus | 'all' },
+) => {
+  if (booking.bookingDate !== filters.date) {
+    return false
+  }
+
+  if (filters.status !== 'all' && booking.status !== filters.status) {
+    return false
+  }
+
+  const normalizedQuery = filters.query.trim().toLowerCase()
+  if (!normalizedQuery) {
+    return true
+  }
+
+  return [booking.bookingCode, booking.customerName, booking.phone, booking.service?.nameTh, booking.service?.nameEn]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+}
+
 const SIDEBAR_WIDTH = 280
 const MOBILE_TOPBAR_OFFSET = 'calc(72px + env(safe-area-inset-top, 0px))'
 const MOBILE_FLOATING_TOP = 'calc(92px + env(safe-area-inset-top, 0px))'
@@ -261,7 +283,13 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
             void loadData()
           }
         } else if (event.booking) {
-          setBookings((current) => upsertById(current, event.booking as Booking))
+          const incomingBooking = event.booking as Booking
+          const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
+          setBookings((current) =>
+            bookingMatchesFilters(incomingBooking, filters)
+              ? upsertById(current, incomingBooking)
+              : current.filter((booking) => booking.id !== incomingBooking.id),
+          )
         }
 
         if ((event.type === 'service.created' || event.type === 'service.updated') && event.service) {
@@ -304,7 +332,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           void loadData()
         }
       },
-      [handleRealtimeNotification, loadData, selectedBookingDate],
+      [bookingQuery, bookingStatusFilter, handleRealtimeNotification, loadData, selectedBookingDate],
     ),
     onLegacyNotification: handleRealtimeNotification,
     onRefresh: loadData,
@@ -327,7 +355,13 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   }, [bookings, notifications])
 
   const handleStatusChange = async (booking: Booking, status: BookingStatus) => {
-    setBookings((current) => current.map((item) => (item.id === booking.id ? { ...item, status } : item)))
+    const updatedBooking = { ...booking, status }
+    const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
+    setBookings((current) =>
+      bookingMatchesFilters(updatedBooking, filters)
+        ? current.map((item) => (item.id === booking.id ? updatedBooking : item))
+        : current.filter((item) => item.id !== booking.id),
+    )
     try {
       await adminApi.updateBookingStatus(booking.id, status)
       setNotice('อัปเดตสถานะคิวแล้ว')
@@ -351,7 +385,12 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const handleUpdateBooking = async (booking: Booking, payload: BookingPayload) => {
     try {
       const updated = await adminApi.updateBooking(booking.id, payload)
-      setBookings((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
+      setBookings((current) =>
+        bookingMatchesFilters(updated, filters)
+          ? current.map((item) => (item.id === updated.id ? updated : item))
+          : current.filter((item) => item.id !== updated.id),
+      )
       setNotice('แก้ไขรายการจองแล้ว')
     } catch {
       setNotice('แก้ไขรายการจองไม่สำเร็จ')

@@ -23,6 +23,8 @@ vi.mock('../../api/adminApi', () => ({
     updateBookingSettings: vi.fn(),
     deleteBooking: vi.fn(),
     markNotificationRead: vi.fn(),
+    updateBooking: vi.fn(),
+    updateBookingStatus: vi.fn(),
     updateService: vi.fn(),
   },
 }))
@@ -58,6 +60,8 @@ describe('DashboardPage', () => {
     mockedAdminApi.updateBookingSettings.mockReset()
     mockedAdminApi.deleteBooking.mockReset()
     mockedAdminApi.markNotificationRead.mockReset()
+    mockedAdminApi.updateBooking.mockReset()
+    mockedAdminApi.updateBookingStatus.mockReset()
     mockedAdminApi.updateService.mockReset()
     mockedAdminApi.getBookingSettings.mockResolvedValue({
       openTime: '09:00',
@@ -179,6 +183,52 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(screen.queryAllByText('สมชาย')).toHaveLength(0)
     })
+  })
+
+  it('removes a booking from a filtered list when its status no longer matches', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([
+      {
+        id: 'booking-1',
+        serviceId: 'service-1',
+        bookingCode: 'Q-1006-0001',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        bookingDate: '2026-06-10',
+        slotTime: '10:00',
+        status: 'pending',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+    ])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+    mockedAdminApi.updateBookingStatus.mockResolvedValue({
+      id: 'booking-1',
+      serviceId: 'service-1',
+      bookingCode: 'Q-1006-0001',
+      customerName: 'สมชาย',
+      phone: '0890000000',
+      bookingDate: '2026-06-10',
+      slotTime: '10:00',
+      status: 'completed',
+      createdAt: '2026-06-05T02:00:00.000Z',
+    })
+
+    renderPage()
+    expect(await screen.findAllByText('สมชาย')).not.toHaveLength(0)
+
+    await user.click(screen.getByLabelText('กรองสถานะ'))
+    await user.click(await screen.findByRole('option', { name: 'รอจัดการ' }))
+    await waitFor(() => {
+      expect(mockedAdminApi.listBookings).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'pending' }))
+    })
+
+    await user.click(screen.getAllByRole('button', { name: 'เสร็จสิ้น' })[0])
+
+    await waitFor(() => {
+      expect(screen.queryAllByText('สมชาย')).toHaveLength(0)
+    })
+    expect(mockedAdminApi.updateBookingStatus).toHaveBeenCalledWith('booking-1', 'completed')
   })
 
   it('adds a service when a realtime service event arrives', async () => {
