@@ -22,6 +22,7 @@ import SendIcon from '@mui/icons-material/Send'
 import { bookingApi } from '../../api/bookingApi'
 import type { AvailabilitySlot, Booking, CreateBookingPayload, ServiceItem } from '../../types/booking'
 import type { LineProfile } from '../../integrations/liff'
+import { formatThaiDateLabel } from '../../utils/dateFormat'
 
 type BookingWizardProps = {
   lineProfile: LineProfile | null
@@ -190,18 +191,17 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             <Box>
               <Typography variant="h2">จองคิวเรียบร้อย</Typography>
               <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                ระบบบันทึกคำขอของคุณแล้ว ทีมงานจะตรวจสอบและยืนยันสถานะต่อไป
+                ระบบบันทึกคำขอของคุณแล้ว ทีมงานจะดูแลรายการจองต่อไป
               </Typography>
             </Box>
             <Divider sx={{ width: '100%' }} />
             <Grid container spacing={2}>
               <SummaryItem label="เลขที่จอง" value={confirmedBooking.bookingCode} />
-              <SummaryItem label="วันที่" value={confirmedBooking.bookingDate} />
+              <SummaryItem label="วันที่" value={formatThaiDateLabel(confirmedBooking.bookingDate)} />
               <SummaryItem label="เวลา" value={confirmedBooking.slotTime} />
-              <SummaryItem label="สถานะ" value="รอยืนยัน" />
             </Grid>
             <Button variant="contained" onClick={() => setConfirmedBooking(null)}>
-              จองคิวใหม่
+              เริ่มการจอง
             </Button>
           </Stack>
         </CardContent>

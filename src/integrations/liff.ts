@@ -38,3 +38,13 @@ export const initializeLiff = async (): Promise<LineProfile | null> => {
 
   return profilePromise
 }
+
+export const closeLiffWindow = () => {
+  try {
+    if (liff.isInClient()) {
+      liff.closeWindow()
+    }
+  } catch {
+    // Outside LINE clients the success page should stay open normally.
+  }
+}

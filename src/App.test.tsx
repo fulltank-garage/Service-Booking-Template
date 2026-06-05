@@ -6,6 +6,7 @@ import { appTheme } from './theme/theme'
 import { initializeLiff } from './integrations/liff'
 
 vi.mock('./integrations/liff', () => ({
+  closeLiffWindow: vi.fn(),
   initializeLiff: vi.fn(),
 }))
 
@@ -25,6 +26,7 @@ vi.mock('./api/bookingApi', () => ({
     ]),
     listAvailability: vi.fn().mockResolvedValue([]),
     createBooking: vi.fn(),
+    cancelBooking: vi.fn(),
     latestBookingByLineUser: vi.fn(),
   },
 }))

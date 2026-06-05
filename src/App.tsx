@@ -48,6 +48,7 @@ function App() {
   const [lineProfile, setLineProfile] = useState<LineProfile | null>(null)
   const [activePage, setActivePage] = useState(getCurrentPath)
   const [latestBooking, setLatestBooking] = useState<Booking | null>(() => readLatestBooking())
+  const [autoCloseSuccess, setAutoCloseSuccess] = useState(false)
 
   useEffect(() => {
     if (activePage === 'services' || lineProfile) {
@@ -86,7 +87,19 @@ function App() {
     } catch {
       // Ignore storage failures inside restricted LIFF browsers.
     }
+    setAutoCloseSuccess(true)
     navigate('/booking/success')
+  }
+
+  const handleBookingCancelled = () => {
+    setLatestBooking(null)
+    setAutoCloseSuccess(false)
+    try {
+      window.localStorage.removeItem(latestBookingStorageKey)
+    } catch {
+      // Ignore storage failures inside restricted LIFF browsers.
+    }
+    navigate('/booking')
   }
 
   const pageContent =
@@ -94,9 +107,10 @@ function App() {
       <ServicesCatalogPage />
     ) : activePage === 'success' ? (
       <BookingSuccessPage
+        autoCloseOnSuccess={autoCloseSuccess}
         fallbackBooking={latestBooking}
         lineProfile={lineProfile}
-        onStartBooking={() => navigate('/booking')}
+        onBookingCancelled={handleBookingCancelled}
       />
     ) : (
       <BookingWizard lineProfile={lineProfile} onBookingConfirmed={handleBookingConfirmed} />

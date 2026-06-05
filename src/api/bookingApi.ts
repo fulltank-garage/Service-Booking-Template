@@ -25,4 +25,8 @@ export const bookingApi = {
     })
     return response.data.data
   },
+
+  cancelBooking: async (bookingId: string, lineUserId: string) => {
+    await httpClient.post(`/bookings/${bookingId}/cancel`, { lineUserId })
+  },
 }
