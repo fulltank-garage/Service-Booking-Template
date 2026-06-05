@@ -118,8 +118,10 @@ export const adminApi = {
     return true
   },
 
-  testPush: async () => {
-    const response = await httpClient.post<ApiEnvelope<{ attempted: number; sent: number; expired: number; failed: number }>>('/admin/push/test')
+  testPush: async (subscription: PushSubscriptionJSON) => {
+    const response = await httpClient.post<ApiEnvelope<{ attempted: number; sent: number; expired: number; failed: number }>>('/admin/push/test', {
+      endpoint: subscription.endpoint,
+    })
     return response.data.data
   },
 }

@@ -97,6 +97,10 @@ describe('pushNotifications', () => {
       endpoint: 'https://push.example.test/new',
       keys: { auth: 'auth', p256dh: 'p256dh' },
     })
+    expect(mockedAdminApi.testPush).toHaveBeenCalledWith({
+      endpoint: 'https://push.example.test/new',
+      keys: { auth: 'auth', p256dh: 'p256dh' },
+    })
   })
 
   it('sends a test push when enabling notifications succeeds', async () => {
@@ -122,6 +126,9 @@ describe('pushNotifications', () => {
 
     await enablePushNotifications()
 
-    expect(mockedAdminApi.testPush).toHaveBeenCalled()
+    expect(mockedAdminApi.testPush).toHaveBeenCalledWith({
+      endpoint: 'https://push.example.test/new',
+      keys: { auth: 'auth', p256dh: 'p256dh' },
+    })
   })
 })

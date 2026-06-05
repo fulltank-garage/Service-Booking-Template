@@ -56,12 +56,12 @@ const ensurePushSubscription = async (registration: ServiceWorkerRegistration, p
   if (currentSubscription) {
     if (!hasUsableSubscriptionKeys(currentSubscription) || !usesPublicKey(currentSubscription, publicKey)) {
       await currentSubscription.unsubscribe().catch(() => false)
-      return subscribeWithPublicKey(registration, publicKey)
+      return { subscription: await subscribeWithPublicKey(registration, publicKey), isNewOrRepaired: true }
     }
     await saveSubscription(currentSubscription)
-    return currentSubscription
+    return { subscription: currentSubscription, isNewOrRepaired: false }
   }
-  return subscribeWithPublicKey(registration, publicKey)
+  return { subscription: await subscribeWithPublicKey(registration, publicKey), isNewOrRepaired: true }
 }
 
 const getConfiguredPublicKey = async () => {
@@ -108,8 +108,8 @@ export const enablePushNotifications = async () => {
   }
 
   const registration = await registerServiceWorker()
-  const subscription = await ensurePushSubscription(registration, await getConfiguredPublicKey())
-  const report = await adminApi.testPush()
+  const { subscription } = await ensurePushSubscription(registration, await getConfiguredPublicKey())
+  const report = await adminApi.testPush(subscription.toJSON())
   if (report.attempted === 0 || report.sent === 0) {
     throw new Error('เปิดสิทธิ์แล้ว แต่ยังส่งทดสอบแจ้งเตือนไม่สำเร็จ กรุณาลองเปิดแจ้งเตือนอีกครั้ง')
   }
@@ -122,5 +122,12 @@ export const refreshPushSubscription = async () => {
   }
 
   const registration = await registerServiceWorker()
-  return ensurePushSubscription(registration, await getConfiguredPublicKey())
+  const result = await ensurePushSubscription(registration, await getConfiguredPublicKey())
+  if (result.isNewOrRepaired) {
+    const report = await adminApi.testPush(result.subscription.toJSON())
+    if (report.attempted === 0 || report.sent === 0) {
+      throw new Error('ซิงก์แจ้งเตือนแล้ว แต่ยังส่งทดสอบแจ้งเตือนไม่สำเร็จ กรุณาเปิดแจ้งเตือนอีกครั้ง')
+    }
+  }
+  return result.subscription
 }

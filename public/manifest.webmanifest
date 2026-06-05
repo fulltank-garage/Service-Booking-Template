@@ -2,6 +2,7 @@
   "name": "Service Booking Admin",
   "short_name": "Booking Admin",
   "description": "ระบบจัดการคิวจองบริการ",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

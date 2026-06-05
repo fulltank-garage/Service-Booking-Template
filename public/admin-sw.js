@@ -1,5 +1,5 @@
-self.addEventListener('install', () => {
-  // Keep the new worker waiting so the Admin UI can show an update prompt.
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting())
 })
 
 self.addEventListener('activate', (event) => {
