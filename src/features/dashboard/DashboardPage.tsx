@@ -2019,7 +2019,7 @@ function BottomEditorSheet({
     <Portal>
       <Box
         aria-hidden={!isOpen}
-        data-testid="service-editor-overlay"
+        data-testid="bottom-editor-overlay"
         sx={{
           position: 'fixed',
           top: 0,
@@ -2288,54 +2288,51 @@ function BookingsCard({
         )}
         </CardContent>
       </Card>
-      <Dialog open={Boolean(editingBooking)} onClose={() => setEditingBooking(null)} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ fontWeight: 950 }}>แก้ไขรายการจอง</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <FormControl fullWidth>
-              <Select aria-label="บริการ" value={editServiceId} onChange={(event) => setEditServiceId(event.target.value)}>
-                {services.map((service) => (
-                  <MenuItem key={service.id} value={service.id}>
-                    {service.nameTh}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField fullWidth label="ชื่อผู้จอง" value={editCustomerName} onChange={(event) => setEditCustomerName(event.target.value)} />
-            <TextField fullWidth label="เบอร์โทร" value={editPhone} onChange={(event) => setEditPhone(event.target.value)} />
-            <Grid container spacing={1.5}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField fullWidth label="วันที่" type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField fullWidth label="เวลา" value={editSlotTime} onChange={(event) => setEditSlotTime(event.target.value)} placeholder="10:00" />
-              </Grid>
+      <BottomEditorSheet isOpen={Boolean(editingBooking)} onClose={() => setEditingBooking(null)} title="แก้ไขรายการจอง">
+        <Stack spacing={2}>
+          <FormControl fullWidth>
+            <Select aria-label="บริการ" value={editServiceId} onChange={(event) => setEditServiceId(event.target.value)}>
+              {services.map((service) => (
+                <MenuItem key={service.id} value={service.id}>
+                  {service.nameTh}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField fullWidth label="ชื่อผู้จอง" value={editCustomerName} onChange={(event) => setEditCustomerName(event.target.value)} />
+          <TextField fullWidth label="เบอร์โทร" value={editPhone} onChange={(event) => setEditPhone(event.target.value)} />
+          <Grid container spacing={1.5}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="วันที่" type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} />
             </Grid>
-            <FormControl fullWidth>
-              <Select aria-label="สถานะ" value={editStatus} onChange={(event) => setEditStatus(event.target.value as BookingStatus)}>
-                {Object.entries(statusLabels).map(([status, label]) => (
-                  <MenuItem key={status} value={status}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField fullWidth multiline minRows={3} label="หมายเหตุ" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField fullWidth label="เวลา" value={editSlotTime} onChange={(event) => setEditSlotTime(event.target.value)} placeholder="10:00" />
+            </Grid>
+          </Grid>
+          <FormControl fullWidth>
+            <Select aria-label="สถานะ" value={editStatus} onChange={(event) => setEditStatus(event.target.value as BookingStatus)}>
+              {Object.entries(statusLabels).map(([status, label]) => (
+                <MenuItem key={status} value={status}>
+                  {label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField fullWidth multiline minRows={3} label="หมายเหตุ" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
+          <Stack direction="row" spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
+            <Button variant="outlined" disabled={isSaving} onClick={() => setEditingBooking(null)}>
+              ยกเลิก
+            </Button>
+            <Button
+              variant="contained"
+              disabled={!editServiceId || !editCustomerName.trim() || !editPhone.trim() || !editDate || !editSlotTime.trim() || isSaving}
+              onClick={handleSaveBooking}
+            >
+              {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+            </Button>
           </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button variant="outlined" disabled={isSaving} onClick={() => setEditingBooking(null)}>
-            ยกเลิก
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!editServiceId || !editCustomerName.trim() || !editPhone.trim() || !editDate || !editSlotTime.trim() || isSaving}
-            onClick={handleSaveBooking}
-          >
-            {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Stack>
+      </BottomEditorSheet>
     </>
   )
 }
