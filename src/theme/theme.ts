@@ -51,6 +51,26 @@ export const appTheme = createTheme({
         root: { backgroundImage: 'none', boxShadow: 'none' },
       },
     },
+    MuiBackdrop: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(255, 255, 255, 0.72)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          transition: 'opacity 340ms ease',
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          border: `1px solid ${colors.border}`,
+          borderRadius: 19.2,
+          backgroundImage: 'none',
+          boxShadow: 'none',
+        },
+      },
+    },
     MuiAlert: {
       styleOverrides: {
         root: {

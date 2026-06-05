@@ -1881,23 +1881,6 @@ function ServicesPage({
         onClose={() => setServiceToDelete(null)}
         maxWidth="xs"
         fullWidth
-        slotProps={{
-          backdrop: {
-            sx: {
-              bgcolor: 'rgba(255, 255, 255, 0.72)',
-              backdropFilter: 'blur(14px)',
-              WebkitBackdropFilter: 'blur(14px)',
-            },
-          },
-          paper: {
-            sx: {
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              boxShadow: 'none',
-            },
-          },
-        }}
       >
         <DialogTitle sx={{ fontWeight: 950 }}>ยืนยันการลบบริการ</DialogTitle>
         <DialogContent>
