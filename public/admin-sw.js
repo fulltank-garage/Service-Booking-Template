@@ -40,6 +40,9 @@ self.addEventListener('push', (event) => {
       body: payload.body,
       badge: '/pwa-icons/booking-queue-icon-192.png',
       icon: '/pwa-icons/booking-queue-icon-192.png',
+      requireInteraction: true,
+      timestamp: Date.now(),
+      vibrate: [120, 70, 120],
       data: { url: payload.url || '/' },
     }),
   )

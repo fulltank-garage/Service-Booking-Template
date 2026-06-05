@@ -15,6 +15,32 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray
 }
 
+const hasUsableSubscriptionKeys = (subscription: PushSubscription) => {
+  const value = subscription.toJSON()
+  return Boolean(value.endpoint && value.keys?.auth && value.keys?.p256dh)
+}
+
+const saveSubscription = async (subscription: PushSubscription) => {
+  if (!hasUsableSubscriptionKeys(subscription)) {
+    throw new Error('ข้อมูลแจ้งเตือนเดิมไม่สมบูรณ์ กรุณาเปิดแจ้งเตือนอีกครั้ง')
+  }
+  await adminApi.subscribePush(subscription.toJSON())
+}
+
+const subscribeWithPublicKey = async (registration: ServiceWorkerRegistration) => {
+  const publicKey = await adminApi.getPushPublicKey()
+  if (!publicKey.configured || !publicKey.publicKey) {
+    throw new Error('เปิดสิทธิ์แจ้งเตือนแล้ว แต่ยังไม่ได้ตั้งค่าคีย์แจ้งเตือน')
+  }
+
+  const subscription = await registration.pushManager.subscribe({
+    applicationServerKey: urlBase64ToUint8Array(publicKey.publicKey),
+    userVisibleOnly: true,
+  })
+  await saveSubscription(subscription)
+  return subscription
+}
+
 export const isPushNotificationSupported = () =>
   'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 
@@ -53,21 +79,15 @@ export const enablePushNotifications = async () => {
   const registration = await registerServiceWorker()
   const currentSubscription = await registration.pushManager.getSubscription()
   if (currentSubscription) {
-    await adminApi.subscribePush(currentSubscription.toJSON())
+    if (!hasUsableSubscriptionKeys(currentSubscription)) {
+      await currentSubscription.unsubscribe().catch(() => false)
+      return subscribeWithPublicKey(registration)
+    }
+    await saveSubscription(currentSubscription)
     return currentSubscription
   }
 
-  const publicKey = await adminApi.getPushPublicKey()
-  if (!publicKey.configured || !publicKey.publicKey) {
-    throw new Error('เปิดสิทธิ์แจ้งเตือนแล้ว แต่ยังไม่ได้ตั้งค่าคีย์แจ้งเตือน')
-  }
-
-  const subscription = await registration.pushManager.subscribe({
-    applicationServerKey: urlBase64ToUint8Array(publicKey.publicKey),
-    userVisibleOnly: true,
-  })
-  await adminApi.subscribePush(subscription.toJSON())
-  return subscription
+  return subscribeWithPublicKey(registration)
 }
 
 export const refreshPushSubscription = async () => {
@@ -80,6 +100,10 @@ export const refreshPushSubscription = async () => {
   if (!currentSubscription) {
     return enablePushNotifications()
   }
-  await adminApi.subscribePush(currentSubscription.toJSON())
+  if (!hasUsableSubscriptionKeys(currentSubscription)) {
+    await currentSubscription.unsubscribe().catch(() => false)
+    return subscribeWithPublicKey(registration)
+  }
+  await saveSubscription(currentSubscription)
   return currentSubscription
 }
