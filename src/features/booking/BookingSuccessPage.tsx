@@ -32,6 +32,31 @@ type BookingSuccessPageProps = {
   onBookingCancelled: () => void
 }
 
+const latestBookingCache = new Map<string, Booking>()
+const latestBookingRequests = new Map<string, Promise<Booking>>()
+
+const loadLatestBookingOnce = (lineUserId: string) => {
+  const cached = latestBookingCache.get(lineUserId)
+  if (cached) {
+    return Promise.resolve(cached)
+  }
+  const existingRequest = latestBookingRequests.get(lineUserId)
+  if (existingRequest) {
+    return existingRequest
+  }
+  const request = bookingApi.latestBookingByLineUser(lineUserId)
+    .then((booking) => {
+      latestBookingCache.set(lineUserId, booking)
+      return booking
+    })
+    .catch((error) => {
+      latestBookingRequests.delete(lineUserId)
+      throw error
+    })
+  latestBookingRequests.set(lineUserId, request)
+  return request
+}
+
 export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking, lineProfile, onBookingCancelled }: BookingSuccessPageProps) {
   const [booking, setBooking] = useState<Booking | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(lineProfile?.userId))
@@ -44,7 +69,6 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
   const [rescheduleSlot, setRescheduleSlot] = useState('')
   const [rescheduleNotes, setRescheduleNotes] = useState('')
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
-  const loadedKeyRef = useRef('')
   const fallbackBookingRef = useRef(fallbackBooking)
   const displayedBooking = lineProfile?.userId ? booking : fallbackBooking
   const fallbackBookingId = fallbackBooking?.id ?? ''
@@ -58,18 +82,12 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
     if (!lineProfile?.userId) {
       return
     }
-    const loadKey = `${lineProfile.userId}:${fallbackBookingId}`
-    if (loadedKeyRef.current === loadKey) {
-      return
-    }
-    loadedKeyRef.current = loadKey
-
     let active = true
     const load = async () => {
       setIsLoading(true)
       setError('')
       try {
-        const latestBooking = await bookingApi.latestBookingByLineUser(lineProfile.userId)
+        const latestBooking = await loadLatestBookingOnce(lineProfile.userId)
         if (active) setBooking(latestBooking)
       } catch {
         if (active) {
@@ -164,6 +182,9 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
         slotTime: rescheduleSlot,
         notes: rescheduleNotes,
       })
+      if (lineProfile?.userId) {
+        latestBookingCache.set(lineProfile.userId, updated)
+      }
       setBooking(updated)
       setIsRescheduleOpen(false)
     } catch {

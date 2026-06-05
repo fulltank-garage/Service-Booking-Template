@@ -69,6 +69,22 @@ const addDays = (date: Date, count: number) => {
 
 const addMonths = (date: Date, count: number) => new Date(date.getFullYear(), date.getMonth() + count, 1)
 
+let bookingBootstrapCache: { services: ServiceItem[]; rules: BookingRules } | null = null
+let bookingBootstrapRequest: Promise<{ services: ServiceItem[]; rules: BookingRules }> | null = null
+
+const loadBookingBootstrapOnce = () => {
+  bookingBootstrapRequest ??= Promise.all([bookingApi.listServices(), bookingApi.getBookingRules()])
+    .then(([services, rules]) => {
+      bookingBootstrapCache = { services, rules }
+      return bookingBootstrapCache
+    })
+    .catch((error) => {
+      bookingBootstrapRequest = null
+      throw error
+    })
+  return bookingBootstrapRequest
+}
+
 const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
   const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
   const start = addDays(firstDay, -firstDay.getDay())
@@ -84,8 +100,8 @@ const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
 }
 
 export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizardProps) {
-  const [services, setServices] = useState<ServiceItem[]>([])
-  const [bookingRules, setBookingRules] = useState<BookingRules | null>(null)
+  const [services, setServices] = useState<ServiceItem[]>(() => bookingBootstrapCache?.services ?? [])
+  const [bookingRules, setBookingRules] = useState<BookingRules | null>(() => bookingBootstrapCache?.rules ?? null)
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [bookingDate, setBookingDate] = useState(todayISO)
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -98,7 +114,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null)
-  const [isLoadingServices, setIsLoadingServices] = useState(true)
+  const [isLoadingServices, setIsLoadingServices] = useState(() => !bookingBootstrapCache)
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -109,7 +125,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
       setIsLoadingServices(true)
       setError('')
       try {
-        const [items, rules] = await Promise.all([bookingApi.listServices(), bookingApi.getBookingRules()])
+        const { services: items, rules } = await loadBookingBootstrapOnce()
         if (!active) return
         setServices(items)
         setBookingRules(rules)

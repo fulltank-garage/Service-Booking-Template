@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { StrictMode } from 'react'
 import { ThemeProvider } from '@mui/material/styles'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BookingWizard } from './BookingWizard'
 import { appTheme } from '../../theme/theme'
 import { bookingApi } from '../../api/bookingApi'
@@ -24,7 +25,20 @@ const renderWizard = () =>
     </ThemeProvider>,
   )
 
+const renderWizardStrict = () =>
+  render(
+    <StrictMode>
+      <ThemeProvider theme={appTheme}>
+        <BookingWizard lineProfile={null} />
+      </ThemeProvider>
+    </StrictMode>,
+  )
+
 describe('BookingWizard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('creates a booking from API data', async () => {
     mockedBookingApi.listServices.mockResolvedValue([
       {
@@ -83,5 +97,39 @@ describe('BookingWizard', () => {
 
     expect(mockedBookingApi.createBooking).toHaveBeenCalledWith(expect.objectContaining({ notes: 'ขอที่นั่งริมหน้าต่าง' }))
     expect(await screen.findByText('จองคิวเรียบร้อย')).toBeInTheDocument()
+  })
+
+  it('deduplicates initial booking data loads under StrictMode', async () => {
+    mockedBookingApi.listServices.mockResolvedValue([
+      {
+        id: 'service-1',
+        nameTh: 'บริการทดสอบ',
+        nameEn: 'Test Service',
+        descriptionTh: 'บริการสำหรับทดสอบ',
+        durationMinutes: 30,
+        priceCents: 0,
+        accentColor: '#FF008C',
+        isActive: true,
+      },
+    ])
+    mockedBookingApi.getBookingRules.mockResolvedValue({
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: '',
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      blackoutDates: [],
+    })
+
+    const serviceCallsBeforeRender = mockedBookingApi.listServices.mock.calls.length
+    const rulesCallsBeforeRender = mockedBookingApi.getBookingRules.mock.calls.length
+    renderWizardStrict()
+
+    expect(await screen.findByText('เลือกบริการของคุณ')).toBeInTheDocument()
+    expect(mockedBookingApi.listServices.mock.calls.length - serviceCallsBeforeRender).toBeLessThanOrEqual(1)
+    expect(mockedBookingApi.getBookingRules.mock.calls.length - rulesCallsBeforeRender).toBeLessThanOrEqual(1)
   })
 })
