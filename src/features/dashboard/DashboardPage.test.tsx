@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -86,6 +86,42 @@ describe('DashboardPage', () => {
     expect(await screen.findAllByText('FULLTANK Garage Admin')).not.toHaveLength(0)
     expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
     expect(screen.queryByText('รายการจองล่าสุด')).not.toBeInTheDocument()
+  })
+
+  it('keeps the newest created booking at the top of the booking list', async () => {
+    mockedAdminApi.listBookings.mockResolvedValue([
+      {
+        id: 'booking-old',
+        serviceId: 'service-1',
+        bookingCode: 'Q-1006-0001',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        bookingDate: '2026-06-10',
+        slotTime: '17:00',
+        status: 'pending',
+        createdAt: '2026-06-05T01:00:00.000Z',
+      },
+      {
+        id: 'booking-new',
+        serviceId: 'service-1',
+        bookingCode: 'Q-1006-0002',
+        customerName: 'สมหญิง',
+        phone: '0891111111',
+        bookingDate: '2026-06-10',
+        slotTime: '09:00',
+        status: 'pending',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+    ])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+
+    renderPage()
+
+    const table = await screen.findByTestId('booking-table')
+    const rows = within(table).getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('Q-1006-0002')
+    expect(rows[2]).toHaveTextContent('Q-1006-0001')
   })
 
   it('shows a new booking notice when refresh after reconnect finds an unread notification', async () => {

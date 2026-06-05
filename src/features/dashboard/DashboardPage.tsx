@@ -149,6 +149,20 @@ const upsertById = <T extends { id: string }>(items: T[], nextItem: T) => {
   return items.map((item) => (item.id === nextItem.id ? nextItem : item))
 }
 
+const getBookingCreatedTime = (booking: Booking) => {
+  const createdTime = new Date(booking.createdAt).getTime()
+  return Number.isNaN(createdTime) ? 0 : createdTime
+}
+
+const sortBookingsByNewestCreated = (items: Booking[]) =>
+  [...items].sort((first, second) => {
+    const createdDiff = getBookingCreatedTime(second) - getBookingCreatedTime(first)
+    if (createdDiff !== 0) {
+      return createdDiff
+    }
+    return `${second.bookingDate} ${second.slotTime}`.localeCompare(`${first.bookingDate} ${first.slotTime}`)
+  })
+
 const bookingMatchesFilters = (
   booking: Booking,
   filters: { date: string; query: string; status: BookingStatus | 'all' },
@@ -298,7 +312,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           )
         : undefined
 
-      setBookings(bookingItems)
+      setBookings(sortBookingsByNewestCreated(bookingItems))
       setServices(serviceItems)
       setNotifications(notificationItems)
       setBookingSettings(settings)
@@ -357,9 +371,11 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           const incomingBooking = event.booking as Booking
           const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
           setBookings((current) =>
-            bookingMatchesFilters(incomingBooking, filters)
-              ? upsertById(current, incomingBooking)
-              : current.filter((booking) => booking.id !== incomingBooking.id),
+            sortBookingsByNewestCreated(
+              bookingMatchesFilters(incomingBooking, filters)
+                ? upsertById(current, incomingBooking)
+                : current.filter((booking) => booking.id !== incomingBooking.id),
+            ),
           )
         }
 
@@ -429,9 +445,11 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     const updatedBooking = { ...booking, status }
     const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
     setBookings((current) =>
-      bookingMatchesFilters(updatedBooking, filters)
-        ? current.map((item) => (item.id === booking.id ? updatedBooking : item))
-        : current.filter((item) => item.id !== booking.id),
+      sortBookingsByNewestCreated(
+        bookingMatchesFilters(updatedBooking, filters)
+          ? current.map((item) => (item.id === booking.id ? updatedBooking : item))
+          : current.filter((item) => item.id !== booking.id),
+      ),
     )
     try {
       await adminApi.updateBookingStatus(booking.id, status)
@@ -458,9 +476,11 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
       const updated = await adminApi.updateBooking(booking.id, payload)
       const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
       setBookings((current) =>
-        bookingMatchesFilters(updated, filters)
-          ? current.map((item) => (item.id === updated.id ? updated : item))
-          : current.filter((item) => item.id !== updated.id),
+        sortBookingsByNewestCreated(
+          bookingMatchesFilters(updated, filters)
+            ? current.map((item) => (item.id === updated.id ? updated : item))
+            : current.filter((item) => item.id !== updated.id),
+        ),
       )
       setNotice('แก้ไขรายการจองแล้ว')
     } catch {
