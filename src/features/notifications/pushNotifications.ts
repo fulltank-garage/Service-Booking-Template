@@ -25,6 +25,9 @@ export const getCurrentPushPermission = () => {
   return Notification.permission
 }
 
+export const isInstalledAppContext = () =>
+  window.matchMedia?.('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+
 const registerServiceWorker = async () => {
   const registration = await navigator.serviceWorker.register(serviceWorkerPath, { scope: '/' })
   await registration.update().catch(() => undefined)
@@ -65,4 +68,18 @@ export const enablePushNotifications = async () => {
   })
   await adminApi.subscribePush(subscription.toJSON())
   return subscription
+}
+
+export const refreshPushSubscription = async () => {
+  if (!isPushNotificationSupported() || getCurrentPushPermission() !== 'granted') {
+    return null
+  }
+
+  const registration = await registerServiceWorker()
+  const currentSubscription = await registration.pushManager.getSubscription()
+  if (!currentSubscription) {
+    return enablePushNotifications()
+  }
+  await adminApi.subscribePush(currentSubscription.toJSON())
+  return currentSubscription
 }

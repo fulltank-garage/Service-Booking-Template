@@ -17,6 +17,7 @@ vi.mock('../../api/adminApi', () => ({
     listServices: vi.fn(),
     getBookingSettings: vi.fn(),
     updateBookingSettings: vi.fn(),
+    deleteBooking: vi.fn(),
     markNotificationRead: vi.fn(),
   },
 }))
@@ -50,6 +51,7 @@ describe('DashboardPage', () => {
     mockedAdminApi.listServices.mockReset()
     mockedAdminApi.getBookingSettings.mockReset()
     mockedAdminApi.updateBookingSettings.mockReset()
+    mockedAdminApi.deleteBooking.mockReset()
     mockedAdminApi.markNotificationRead.mockReset()
     mockedAdminApi.getBookingSettings.mockResolvedValue({
       openTime: '09:00',
@@ -110,14 +112,13 @@ describe('DashboardPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('มีคิวจองใหม่')
   })
 
-  it('does not render a notification history menu', async () => {
+  it('renders the notification history menu again', async () => {
     mockedAdminApi.listBookings.mockResolvedValue([])
     mockedAdminApi.listServices.mockResolvedValue([])
     mockedAdminApi.listNotifications.mockResolvedValue([])
 
     renderPage()
     expect(await screen.findByText('คิวทั้งหมด')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'รายการแจ้งเตือน' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'รายการแจ้งเตือน' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeInTheDocument()
   })
 })

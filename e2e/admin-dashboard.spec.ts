@@ -36,7 +36,7 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
       }),
     })
   })
-  await page.route('**/api/v1/admin/bookings', async (route) => {
+  await page.route('**/api/v1/admin/bookings**', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({ data: [booking] }),
@@ -108,7 +108,13 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   }
   await expect(page.getByText('คิวทั้งหมด')).toBeVisible()
   await expect(page.getByText('รายการจองล่าสุด')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: 'รายการแจ้งเตือน' })).toHaveCount(0)
+  if (testInfo.project.name === 'mobile-chromium') {
+    await page.getByRole('button', { name: 'เปิดเมนู' }).click()
+    await expect(page.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeVisible()
+    await page.getByRole('button', { name: 'ปิดเมนู' }).click()
+  } else {
+    await expect(page.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeVisible()
+  }
 
   if (testInfo.project.name === 'mobile-chromium') {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()

@@ -50,10 +50,11 @@ import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
 import type { AdminNotification, AdminRealtimeEvent, Booking, BookingSettings, BookingStatus, ServiceItem } from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
-import { registerAdminServiceWorker } from '../notifications/pushNotifications'
+import { refreshPushSubscription, registerAdminServiceWorker } from '../notifications/pushNotifications'
+import { addDaysToISODate, formatThaiDateLabel, todayISO } from '../../utils/dateFormat'
 
 const statusLabels: Record<BookingStatus, string> = {
-  pending: 'รอยืนยัน',
+  pending: 'รอจัดการ',
   confirmed: 'ยืนยันแล้ว',
   completed: 'เสร็จสิ้น',
   cancelled: 'ยกเลิก',
@@ -63,6 +64,7 @@ const pageLabels = {
   overview: 'จัดการคิวจองบริการ',
   bookings: 'รายการจอง',
   services: 'บริการของร้าน',
+  notifications: 'รายการแจ้งเตือน',
   settings: 'ตั้งค่าการจอง',
 } as const
 
@@ -98,6 +100,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null)
+  const [selectedBookingDate, setSelectedBookingDate] = useState(todayISO)
   const [isLoading, setIsLoading] = useState(true)
   const [shouldShowDataSkeleton, setShouldShowDataSkeleton] = useState(false)
   const hasLoadedDataRef = useRef(false)
@@ -126,7 +129,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
 
     try {
       const [bookingItems, notificationItems, serviceItems, settings] = await Promise.all([
-        adminApi.listBookings(),
+        adminApi.listBookings(selectedBookingDate),
         adminApi.listNotifications(),
         adminApi.listServices(),
         adminApi.getBookingSettings(),
@@ -155,7 +158,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     } finally {
       setIsLoading(false)
     }
-  }, [showNotificationNotice])
+  }, [selectedBookingDate, showNotificationNotice])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setShouldShowDataSkeleton(isLoading), isLoading ? 180 : 0)
@@ -165,7 +168,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadData()
-      void registerAdminServiceWorker()
+      void registerAdminServiceWorker().then(() => refreshPushSubscription()).catch(() => undefined)
     }, 0)
 
     return () => {
@@ -235,6 +238,17 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
   }
 
+  const handleDeleteBooking = async (booking: Booking) => {
+    setBookings((current) => current.filter((item) => item.id !== booking.id))
+    try {
+      await adminApi.deleteBooking(booking.id)
+      setNotice('ยกเลิกและลบคิวแล้ว')
+    } catch {
+      setNotice('ยกเลิกคิวไม่สำเร็จ')
+      void loadData()
+    }
+  }
+
   const handleChangePage = (page: AdminPage) => {
     setActivePage(page)
     setIsNavOpen(false)
@@ -295,7 +309,14 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                   <OverviewPage summary={summary} />
                 )}
                 {activePage === 'bookings' && (
-                  <BookingsPage bookings={bookings} onStatusChange={handleStatusChange} />
+                  <BookingsPage
+                    bookings={bookings}
+                    selectedDate={selectedBookingDate}
+                    onDeleteBooking={handleDeleteBooking}
+                    onNextDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, 1))}
+                    onPreviousDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, -1))}
+                    onStatusChange={handleStatusChange}
+                  />
                 )}
                 {activePage === 'services' && (
                   <ServicesPage
@@ -316,6 +337,19 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                       setNotice('แก้ไขบริการของร้านแล้ว')
                     }}
                     onError={() => setNotice('บันทึกข้อมูลบริการไม่สำเร็จ')}
+                  />
+                )}
+                {activePage === 'notifications' && (
+                  <NotificationsPage
+                    notifications={notifications}
+                    onError={() => setNotice('อัปเดตแจ้งเตือนไม่สำเร็จ')}
+                    onMarkRead={async (notificationId) => {
+                      const item = await adminApi.markNotificationRead(notificationId)
+                      setNotifications((current) =>
+                        current.map((notification) => (notification.id === item.id ? item : notification)),
+                      )
+                      setNotice('อ่านแจ้งเตือนแล้ว')
+                    }}
                   />
                 )}
                 {activePage === 'settings' && (
@@ -627,6 +661,7 @@ function SidebarContent({
     { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <RoomServiceIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
+    { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon /> },
     { page: 'settings', label: 'ตั้งค่าการจอง', icon: <SettingsIcon /> },
   ]
 
@@ -865,7 +900,7 @@ function OverviewPage({
   return (
     <Stack spacing={2.5}>
       <Grid container spacing={2}>
-        <SummaryCard icon={<HourglassTopIcon />} label="รอยืนยัน" value={summary.pending} color="#FF008C" />
+        <SummaryCard icon={<HourglassTopIcon />} label="รอจัดการ" value={summary.pending} color="#FF008C" />
         <SummaryCard icon={<CheckCircleIcon />} label="ยืนยันแล้ว" value={summary.confirmed} color="#111827" />
         <SummaryCard icon={<CalendarMonthIcon />} label="คิวทั้งหมด" value={summary.total} color="#FF008C" />
         <SummaryCard icon={<NotificationsIcon />} label="แจ้งเตือนยังไม่อ่าน" value={summary.unread} color="#111827" />
@@ -876,12 +911,116 @@ function OverviewPage({
 
 function BookingsPage({
   bookings,
+  selectedDate,
+  onDeleteBooking,
+  onNextDay,
+  onPreviousDay,
   onStatusChange,
 }: {
   bookings: Booking[]
+  selectedDate: string
+  onDeleteBooking: (booking: Booking) => void
+  onNextDay: () => void
+  onPreviousDay: () => void
   onStatusChange: (booking: Booking, status: BookingStatus) => void
 }) {
-  return <BookingsCard bookings={bookings} onStatusChange={onStatusChange} />
+  return (
+    <BookingsCard
+      bookings={bookings}
+      selectedDate={selectedDate}
+      onDeleteBooking={onDeleteBooking}
+      onNextDay={onNextDay}
+      onPreviousDay={onPreviousDay}
+      onStatusChange={onStatusChange}
+    />
+  )
+}
+
+function NotificationsPage({
+  notifications,
+  onError,
+  onMarkRead,
+}: {
+  notifications: AdminNotification[]
+  onError: () => void
+  onMarkRead: (notificationId: string) => Promise<void>
+}) {
+  const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [markingId, setMarkingId] = useState('')
+  const visibleNotifications = filter === 'unread' ? notifications.filter((notification) => !notification.isRead) : notifications
+
+  const handleMarkRead = async (notificationId: string) => {
+    if (markingId) return
+    setMarkingId(notificationId)
+    try {
+      await onMarkRead(notificationId)
+    } catch {
+      onError()
+    } finally {
+      setMarkingId('')
+    }
+  }
+
+  return (
+    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
+            <Typography variant="h2">รายการแจ้งเตือน</Typography>
+            <Stack direction="row" spacing={0.8}>
+              <Button variant={filter === 'all' ? 'contained' : 'outlined'} onClick={() => setFilter('all')}>
+                ทั้งหมด
+              </Button>
+              <Button variant={filter === 'unread' ? 'contained' : 'outlined'} onClick={() => setFilter('unread')}>
+                ยังไม่อ่าน
+              </Button>
+            </Stack>
+          </Stack>
+
+          {visibleNotifications.length === 0 ? (
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', py: 5, px: 2, textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 900 }}>{filter === 'unread' ? 'ไม่มีแจ้งเตือนที่ยังไม่อ่าน' : 'ยังไม่มีรายการแจ้งเตือน'}</Typography>
+            </Box>
+          ) : (
+            <Stack spacing={1.2}>
+              {visibleNotifications.map((notification) => (
+                <Box
+                  key={notification.id}
+                  sx={{
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2.5,
+                    bgcolor: notification.isRead ? 'background.default' : 'secondary.main',
+                    p: 1.6,
+                  }}
+                >
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'space-between' }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 950 }}>{notification.title}</Typography>
+                      <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>{notification.body}</Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                        {formatThaiDateLabel(notification.createdAt.slice(0, 10))}{' '}
+                        {new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(new Date(notification.createdAt))}
+                      </Typography>
+                    </Box>
+                    {!notification.isRead && (
+                      <Button
+                        variant="contained"
+                        disabled={markingId === notification.id}
+                        onClick={() => handleMarkRead(notification.id)}
+                      >
+                        อ่านแล้ว
+                      </Button>
+                    )}
+                  </Stack>
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  )
 }
 
 function BookingSettingsPage({
@@ -895,20 +1034,9 @@ function BookingSettingsPage({
 }) {
   const [openTime, setOpenTime] = useState(settings?.openTime ?? '09:00')
   const [closeTime, setCloseTime] = useState(settings?.closeTime ?? '17:00')
-  const [slotIntervalMinutes, setSlotIntervalMinutes] = useState(String(settings?.slotIntervalMinutes ?? 30))
   const [slotCapacity, setSlotCapacity] = useState(String(settings?.slotCapacity ?? 1))
   const [closedWeekdays, setClosedWeekdays] = useState(settings?.closedWeekdays ?? '')
   const [isSaving, setIsSaving] = useState(false)
-
-  const toggleWeekday = (day: string) => {
-    const days = new Set(closedWeekdays.split(',').map((value) => value.trim()).filter(Boolean))
-    if (days.has(day)) {
-      days.delete(day)
-    } else {
-      days.add(day)
-    }
-    setClosedWeekdays(Array.from(days).sort().join(','))
-  }
 
   const handleSave = async () => {
     if (isSaving) return
@@ -917,7 +1045,7 @@ function BookingSettingsPage({
       await onSave({
         openTime,
         closeTime,
-        slotIntervalMinutes: Number(slotIntervalMinutes),
+        slotIntervalMinutes: settings?.slotIntervalMinutes ?? 30,
         slotCapacity: Number(slotCapacity),
         closedWeekdays,
       })
@@ -929,15 +1057,16 @@ function BookingSettingsPage({
   }
 
   const weekdayOptions = [
-    ['0', 'อา.'],
-    ['1', 'จ.'],
-    ['2', 'อ.'],
-    ['3', 'พ.'],
-    ['4', 'พฤ.'],
-    ['5', 'ศ.'],
-    ['6', 'ส.'],
+    ['0', 'วันอาทิตย์'],
+    ['1', 'วันจันทร์'],
+    ['2', 'วันอังคาร'],
+    ['3', 'วันพุธ'],
+    ['4', 'วันพฤหัสบดี'],
+    ['5', 'วันศุกร์'],
+    ['6', 'วันเสาร์'],
   ] as const
-  const selectedDays = new Set(closedWeekdays.split(',').map((value) => value.trim()).filter(Boolean))
+  const selectedDays = closedWeekdays.split(',').map((value) => value.trim()).filter(Boolean)
+  const weekdayLabelMap = new Map<string, string>(weekdayOptions)
 
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
@@ -956,16 +1085,7 @@ function BookingSettingsPage({
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
-                label="ระยะห่างสล็อต (นาที)"
-                type="number"
-                value={slotIntervalMinutes}
-                onChange={(event) => setSlotIntervalMinutes(event.target.value)}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="จำนวนคิวต่อเวลา"
+                label="ช่างกี่คน"
                 type="number"
                 value={slotCapacity}
                 onChange={(event) => setSlotCapacity(event.target.value)}
@@ -975,18 +1095,29 @@ function BookingSettingsPage({
 
           <Box>
             <Typography sx={{ mb: 1, fontSize: '0.9rem', fontWeight: 900 }}>วันปิดร้าน</Typography>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <Select
+              fullWidth
+              multiple
+              displayEmpty
+              value={selectedDays}
+              onChange={(event) => {
+                const value = event.target.value
+                const days = Array.isArray(value) ? value : value.split(',')
+                setClosedWeekdays(days.map((day) => String(day)).sort().join(','))
+              }}
+              renderValue={(selected) => {
+                const days = selected as string[]
+                if (days.length === 0) return 'เลือกวันที่ร้านหยุด'
+                return days.map((day) => weekdayLabelMap.get(day) ?? day).join(', ')
+              }}
+              sx={{ borderRadius: 2.5 }}
+            >
               {weekdayOptions.map(([value, label]) => (
-                <Button
-                  key={value}
-                  variant={selectedDays.has(value) ? 'contained' : 'outlined'}
-                  onClick={() => toggleWeekday(value)}
-                  sx={{ minWidth: 54 }}
-                >
+                <MenuItem key={value} value={value}>
                   {label}
-                </Button>
+                </MenuItem>
               ))}
-            </Stack>
+            </Select>
           </Box>
 
           <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>
@@ -1511,17 +1642,36 @@ function BottomEditorSheet({
 
 function BookingsCard({
   bookings,
+  selectedDate,
+  onDeleteBooking,
+  onNextDay,
+  onPreviousDay,
   onStatusChange,
 }: {
   bookings: Booking[]
+  selectedDate: string
+  onDeleteBooking: (booking: Booking) => void
+  onNextDay: () => void
+  onPreviousDay: () => void
   onStatusChange: (booking: Booking, status: BookingStatus) => void
 }) {
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
       <CardContent sx={{ p: 2.5 }}>
-        <Typography variant="h2" sx={{ mb: 2 }}>
-          รายการจอง
-        </Typography>
+        <Stack spacing={1.5} sx={{ mb: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
+            <Typography variant="h2">รายการจอง</Typography>
+            <Typography sx={{ fontWeight: 950, color: 'primary.main' }}>{formatThaiDateLabel(selectedDate)}</Typography>
+          </Stack>
+          <Stack direction="row" spacing={0.8} sx={{ justifyContent: 'flex-end' }}>
+            <Button variant="outlined" onClick={onPreviousDay}>
+              วันก่อนหน้า
+            </Button>
+            <Button variant="outlined" onClick={onNextDay}>
+              วันถัดไป
+            </Button>
+          </Stack>
+        </Stack>
 
         {bookings.length === 0 ? (
           <Box
@@ -1559,27 +1709,15 @@ function BookingsCard({
                           {booking.customerName}
                         </Typography>
                       </Box>
-                      <Chip color={booking.status === 'pending' ? 'primary' : 'secondary'} label={statusLabels[booking.status]} sx={{ flexShrink: 0 }} />
+                      <Chip color={booking.status === 'completed' ? 'secondary' : 'primary'} label={statusLabels[booking.status]} sx={{ flexShrink: 0 }} />
                     </Stack>
                     <Box>
                       <Typography sx={{ fontSize: '0.86rem', fontWeight: 850 }}>{booking.service?.nameTh ?? '-'}</Typography>
                       <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', fontWeight: 760 }}>
-                        {booking.bookingDate} {booking.slotTime} · {booking.phone}
+                        {formatThaiDateLabel(booking.bookingDate)} {booking.slotTime} · {booking.phone}
                       </Typography>
                     </Box>
-                    <Select
-                      fullWidth
-                      size="small"
-                      value={booking.status}
-                      onChange={(event) => onStatusChange(booking, event.target.value as BookingStatus)}
-                      sx={{ borderRadius: 2 }}
-                    >
-                      {Object.entries(statusLabels).map(([status, label]) => (
-                        <MenuItem key={status} value={status}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                    <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onStatusChange={onStatusChange} />
                   </Stack>
                 </Box>
               ))}
@@ -1608,21 +1746,13 @@ function BookingsCard({
                   </TableCell>
                   <TableCell>{booking.service?.nameTh ?? '-'}</TableCell>
                   <TableCell>
-                    {booking.bookingDate} {booking.slotTime}
+                    {formatThaiDateLabel(booking.bookingDate)} {booking.slotTime}
                   </TableCell>
                   <TableCell>
-                    <Select
-                      size="small"
-                      value={booking.status}
-                      onChange={(event) => onStatusChange(booking, event.target.value as BookingStatus)}
-                      sx={{ borderRadius: 2, minWidth: 136 }}
-                    >
-                      {Object.entries(statusLabels).map(([status, label]) => (
-                        <MenuItem key={status} value={status}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                    <Stack spacing={1}>
+                      <Chip color={booking.status === 'completed' ? 'secondary' : 'primary'} label={statusLabels[booking.status]} />
+                      <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onStatusChange={onStatusChange} />
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}
@@ -1633,6 +1763,37 @@ function BookingsCard({
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function BookingActionButtons({
+  booking,
+  onDeleteBooking,
+  onStatusChange,
+}: {
+  booking: Booking
+  onDeleteBooking: (booking: Booking) => void
+  onStatusChange: (booking: Booking, status: BookingStatus) => void
+}) {
+  return (
+    <Stack direction="row" spacing={1} sx={{ justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+      <Button
+        fullWidth
+        variant="contained"
+        disabled={booking.status === 'completed'}
+        onClick={() => onStatusChange(booking, 'completed')}
+      >
+        เสร็จสิ้น
+      </Button>
+      <Button
+        fullWidth
+        variant="contained"
+        onClick={() => onDeleteBooking(booking)}
+        sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+      >
+        ยกเลิก
+      </Button>
+    </Stack>
   )
 }
 

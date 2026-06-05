@@ -28,8 +28,10 @@ export const adminApi = {
     await httpClient.post('/admin/auth/logout')
   },
 
-  listBookings: async () => {
-    const response = await httpClient.get<ApiEnvelope<Booking[]>>('/admin/bookings')
+  listBookings: async (date?: string) => {
+    const response = await httpClient.get<ApiEnvelope<Booking[]>>('/admin/bookings', {
+      params: date ? { date } : undefined,
+    })
     return response.data.data
   },
 
@@ -55,6 +57,10 @@ export const adminApi = {
   updateBookingStatus: async (id: string, status: BookingStatus) => {
     const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}/status`, { status })
     return response.data.data
+  },
+
+  deleteBooking: async (id: string) => {
+    await httpClient.delete(`/admin/bookings/${id}`)
   },
 
   getBookingSettings: async () => {
