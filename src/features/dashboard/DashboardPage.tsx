@@ -66,6 +66,16 @@ const statusChipSx = {
   },
 }
 
+const statusChipTextSx = (status: BookingStatus) =>
+  status === 'completed'
+    ? {
+        color: '#111827',
+        '& .MuiChip-label': {
+          color: '#111827',
+        },
+      }
+    : statusChipSx
+
 const getBookingStatusAction = (status: BookingStatus) => {
   if (status === 'pending') {
     return { label: 'ยืนยัน', nextStatus: 'confirmed' as BookingStatus, disabled: false }
@@ -2046,10 +2056,8 @@ function BottomEditorSheet({
         }}
       >
         <Box
-          component="button"
-          aria-label="ปิดฟอร์ม"
-          type="button"
-          onClick={onClose}
+          aria-hidden="true"
+          data-testid="bottom-editor-backdrop"
           sx={{
             position: 'absolute',
             top: 0,
@@ -2139,9 +2147,9 @@ function BookingsCard({
   const [editSlotTime, setEditSlotTime] = useState('')
   const [editNotes, setEditNotes] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const editStatusAction = editingBooking ? getBookingStatusAction(editingBooking.status) : null
 
   const openEditBooking = (booking: Booking) => {
+    if (booking.status === 'completed' || booking.status === 'cancelled') return
     setEditingBooking(booking)
     setEditServiceId(booking.serviceId)
     setEditCustomerName(booking.customerName)
@@ -2168,24 +2176,6 @@ function BookingsCard({
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const handleEditStatusAction = async () => {
-    if (!editingBooking || !editStatusAction || editStatusAction.disabled || isSaving) return
-    setIsSaving(true)
-    try {
-      await onStatusChange(editingBooking, editStatusAction.nextStatus)
-      setEditingBooking(null)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleCancelEditingBooking = () => {
-    if (!editingBooking || isSaving) return
-    const booking = editingBooking
-    setEditingBooking(null)
-    onDeleteBooking(booking)
   }
 
   return (
@@ -2266,7 +2256,11 @@ function BookingsCard({
                           {booking.customerName}
                         </Typography>
                       </Box>
-                      <Chip color={booking.status === 'completed' ? 'secondary' : 'primary'} label={statusLabels[booking.status]} sx={{ ...statusChipSx, flexShrink: 0 }} />
+                      <Chip
+                        color={booking.status === 'completed' ? 'secondary' : 'primary'}
+                        label={statusLabels[booking.status]}
+                        sx={{ ...statusChipTextSx(booking.status), flexShrink: 0 }}
+                      />
                     </Stack>
                     <Box>
                       <Typography sx={{ fontSize: '0.86rem', fontWeight: 850 }}>{booking.service?.nameTh ?? '-'}</Typography>
@@ -2315,7 +2309,7 @@ function BookingsCard({
                   </TableCell>
                   <TableCell>
                     <Stack spacing={1}>
-                      <Chip color={booking.status === 'completed' ? 'secondary' : 'primary'} label={statusLabels[booking.status]} sx={statusChipSx} />
+                      <Chip color={booking.status === 'completed' ? 'secondary' : 'primary'} label={statusLabels[booking.status]} sx={statusChipTextSx(booking.status)} />
 	                      <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
                     </Stack>
                   </TableCell>
@@ -2373,19 +2367,13 @@ function BookingsCard({
             </Grid>
           </Grid>
           <TextField fullWidth multiline minRows={3} label="หมายเหตุ" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'space-between' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
             <Button
               variant="contained"
               disabled={!editServiceId || !editDate || !editSlotTime || isSaving}
               onClick={handleSaveBooking}
             >
               {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
-            </Button>
-            <Button variant="outlined" disabled={isSaving || editingBooking?.status === 'completed' || editingBooking?.status === 'cancelled'} onClick={handleCancelEditingBooking}>
-              ยกเลิก
-            </Button>
-            <Button variant="contained" disabled={!editStatusAction || editStatusAction.disabled || isSaving} onClick={handleEditStatusAction}>
-              {editStatusAction?.label ?? 'ยืนยัน'}
             </Button>
           </Stack>
         </Stack>
@@ -2412,6 +2400,7 @@ function BookingActionButtons({
       <Button
         fullWidth
         variant="outlined"
+        disabled={booking.status === 'completed' || booking.status === 'cancelled'}
         onClick={() => onEditBooking(booking)}
       >
         แก้ไข

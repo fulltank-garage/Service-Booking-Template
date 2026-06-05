@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test'
 const expectBottomEditorSheet = async (page: import('@playwright/test').Page, title: string) => {
   const sheet = page.getByRole('dialog', { name: title })
   await expect(sheet).toBeVisible()
-  const backdropMetrics = await page.locator('[data-testid="bottom-editor-overlay"] button[aria-label="ปิดฟอร์ม"]').evaluate((element) => {
+  const backdrop = page.locator('[data-testid="bottom-editor-backdrop"]')
+  const backdropMetrics = await backdrop.evaluate((element) => {
     const style = window.getComputedStyle(element)
     return {
       backgroundColor: style.backgroundColor,
@@ -25,6 +26,8 @@ const expectBottomEditorSheet = async (page: import('@playwright/test').Page, ti
   expect(sheetMetrics.borderRadius).toBe('19.2px')
   expect(sheetMetrics.boxShadow).toBe('none')
   expect(sheetMetrics.transform).not.toBe('none')
+  await backdrop.click({ position: { x: 4, y: 4 } })
+  await expect(sheet).toBeVisible()
 }
 
 const expectDropdownHasNoOverlay = async (page: import('@playwright/test').Page) => {
@@ -181,7 +184,9 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   await expect(editBookingSheet.getByLabel('เบอร์โทร')).toBeDisabled()
   await expect(editBookingSheet.getByLabel('เวลา')).toBeVisible()
   await expect(editBookingSheet.getByLabel('สถานะ')).toHaveCount(0)
-  await expect(editBookingSheet.getByRole('button', { name: 'ยืนยัน' })).toBeVisible()
+  await expect(editBookingSheet.getByRole('button', { name: 'บันทึก' })).toBeVisible()
+  await expect(editBookingSheet.getByRole('button', { name: 'ยืนยัน' })).toHaveCount(0)
+  await expect(editBookingSheet.getByRole('button', { name: 'ยกเลิก' })).toHaveCount(0)
   await editBookingSheet.getByRole('button', { name: 'ปิด' }).click()
 
   if (testInfo.project.name === 'mobile-chromium') {
