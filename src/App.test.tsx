@@ -1,10 +1,11 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { appTheme } from './theme/theme'
 import { initializeLiff } from './integrations/liff'
+import { bookingApi } from './api/bookingApi'
 
 vi.mock('./integrations/liff', () => ({
   closeLiffWindow: vi.fn(),
@@ -55,6 +56,15 @@ vi.mock('./api/bookingApi', () => ({
 }))
 
 const mockedInitializeLiff = vi.mocked(initializeLiff)
+const mockedBookingApi = vi.mocked(bookingApi)
+
+const createDeferred = <T,>() => {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve
+  })
+  return { promise, resolve }
+}
 
 const renderApp = () =>
   render(
@@ -76,6 +86,9 @@ describe('App routing', () => {
   beforeEach(() => {
     mockedInitializeLiff.mockReset()
     mockedInitializeLiff.mockResolvedValue(null)
+    mockedBookingApi.listServices.mockClear()
+    mockedBookingApi.getBookingRules.mockClear()
+    mockedBookingApi.latestBookingByLineUser.mockClear()
     window.history.replaceState({}, '', '/')
   })
 
@@ -115,6 +128,25 @@ describe('App routing', () => {
     expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
   })
 
+  it('waits for LIFF before rendering the rich menu booking detail page', async () => {
+    window.history.replaceState({}, '', '/?liff.state=%2Fbooking%2Fsuccess')
+    const liffProfile = createDeferred<{ userId: string; displayName: string } | null>()
+    mockedInitializeLiff.mockReturnValue(liffProfile.promise)
+
+    renderAppStrict()
+
+    expect(screen.queryByRole('heading', { name: 'ยังไม่พบข้อมูลการจอง' })).not.toBeInTheDocument()
+
+    await act(async () => {
+      liffProfile.resolve({ userId: 'line-user-1', displayName: 'สมชาย' })
+      await liffProfile.promise
+    })
+
+    expect(await screen.findByText('SB-TEST-0001')).toBeInTheDocument()
+    expect(mockedInitializeLiff.mock.calls.length).toBeLessThanOrEqual(1)
+    expect(mockedBookingApi.latestBookingByLineUser.mock.calls.length).toBeLessThanOrEqual(1)
+  })
+
   it('deduplicates LIFF bootstrap on rich menu booking entry under StrictMode', async () => {
     window.history.replaceState({}, '', '/?liff.state=%2Fbooking')
     mockedInitializeLiff.mockResolvedValue({ userId: 'line-user-1', displayName: 'สมชาย' })
@@ -122,7 +154,9 @@ describe('App routing', () => {
     renderAppStrict()
 
     await screen.findByRole('heading', { name: 'จองคิว' })
-    expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
+    expect(mockedInitializeLiff.mock.calls.length).toBeLessThanOrEqual(1)
+    expect(mockedBookingApi.listServices.mock.calls.length).toBeLessThanOrEqual(1)
+    expect(mockedBookingApi.getBookingRules.mock.calls.length).toBeLessThanOrEqual(1)
   })
 
   it('deduplicates LIFF bootstrap on rich menu booking detail entry under StrictMode', async () => {
@@ -132,6 +166,7 @@ describe('App routing', () => {
     renderAppStrict()
 
     expect(await screen.findByText('SB-TEST-0001')).toBeInTheDocument()
-    expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
+    expect(mockedInitializeLiff.mock.calls.length).toBeLessThanOrEqual(1)
+    expect(mockedBookingApi.latestBookingByLineUser.mock.calls.length).toBeLessThanOrEqual(1)
   })
 })

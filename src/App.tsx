@@ -14,6 +14,7 @@ const ServicesCatalogPage = lazy(() =>
 
 const latestBookingStorageKey = 'bookingQueue.latestBooking'
 let liffBootstrapRequest: Promise<LineProfile | null> | null = null
+let liffBootstrapProfile: LineProfile | null = null
 
 const getLiffStatePath = () => {
   const liffState = new URLSearchParams(window.location.search).get('liff.state')
@@ -46,9 +47,19 @@ const readLatestBooking = () => {
 }
 
 const initializeLiffOnce = () => {
-  liffBootstrapRequest ??= initializeLiff().finally(() => {
-    liffBootstrapRequest = null
-  })
+  if (liffBootstrapProfile) {
+    return Promise.resolve(liffBootstrapProfile)
+  }
+  liffBootstrapRequest ??= initializeLiff()
+    .then((profile) => {
+      if (profile) {
+        liffBootstrapProfile = profile
+      }
+      return profile
+    })
+    .finally(() => {
+      liffBootstrapRequest = null
+    })
   return liffBootstrapRequest
 }
 
@@ -57,6 +68,8 @@ function App() {
   const [activePage, setActivePage] = useState(getCurrentPath)
   const [latestBooking, setLatestBooking] = useState<Booking | null>(() => readLatestBooking())
   const [autoCloseSuccess, setAutoCloseSuccess] = useState(false)
+  const [isLiffReady, setIsLiffReady] = useState(false)
+  const canRenderCustomerPage = activePage === 'services' || Boolean(lineProfile) || isLiffReady
 
   useEffect(() => {
     if (activePage === 'services' || lineProfile) {
@@ -66,10 +79,14 @@ function App() {
     let active = true
     initializeLiffOnce()
       .then((profile) => {
-        if (active) setLineProfile(profile)
+        if (!active) return
+        setLineProfile(profile)
+        setIsLiffReady(true)
       })
       .catch(() => {
-        if (active) setLineProfile(null)
+        if (!active) return
+        setLineProfile(null)
+        setIsLiffReady(true)
       })
 
     return () => {
@@ -113,6 +130,8 @@ function App() {
   const pageContent =
     activePage === 'services' ? (
       <ServicesCatalogPage />
+    ) : !canRenderCustomerPage ? (
+      <CustomerPageSkeleton />
     ) : activePage === 'success' ? (
       <BookingSuccessPage
         autoCloseOnSuccess={autoCloseSuccess}
