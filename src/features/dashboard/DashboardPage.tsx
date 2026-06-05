@@ -19,6 +19,7 @@ import {
   Select,
   Skeleton,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -39,8 +40,8 @@ import EditIcon from '@mui/icons-material/Edit'
 import HourglassTopIcon from '@mui/icons-material/HourglassTop'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
+import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices'
 import NotificationsIcon from '@mui/icons-material/Notifications'
-import RoomServiceIcon from '@mui/icons-material/RoomService'
 import SearchIcon from '@mui/icons-material/Search'
 import SettingsIcon from '@mui/icons-material/Settings'
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
@@ -65,7 +66,7 @@ const pageLabels = {
   bookings: 'รายการจอง',
   services: 'บริการของร้าน',
   notifications: 'รายการแจ้งเตือน',
-  settings: 'ตั้งค่าการจอง',
+  settings: 'การตั้งค่าร้าน',
 } as const
 
 const formatThaiPrice = (priceCents: number) =>
@@ -94,7 +95,7 @@ type DashboardPageProps = {
 }
 
 export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendingAppUpdate, onLogout }: DashboardPageProps) {
-  const [activePage, setActivePage] = useState<AdminPage>('overview')
+  const [activePage, setActivePage] = useState<AdminPage>('bookings')
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
@@ -343,6 +344,16 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                   <NotificationsPage
                     notifications={notifications}
                     onError={() => setNotice('อัปเดตแจ้งเตือนไม่สำเร็จ')}
+                    onMarkAllRead={async () => {
+                      const unreadNotifications = notifications.filter((notification) => !notification.isRead)
+                      const updatedItems = await Promise.all(
+                        unreadNotifications.map((notification) => adminApi.markNotificationRead(notification.id)),
+                      )
+                      setNotifications((current) =>
+                        current.map((notification) => updatedItems.find((item) => item.id === notification.id) ?? notification),
+                      )
+                      setNotice('อ่านแจ้งเตือนทั้งหมดแล้ว')
+                    }}
                     onMarkRead={async (notificationId) => {
                       const item = await adminApi.markNotificationRead(notificationId)
                       setNotifications((current) =>
@@ -359,9 +370,9 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                     onSave={async (payload) => {
                       const nextSettings = await adminApi.updateBookingSettings(payload)
                       setBookingSettings(nextSettings)
-                      setNotice('บันทึกตั้งค่าการจองแล้ว')
+                      setNotice('บันทึกการตั้งค่าร้านแล้ว')
                     }}
-                    onError={() => setNotice('บันทึกตั้งค่าการจองไม่สำเร็จ')}
+                    onError={() => setNotice('บันทึกการตั้งค่าร้านไม่สำเร็จ')}
                   />
                 )}
               </>
@@ -659,10 +670,10 @@ function SidebarContent({
 }) {
   const navItems: Array<{ page: AdminPage; label: string; icon: ReactNode }> = [
     { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
-    { page: 'services', label: 'บริการของร้าน', icon: <RoomServiceIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
+    { page: 'services', label: 'บริการของร้าน', icon: <MiscellaneousServicesIcon /> },
     { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon /> },
-    { page: 'settings', label: 'ตั้งค่าการจอง', icon: <SettingsIcon /> },
+    { page: 'settings', label: 'การตั้งค่าร้าน', icon: <SettingsIcon /> },
   ]
 
   return (
@@ -939,14 +950,18 @@ function BookingsPage({
 function NotificationsPage({
   notifications,
   onError,
+  onMarkAllRead,
   onMarkRead,
 }: {
   notifications: AdminNotification[]
   onError: () => void
+  onMarkAllRead: () => Promise<void>
   onMarkRead: (notificationId: string) => Promise<void>
 }) {
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [markingId, setMarkingId] = useState('')
+  const [isMarkingAll, setIsMarkingAll] = useState(false)
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length
   const visibleNotifications = filter === 'unread' ? notifications.filter((notification) => !notification.isRead) : notifications
 
   const handleMarkRead = async (notificationId: string) => {
@@ -961,18 +976,35 @@ function NotificationsPage({
     }
   }
 
+  const handleMarkAllRead = async () => {
+    if (isMarkingAll || unreadCount === 0) return
+    setIsMarkingAll(true)
+    try {
+      await onMarkAllRead()
+    } catch {
+      onError()
+    } finally {
+      setIsMarkingAll(false)
+    }
+  }
+
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
       <CardContent sx={{ p: 2.5 }}>
         <Stack spacing={2}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
             <Typography variant="h2">รายการแจ้งเตือน</Typography>
-            <Stack direction="row" spacing={0.8}>
-              <Button variant={filter === 'all' ? 'contained' : 'outlined'} onClick={() => setFilter('all')}>
-                ทั้งหมด
-              </Button>
-              <Button variant={filter === 'unread' ? 'contained' : 'outlined'} onClick={() => setFilter('unread')}>
-                ยังไม่อ่าน
+            <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: 'space-between' }}>
+              <Stack direction="row" spacing={0.8}>
+                <Button variant={filter === 'all' ? 'contained' : 'outlined'} onClick={() => setFilter('all')}>
+                  ทั้งหมด
+                </Button>
+                <Button variant={filter === 'unread' ? 'contained' : 'outlined'} onClick={() => setFilter('unread')}>
+                  ยังไม่อ่าน
+                </Button>
+              </Stack>
+              <Button variant="outlined" disabled={isMarkingAll || unreadCount === 0} onClick={handleMarkAllRead}>
+                {isMarkingAll ? 'กำลังอ่าน...' : 'อ่านทั้งหมด'}
               </Button>
             </Stack>
           </Stack>
@@ -1072,7 +1104,7 @@ function BookingSettingsPage({
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
       <CardContent sx={{ p: 2.5 }}>
         <Typography variant="h2" sx={{ mb: 2 }}>
-          ตั้งค่าการจอง
+          การตั้งค่าร้าน
         </Typography>
         <Stack spacing={2}>
           <Grid container spacing={1.5}>
@@ -1154,6 +1186,7 @@ function ServicesPage({
   const [descriptionTh, setDescriptionTh] = useState('')
   const [isSavingService, setIsSavingService] = useState(false)
   const [isDeletingService, setIsDeletingService] = useState(false)
+  const [togglingServiceId, setTogglingServiceId] = useState('')
 
   const canAdd = Boolean(nameTh.trim() && Number(priceBaht) >= 0 && Number(durationMinutes) > 0)
 
@@ -1239,6 +1272,26 @@ function ServicesPage({
     }
   }
 
+  const handleToggleServiceActive = async (service: ServiceItem) => {
+    if (togglingServiceId) return
+    setTogglingServiceId(service.id)
+    try {
+      await onUpdateService(service.id, {
+        nameTh: service.nameTh,
+        nameEn: service.nameEn,
+        descriptionTh: service.descriptionTh ?? '',
+        durationMinutes: service.durationMinutes,
+        priceCents: service.priceCents,
+        accentColor: service.accentColor,
+        isActive: !service.isActive,
+      })
+    } catch {
+      onError()
+    } finally {
+      setTogglingServiceId('')
+    }
+  }
+
   const previewName = nameTh.trim() || 'ตัวอย่างบริการ'
   const previewDescription = descriptionTh.trim() || 'รายละเอียดบริการจะแสดงให้ลูกค้าเห็นตรงนี้'
   const previewDuration = Number(durationMinutes) > 0 ? `${Number(durationMinutes)} นาที` : 'เวลาที่ใช้'
@@ -1296,7 +1349,11 @@ function ServicesPage({
                         </Typography>
                         <Typography sx={{ fontWeight: 850 }}>{service.durationMinutes} นาที</Typography>
                       </Box>
-                      <Chip color={service.isActive ? 'secondary' : 'default'} label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} />
+                      <ServiceActiveControl
+                        checked={service.isActive}
+                        disabled={togglingServiceId === service.id}
+                        onChange={() => handleToggleServiceActive(service)}
+                      />
                     </Stack>
                     <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
                       <Button variant="outlined" startIcon={<EditIcon />} onClick={() => openEditor(service)}>
@@ -1344,7 +1401,11 @@ function ServicesPage({
                       <TableCell sx={{ fontWeight: 800 }}>{formatThaiPrice(service.priceCents)}</TableCell>
                       <TableCell>{service.durationMinutes} นาที</TableCell>
                       <TableCell>
-                        <Chip color={service.isActive ? 'secondary' : 'default'} label={service.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'} />
+                        <ServiceActiveControl
+                          checked={service.isActive}
+                          disabled={togglingServiceId === service.id}
+                          onChange={() => handleToggleServiceActive(service)}
+                        />
                       </TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
@@ -1456,6 +1517,13 @@ function ServicesPage({
         maxWidth="xs"
         fullWidth
         slotProps={{
+          backdrop: {
+            sx: {
+              bgcolor: 'rgba(255, 255, 255, 0.72)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+            },
+          },
           paper: {
             sx: {
               borderRadius: 3,
@@ -1487,6 +1555,59 @@ function ServicesPage({
         </DialogActions>
       </Dialog>
     </>
+  )
+}
+
+function ServiceActiveControl({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onChange: () => void
+}) {
+  return (
+    <Stack spacing={0.3} sx={{ alignItems: 'flex-start' }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 850, lineHeight: 1.1 }}>
+        {checked ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+      </Typography>
+      <Switch
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+        sx={{
+          width: 46,
+          height: 28,
+          p: 0,
+          '& .MuiSwitch-switchBase': {
+            p: 0.25,
+            transitionDuration: '220ms',
+            '&.Mui-checked': {
+              transform: 'translateX(18px)',
+              color: '#FFFFFF',
+              '& + .MuiSwitch-track': {
+                bgcolor: 'primary.main',
+                opacity: 1,
+              },
+            },
+            '&.Mui-disabled + .MuiSwitch-track': {
+              opacity: 0.45,
+            },
+          },
+          '& .MuiSwitch-thumb': {
+            width: 24,
+            height: 24,
+            boxShadow: 'none',
+          },
+          '& .MuiSwitch-track': {
+            borderRadius: 14,
+            bgcolor: '#F3F4F6',
+            opacity: 1,
+          },
+        }}
+      />
+    </Stack>
   )
 }
 

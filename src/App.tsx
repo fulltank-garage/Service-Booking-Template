@@ -12,7 +12,7 @@ function App() {
   const [session, setSession] = useState<StoredAdminSession | null>(() => authStorage.getSession())
   const [isBooting, setIsBooting] = useState(true)
   const [bootProgress, setBootProgress] = useState(8)
-  const { applyAppUpdate, hasPendingAppUpdate, isInitialUpdateCheckDone } = useAppUpdate()
+  const { applyAppUpdate, clearApplyingAppUpdate, hasPendingAppUpdate, isApplyingAppUpdate, isInitialUpdateCheckDone } = useAppUpdate()
 
   useEffect(() => {
     if (!isBooting) return undefined
@@ -31,12 +31,15 @@ function App() {
     if (!isInitialUpdateCheckDone) return undefined
 
     const progressTimer = window.setTimeout(() => setBootProgress(100), 0)
-    const timer = window.setTimeout(() => setIsBooting(false), 700)
+    const timer = window.setTimeout(() => {
+      setIsBooting(false)
+      clearApplyingAppUpdate()
+    }, 700)
     return () => {
       window.clearTimeout(progressTimer)
       window.clearTimeout(timer)
     }
-  }, [isInitialUpdateCheckDone])
+  }, [clearApplyingAppUpdate, isInitialUpdateCheckDone])
 
   const handleAuthenticated = (nextSession: StoredAdminSession) => {
     authStorage.setSession(nextSession)
@@ -50,7 +53,7 @@ function App() {
   }
 
   if (isBooting) {
-    return <StartupSplash isUpdated={hasPendingAppUpdate} progress={bootProgress} />
+    return <StartupSplash isUpdating={hasPendingAppUpdate || isApplyingAppUpdate} progress={bootProgress} />
   }
 
   if (!session) {
@@ -58,7 +61,7 @@ function App() {
   }
 
   return (
-    <Suspense fallback={<StartupSplash isUpdated={hasPendingAppUpdate} progress={100} />}>
+    <Suspense fallback={<StartupSplash isUpdating={hasPendingAppUpdate || isApplyingAppUpdate} progress={100} />}>
       <DashboardPage
         adminEmail={session.email}
         adminName={session.name}
@@ -70,7 +73,7 @@ function App() {
   )
 }
 
-function StartupSplash({ isUpdated, progress }: { isUpdated: boolean; progress: number }) {
+function StartupSplash({ isUpdating, progress }: { isUpdating: boolean; progress: number }) {
   const normalizedProgress = Math.min(100, Math.max(0, Math.round(progress)))
 
   return (
@@ -78,7 +81,7 @@ function StartupSplash({ isUpdated, progress }: { isUpdated: boolean; progress: 
       <Stack spacing={2.2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <BrandMark />
         <Typography sx={{ color: 'primary.main', fontSize: '1rem', fontWeight: 950 }}>
-          {isUpdated ? 'มีการอัปเดตแอปพลิเคชั่น' : 'กำลังเข้าสู่ระบบแอดมิน'}
+          {isUpdating ? 'กำลังอัปเดตแอปพลิเคชั่น' : 'กำลังเข้าสู่ระบบแอดมิน'}
         </Typography>
         <Typography sx={{ color: 'text.primary', fontSize: '2.5rem', fontWeight: 950, lineHeight: 1 }}>
           {normalizedProgress}%

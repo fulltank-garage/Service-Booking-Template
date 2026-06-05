@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const serviceWorkerPath = '/admin-sw.js'
 const updateCheckIntervalMs = 60_000
+const applyingUpdateKey = 'service-booking-admin-applying-update'
 
 const readAssetVersion = (root: ParentNode) =>
   Array.from(root.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('script[src^="/assets/"], link[href^="/assets/"]'))
@@ -31,6 +32,7 @@ const getRemoteAppVersion = async () => {
 export function useAppUpdate() {
   const [hasPendingAppUpdate, setHasPendingAppUpdate] = useState(false)
   const [isInitialUpdateCheckDone, setIsInitialUpdateCheckDone] = useState(false)
+  const [isApplyingAppUpdate, setIsApplyingAppUpdate] = useState(() => window.sessionStorage.getItem(applyingUpdateKey) === 'true')
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null)
   const watchedRegistrationsRef = useRef(new Set<ServiceWorkerRegistration>())
   const isApplyingRef = useRef(false)
@@ -97,6 +99,8 @@ export function useAppUpdate() {
   const applyAppUpdate = useCallback(() => {
     const waitingWorker = registrationRef.current?.waiting
     isApplyingRef.current = true
+    window.sessionStorage.setItem(applyingUpdateKey, 'true')
+    setIsApplyingAppUpdate(true)
 
     if (!waitingWorker) {
       window.location.reload()
@@ -154,5 +158,10 @@ export function useAppUpdate() {
     }
   }, [checkForUpdate, watchRegistration])
 
-  return { applyAppUpdate, checkForUpdate, hasPendingAppUpdate, isInitialUpdateCheckDone }
+  const clearApplyingAppUpdate = useCallback(() => {
+    window.sessionStorage.removeItem(applyingUpdateKey)
+    setIsApplyingAppUpdate(false)
+  }, [])
+
+  return { applyAppUpdate, checkForUpdate, clearApplyingAppUpdate, hasPendingAppUpdate, isApplyingAppUpdate, isInitialUpdateCheckDone }
 }

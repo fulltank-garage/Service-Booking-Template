@@ -62,15 +62,15 @@ describe('DashboardPage', () => {
     })
   })
 
-  it('renders dashboard summary from API data', async () => {
+  it('opens bookings as the first admin page', async () => {
     mockedAdminApi.listBookings.mockResolvedValue([])
     mockedAdminApi.listNotifications.mockResolvedValue([])
     mockedAdminApi.listServices.mockResolvedValue([])
 
     renderPage()
-    expect(await screen.findByText('จัดการคิวจองบริการ')).toBeInTheDocument()
+    expect(await screen.findAllByText('รายการจอง')).not.toHaveLength(0)
     expect(await screen.findAllByText('FULLTANK Garage Admin')).not.toHaveLength(0)
-    expect(await screen.findByText('คิวทั้งหมด')).toBeInTheDocument()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
     expect(screen.queryByText('รายการจองล่าสุด')).not.toBeInTheDocument()
   })
 
@@ -103,7 +103,7 @@ describe('DashboardPage', () => {
       .mockResolvedValueOnce([newNotification, oldNotification])
 
     renderPage()
-    expect(await screen.findByText('คิวทั้งหมด')).toBeInTheDocument()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
 
     await act(async () => {
       await realtimeState.options?.onRefresh?.()
@@ -118,7 +118,7 @@ describe('DashboardPage', () => {
     mockedAdminApi.listNotifications.mockResolvedValue([])
 
     renderPage()
-    expect(await screen.findByText('คิวทั้งหมด')).toBeInTheDocument()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeInTheDocument()
   })
 })
