@@ -30,7 +30,7 @@ const saveSubscription = async (subscription: PushSubscription) => {
 const subscribeWithPublicKey = async (registration: ServiceWorkerRegistration) => {
   const publicKey = await adminApi.getPushPublicKey()
   if (!publicKey.configured || !publicKey.publicKey) {
-    throw new Error('เปิดสิทธิ์แจ้งเตือนแล้ว แต่ยังไม่ได้ตั้งค่าคีย์แจ้งเตือน')
+    throw new Error('เปิดสิทธิ์แจ้งเตือนแล้ว แต่ระบบยังไม่ได้ตั้งค่าคีย์ส่งแจ้งเตือนครบ')
   }
 
   const subscription = await registration.pushManager.subscribe({
