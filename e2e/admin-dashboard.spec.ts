@@ -12,6 +12,18 @@ const expectWhiteBlurBackdrop = async (page: import('@playwright/test').Page) =>
   expect(backdropMetrics.backdropFilter).toContain('blur')
 }
 
+const expectDropdownHasNoOverlay = async (page: import('@playwright/test').Page) => {
+  const backdropMetrics = await page.locator('.MuiPopover-root .MuiBackdrop-root').evaluate((element) => {
+    const style = window.getComputedStyle(element)
+    return {
+      backgroundColor: style.backgroundColor,
+      backdropFilter: style.backdropFilter,
+    }
+  })
+  expect(backdropMetrics.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+  expect(backdropMetrics.backdropFilter).toBe('none')
+}
+
 test('admin dashboard loads booking and notification surfaces', async ({ page }, testInfo) => {
   const service = {
     id: 'service-1',
@@ -191,6 +203,10 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   expect(settingControlMetrics.close.height).toBe(settingControlMetrics.capacity.height)
   expect(settingControlMetrics.open.borderRadius).toBe(settingControlMetrics.capacity.borderRadius)
   expect(settingControlMetrics.close.borderRadius).toBe(settingControlMetrics.capacity.borderRadius)
+  await openTimeSelect.click()
+  await expect(page.getByRole('option', { name: '09:30' })).toBeVisible()
+  await expectDropdownHasNoOverlay(page)
+  await page.keyboard.press('Escape')
 
   if (testInfo.project.name === 'mobile-chromium') {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()
