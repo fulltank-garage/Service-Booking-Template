@@ -8,7 +8,6 @@ import {
   Divider,
   FormControl,
   Grid,
-  InputLabel,
   MenuItem,
   Select,
   Skeleton,
@@ -94,7 +93,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   })
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const [selectedSlot, setSelectedSlot] = useState('')
-  const [customerName, setCustomerName] = useState(lineProfile?.displayName ?? '')
+  const [manualCustomerName, setManualCustomerName] = useState('')
   const [phone, setPhone] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null)
   const [isLoadingServices, setIsLoadingServices] = useState(true)
@@ -149,6 +148,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
     }
   }, [bookingDate, selectedServiceId])
 
+  const customerName = lineProfile?.displayName ?? manualCustomerName
   const canSubmit = Boolean(selectedServiceId && bookingDate && selectedSlot && customerName.trim() && phone.trim())
   const showInitialSkeleton = isLoadingServices && services.length === 0
 
@@ -248,17 +248,26 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
           />
 
           <FormControl fullWidth>
-            <InputLabel id="service-label">บริการ</InputLabel>
             <Select
-              labelId="service-label"
-              label="บริการ"
+              aria-label="บริการ"
               value={selectedServiceId}
               disabled={isLoadingServices}
               onChange={(event) => setSelectedServiceId(event.target.value)}
               displayEmpty
+              renderValue={(value) => {
+                if (!value) return <Typography sx={{ color: 'text.primary', fontWeight: 850 }}>เลือกบริการของคุณ</Typography>
+                return services.find((service) => service.id === value)?.nameTh ?? ''
+              }}
               sx={{
                 bgcolor: 'background.default',
-                borderRadius: 2,
+                borderRadius: 2.5,
+                minHeight: 64,
+                '& .MuiSelect-select': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  minHeight: '64px !important',
+                  py: 0,
+                },
                 '& .MuiOutlinedInput-notchedOutline': {
                   borderColor: '#111827',
                   borderWidth: 1.4,
@@ -328,9 +337,15 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="ชื่อผู้จอง"
+                label={lineProfile?.displayName ? 'ชื่อผู้จองจาก LINE' : 'ชื่อผู้จอง'}
                 value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
+                disabled={Boolean(lineProfile?.displayName)}
+                onChange={(event) => setManualCustomerName(event.target.value)}
+                slotProps={{
+                  input: {
+                    readOnly: Boolean(lineProfile?.displayName),
+                  },
+                }}
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
