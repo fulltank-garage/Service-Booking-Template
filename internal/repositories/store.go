@@ -170,7 +170,7 @@ func (store *GormStore) LatestBookingByLineUser(ctx context.Context, lineUserID 
 
 func (store *GormStore) ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error) {
 	var bookings []models.Booking
-	query := store.db.WithContext(ctx).Preload("Service").Order("booking_date DESC, slot_time DESC, created_at DESC")
+	query := store.db.WithContext(ctx).Preload("Service").Order("created_at DESC, booking_date DESC, slot_time DESC")
 	if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)
 	}
