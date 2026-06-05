@@ -12,6 +12,17 @@ type UseAdminRealtimeOptions = {
   onStatus?: (status: RealtimeStatus) => void
 }
 
+const isLegacyNotificationPayload = (payload: AdminRealtimeEvent | AdminNotification): payload is AdminNotification =>
+  'id' in payload &&
+  'title' in payload &&
+  'body' in payload &&
+  'url' in payload &&
+  'isRead' in payload &&
+  !('notification' in payload) &&
+  !('booking' in payload) &&
+  !('service' in payload) &&
+  !('settings' in payload)
+
 export function useAdminRealtime({ onEvent, onLegacyNotification, onRefresh, onStatus }: UseAdminRealtimeOptions) {
   useEffect(() => {
     if (!('WebSocket' in window)) return
@@ -55,11 +66,11 @@ export function useAdminRealtime({ onEvent, onLegacyNotification, onRefresh, onS
         nextSocket.addEventListener('message', (event) => {
           try {
             const payload = JSON.parse(event.data) as AdminRealtimeEvent | AdminNotification
-            if ('type' in payload && ('notification' in payload || 'booking' in payload)) {
-              onEvent(payload as AdminRealtimeEvent)
+            if (isLegacyNotificationPayload(payload)) {
+              onLegacyNotification?.(payload)
               return
             }
-            onLegacyNotification?.(payload as AdminNotification)
+            onEvent(payload as AdminRealtimeEvent)
           } catch {
             // Ignore malformed realtime payloads from development tools.
           }
