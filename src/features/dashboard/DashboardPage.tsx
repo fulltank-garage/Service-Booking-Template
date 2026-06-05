@@ -14,7 +14,6 @@ import {
   FormControl,
   Grid,
   IconButton,
-  InputAdornment,
   MenuItem,
   Portal,
   Select,
@@ -33,19 +32,14 @@ import {
   Typography,
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
-import AddIcon from '@mui/icons-material/Add'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DashboardIcon from '@mui/icons-material/Dashboard'
-import DeleteIcon from '@mui/icons-material/Delete'
-import EditIcon from '@mui/icons-material/Edit'
 import HourglassTopIcon from '@mui/icons-material/HourglassTop'
 import LogoutIcon from '@mui/icons-material/Logout'
-import MenuIcon from '@mui/icons-material/Menu'
 import MiscellaneousServicesIcon from '@mui/icons-material/MiscellaneousServices'
 import NotificationsIcon from '@mui/icons-material/Notifications'
-import SearchIcon from '@mui/icons-material/Search'
 import SettingsIcon from '@mui/icons-material/Settings'
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
 import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
@@ -596,16 +590,20 @@ function AdminTopbar({
           aria-label="เปิดเมนู"
           onClick={onOpenNav}
           sx={{
-            width: 46,
+            width: 'auto',
+            minWidth: 64,
             height: 46,
             borderRadius: 2,
             border: '1px solid',
             borderColor: 'divider',
             color: 'text.primary',
             display: { xs: 'inline-flex', lg: 'none' },
+            px: 1.5,
+            fontSize: '0.9rem',
+            fontWeight: 900,
           }}
         >
-          <MenuIcon />
+          เมนู
           {hasPendingAppUpdate && (
             <Box
               component="span"
@@ -1421,7 +1419,6 @@ function BookingSettingsPage({
               <Typography sx={{ fontSize: '0.9rem', fontWeight: 900 }}>วันหยุดเฉพาะวันที่</Typography>
               <Button
                 variant="outlined"
-                startIcon={<AddIcon />}
                 onClick={() => setBlackoutDates((current) => [...current, { date: '', reason: '' }])}
               >
                 เพิ่มวันหยุด
@@ -1461,7 +1458,6 @@ function BookingSettingsPage({
                     <Button
                       fullWidth
                       variant="contained"
-                      startIcon={<DeleteIcon />}
                       onClick={() => setBlackoutDates((current) => current.filter((_, itemIndex) => itemIndex !== index))}
                       sx={{ minHeight: 56, bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
                     >
@@ -1677,12 +1673,11 @@ function ServicesPage({
                       />
                     </Stack>
                     <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                      <Button variant="outlined" startIcon={<EditIcon />} onClick={() => openEditor(service)}>
+                      <Button variant="outlined" onClick={() => openEditor(service)}>
                         แก้ไข
                       </Button>
                       <Button
                         variant="contained"
-                        startIcon={<DeleteIcon />}
                         onClick={() => setServiceToDelete(service)}
                         sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
                       >
@@ -1730,12 +1725,11 @@ function ServicesPage({
                       </TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                          <Button variant="outlined" startIcon={<EditIcon />} onClick={() => openEditor(service)}>
+                          <Button variant="outlined" onClick={() => openEditor(service)}>
                             แก้ไข
                           </Button>
                           <Button
                             variant="contained"
-                            startIcon={<DeleteIcon />}
                             onClick={() => setServiceToDelete(service)}
                             sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
                           >
@@ -1956,17 +1950,8 @@ function ManagementToolbar({
           onChange={(event) => onSearch(event.target.value)}
           size="small"
           sx={{ flex: 1, minWidth: 0 }}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            },
-          }}
         />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd} sx={{ minHeight: 44, px: { xs: 1.4, sm: 2 } }}>
+        <Button variant="contained" onClick={onAdd} sx={{ minHeight: 44, px: { xs: 1.4, sm: 2 } }}>
           <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{addLabel}</Box>
         </Button>
       </Stack>
@@ -2057,9 +2042,9 @@ function BottomEditorSheet({
         >
           <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5, borderBottom: '1px solid', borderColor: 'divider', p: 1.5 }}>
             <Typography component="h2" sx={{ fontSize: '1.1rem', fontWeight: 950 }}>{title}</Typography>
-            <IconButton aria-label="ปิดฟอร์ม" onClick={onClose} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-              <CloseIcon />
-            </IconButton>
+            <Button variant="outlined" onClick={onClose}>
+              ปิด
+            </Button>
           </Stack>
           <Box sx={{ minHeight: 0, overflowY: 'auto', p: 2.5 }}>
             {children}
@@ -2153,15 +2138,6 @@ function BookingsCard({
               onChange={(event) => onQueryChange(event.target.value)}
               size="small"
               sx={{ flex: 1 }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                },
-              }}
             />
             <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
               <Select
@@ -2346,7 +2322,6 @@ function BookingActionButtons({
       <Button
         fullWidth
         variant="outlined"
-        startIcon={<EditIcon />}
         onClick={() => onEditBooking(booking)}
       >
         แก้ไข

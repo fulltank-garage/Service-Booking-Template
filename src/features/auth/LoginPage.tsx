@@ -1,6 +1,5 @@
 import { FormEvent, useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material'
-import LoginIcon from '@mui/icons-material/Login'
 import { adminApi } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import type { StoredAdminSession } from './authStorage'
@@ -66,7 +65,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
               required
               fullWidth
             />
-            <Button type="submit" variant="contained" size="large" endIcon={<LoginIcon />} disabled={isSubmitting}>
+            <Button type="submit" variant="contained" size="large" disabled={isSubmitting}>
               {isSubmitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </Button>
           </Stack>

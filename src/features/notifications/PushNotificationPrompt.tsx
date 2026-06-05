@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, Stack, Typography, useMediaQuery } from '@mui/material'
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import { useTheme } from '@mui/material/styles'
 import {
   enablePushNotifications,
@@ -65,22 +64,6 @@ export function PushNotificationPrompt({ onNotice }: PushNotificationPromptProps
     >
       <DialogContent sx={{ p: 3 }}>
         <Stack spacing={2} sx={{ alignItems: 'center', textAlign: 'center' }}>
-          <Stack
-            sx={{
-              width: 64,
-              height: 64,
-              borderRadius: 2,
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: 'secondary.main',
-              color: 'primary.main',
-              '& svg': {
-                fontSize: 38,
-              },
-            }}
-          >
-            <NotificationsActiveIcon />
-          </Stack>
           <Stack spacing={0.6}>
             <Typography variant="h2" sx={{ fontSize: '1.45rem' }}>
               แจ้งเตือนเมื่อมีคิวใหม่
