@@ -80,8 +80,8 @@ const upsertById = <T extends { id: string }>(items: T[], nextItem: T) => {
 }
 
 const SIDEBAR_WIDTH = 280
-const MOBILE_TOPBAR_OFFSET = 'calc(104px + env(safe-area-inset-top, 0px))'
-const MOBILE_FLOATING_TOP = 'calc(116px + env(safe-area-inset-top, 0px))'
+const MOBILE_TOPBAR_OFFSET = 'calc(72px + env(safe-area-inset-top, 0px))'
+const MOBILE_FLOATING_TOP = 'calc(92px + env(safe-area-inset-top, 0px))'
 
 type AdminPage = keyof typeof pageLabels
 
