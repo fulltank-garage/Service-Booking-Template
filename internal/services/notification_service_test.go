@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
 )
@@ -73,10 +74,35 @@ func TestBookingCreatedDeletesExpiredWebPushSubscriptions(t *testing.T) {
 	}
 }
 
+func TestBookingCreatedRunsNotificationCleanup(t *testing.T) {
+	store := &notificationStore{}
+	service := NewNotificationServiceWithPush(store, nil, nil, nil)
+
+	err := service.BookingCreated(context.Background(), models.Booking{
+		BaseModel:    models.BaseModel{ID: "booking-1"},
+		BookingCode:  "SB-TEST-0001",
+		CustomerName: "ลูกค้าทดสอบ",
+		BookingDate:  "2026-06-05",
+		SlotTime:     "10:00",
+	})
+
+	if err != nil {
+		t.Fatalf("booking created: %v", err)
+	}
+	if store.cleanupReadBefore.IsZero() || store.cleanupAllBefore.IsZero() {
+		t.Fatal("expected notification cleanup thresholds to be set")
+	}
+	if got := store.cleanupReadBefore.Sub(store.cleanupAllBefore); got < 22*24*time.Hour || got > 24*24*time.Hour {
+		t.Fatalf("expected unread notifications to be retained longer than read notifications, got %v", got)
+	}
+}
+
 type notificationStore struct {
-	created          *models.Notification
-	subscriptions    []models.PushSubscription
-	deletedEndpoints []string
+	created           *models.Notification
+	subscriptions     []models.PushSubscription
+	deletedEndpoints  []string
+	cleanupReadBefore time.Time
+	cleanupAllBefore  time.Time
 }
 
 func (store *notificationStore) ListServices(context.Context) ([]models.Service, error) {
@@ -121,6 +147,11 @@ func (store *notificationStore) ListNotifications(context.Context, bool, int) ([
 }
 func (store *notificationStore) MarkNotificationRead(context.Context, string) (models.Notification, error) {
 	return models.Notification{}, nil
+}
+func (store *notificationStore) CleanupNotifications(_ context.Context, readBefore time.Time, allBefore time.Time) error {
+	store.cleanupReadBefore = readBefore
+	store.cleanupAllBefore = allBefore
+	return nil
 }
 func (store *notificationStore) SavePushSubscription(context.Context, *models.PushSubscription) error {
 	return nil

@@ -29,6 +29,7 @@ type Store interface {
 	CreateNotification(ctx context.Context, notification *models.Notification) error
 	ListNotifications(ctx context.Context, unreadOnly bool, limit int) ([]models.Notification, error)
 	MarkNotificationRead(ctx context.Context, id string) (models.Notification, error)
+	CleanupNotifications(ctx context.Context, readBefore time.Time, allBefore time.Time) error
 	SavePushSubscription(ctx context.Context, subscription *models.PushSubscription) error
 	ListPushSubscriptions(ctx context.Context) ([]models.PushSubscription, error)
 	DeletePushSubscription(ctx context.Context, endpoint string) error
@@ -193,6 +194,13 @@ func (store *GormStore) MarkNotificationRead(ctx context.Context, id string) (mo
 		return tx.Save(&notification).Error
 	})
 	return notification, err
+}
+
+func (store *GormStore) CleanupNotifications(ctx context.Context, readBefore time.Time, allBefore time.Time) error {
+	return store.db.WithContext(ctx).
+		Where("(is_read = ? AND created_at < ?) OR created_at < ?", true, readBefore, allBefore).
+		Delete(&models.Notification{}).
+		Error
 }
 
 func (store *GormStore) SavePushSubscription(ctx context.Context, subscription *models.PushSubscription) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
 )
@@ -164,6 +165,9 @@ func (store *fakeStore) ListNotifications(context.Context, bool, int) ([]models.
 }
 func (store *fakeStore) MarkNotificationRead(context.Context, string) (models.Notification, error) {
 	return models.Notification{}, nil
+}
+func (store *fakeStore) CleanupNotifications(context.Context, time.Time, time.Time) error {
+	return nil
 }
 func (store *fakeStore) SavePushSubscription(context.Context, *models.PushSubscription) error {
 	return nil

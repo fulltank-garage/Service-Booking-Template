@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
 	"github.com/fulltank-garage/service-booking-template-api/internal/repositories"
@@ -14,6 +15,11 @@ import (
 )
 
 const realtimeChannel = "service-booking:notifications"
+
+const (
+	readNotificationRetention = 7 * 24 * time.Hour
+	allNotificationRetention  = 30 * 24 * time.Hour
+)
 
 type RealtimeEvent struct {
 	Type         string               `json:"type"`
@@ -95,11 +101,19 @@ func (service *NotificationService) createAndPublish(ctx context.Context, notifi
 	if err := service.store.CreateNotification(ctx, notification); err != nil {
 		return err
 	}
+	service.cleanupOldNotifications(ctx)
 	if err := service.publish(ctx, RealtimeEvent{Type: notification.Type, Notification: notification, Booking: booking}); err != nil {
 		return err
 	}
 	service.sendPush(ctx, *notification)
 	return nil
+}
+
+func (service *NotificationService) cleanupOldNotifications(ctx context.Context) {
+	now := time.Now().UTC()
+	if err := service.store.CleanupNotifications(ctx, now.Add(-readNotificationRetention), now.Add(-allNotificationRetention)); err != nil {
+		log.Printf("cleanup notifications: %v", err)
+	}
 }
 
 func (service *NotificationService) publish(ctx context.Context, event RealtimeEvent) error {
