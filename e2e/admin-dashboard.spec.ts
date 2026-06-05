@@ -138,6 +138,25 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
 
   if (testInfo.project.name === 'mobile-chromium') {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()
+    await page.getByRole('button', { name: 'การตั้งค่าร้าน' }).click()
+  } else {
+    await page.getByRole('button', { name: 'การตั้งค่าร้าน' }).click()
+  }
+
+  await expect(page.getByText('เวลาเปิดร้าน')).toBeVisible()
+  const openTimeSelect = page.getByLabel('เวลาเปิดร้าน')
+  const closeTimeSelect = page.getByLabel('เวลาปิดร้าน')
+  await expect(openTimeSelect).toBeVisible()
+  await expect(closeTimeSelect).toBeVisible()
+  await expect(async () => {
+    const openBox = await openTimeSelect.boundingBox()
+    const closeBox = await closeTimeSelect.boundingBox()
+    expect(openBox?.height).toBeLessThanOrEqual(48)
+    expect(closeBox?.height).toBeLessThanOrEqual(48)
+  }).toPass()
+
+  if (testInfo.project.name === 'mobile-chromium') {
+    await page.getByRole('button', { name: 'เปิดเมนู' }).click()
     await page.getByRole('button', { name: 'บริการของร้าน' }).click()
   } else {
     await page.getByRole('button', { name: 'บริการของร้าน' }).click()
