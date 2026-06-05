@@ -176,7 +176,13 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   }
   await page.getByRole('button', { name: 'แก้ไข' }).click()
   await expectBottomEditorSheet(page, 'แก้ไขรายการจอง')
-  await page.getByRole('dialog').getByRole('button', { name: 'ยกเลิก' }).click()
+  const editBookingSheet = page.getByRole('dialog', { name: 'แก้ไขรายการจอง' })
+  await expect(editBookingSheet.getByLabel('ชื่อผู้จอง')).toBeDisabled()
+  await expect(editBookingSheet.getByLabel('เบอร์โทร')).toBeDisabled()
+  await expect(editBookingSheet.getByLabel('เวลา')).toBeVisible()
+  await expect(editBookingSheet.getByLabel('สถานะ')).toHaveCount(0)
+  await expect(editBookingSheet.getByRole('button', { name: 'ยืนยัน' })).toBeVisible()
+  await editBookingSheet.getByRole('button', { name: 'ปิด' }).click()
 
   if (testInfo.project.name === 'mobile-chromium') {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()

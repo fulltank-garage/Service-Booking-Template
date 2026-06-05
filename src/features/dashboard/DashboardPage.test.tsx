@@ -278,7 +278,7 @@ describe('DashboardPage', () => {
       phone: '0890000000',
       bookingDate: '2026-06-10',
       slotTime: '10:00',
-      status: 'completed',
+      status: 'confirmed',
       createdAt: '2026-06-05T02:00:00.000Z',
     })
 
@@ -291,12 +291,12 @@ describe('DashboardPage', () => {
       expect(mockedAdminApi.listBookings).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'pending' }))
     })
 
-    await user.click(screen.getAllByRole('button', { name: 'เสร็จสิ้น' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'ยืนยัน' })[0])
 
     await waitFor(() => {
       expect(screen.queryAllByText('สมชาย')).toHaveLength(0)
     })
-    expect(mockedAdminApi.updateBookingStatus).toHaveBeenCalledWith('booking-1', 'completed')
+    expect(mockedAdminApi.updateBookingStatus).toHaveBeenCalledWith('booking-1', 'confirmed')
   })
 
   it('adds a service when a realtime service event arrives', async () => {
