@@ -108,6 +108,52 @@ func TestListAvailabilityUsesBookingSettings(t *testing.T) {
 	}
 }
 
+func TestCancelBookingByLineUserDeletesBookingAndSwitchesRichMenu(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:  models.BaseModel{ID: "booking-1"},
+			LineUserID: "line-user-1",
+		},
+	}
+	switcher := &recordingRichMenuSwitcher{}
+	service := NewBookingService(store, nil, switcher, 1)
+
+	err := service.CancelBookingByLineUser(context.Background(), "booking-1", "line-user-1")
+
+	if err != nil {
+		t.Fatalf("cancel booking: %v", err)
+	}
+	if store.created != nil {
+		t.Fatal("expected booking to be deleted")
+	}
+	if switcher.bookingMenuUserID != "line-user-1" {
+		t.Fatalf("expected booking rich menu switch, got %q", switcher.bookingMenuUserID)
+	}
+}
+
+func TestCancelBookingByLineUserRejectsDifferentLineUser(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:  models.BaseModel{ID: "booking-1"},
+			LineUserID: "line-user-1",
+		},
+	}
+	switcher := &recordingRichMenuSwitcher{}
+	service := NewBookingService(store, nil, switcher, 1)
+
+	err := service.CancelBookingByLineUser(context.Background(), "booking-1", "line-user-2")
+
+	if !errors.Is(err, ErrInvalidBooking) {
+		t.Fatalf("expected invalid booking error, got %v", err)
+	}
+	if store.created == nil {
+		t.Fatal("expected booking to remain")
+	}
+	if switcher.bookingMenuUserID != "" {
+		t.Fatalf("expected no rich menu switch, got %q", switcher.bookingMenuUserID)
+	}
+}
+
 type fakeStore struct {
 	service   models.Service
 	slotCount int64
@@ -195,5 +241,20 @@ func (store *fakeStore) GetBookingSettings(context.Context) (models.BookingSetti
 }
 func (store *fakeStore) SaveBookingSettings(_ context.Context, settings *models.BookingSettings) error {
 	store.settings = *settings
+	return nil
+}
+
+type recordingRichMenuSwitcher struct {
+	bookingMenuUserID    string
+	bookingSuccessUserID string
+}
+
+func (switcher *recordingRichMenuSwitcher) SwitchToBookingSuccess(_ context.Context, lineUserID string) error {
+	switcher.bookingSuccessUserID = lineUserID
+	return nil
+}
+
+func (switcher *recordingRichMenuSwitcher) SwitchToBookingMenu(_ context.Context, lineUserID string) error {
+	switcher.bookingMenuUserID = lineUserID
 	return nil
 }

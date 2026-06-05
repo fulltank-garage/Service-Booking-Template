@@ -62,6 +62,7 @@ type BookingNotifier interface {
 
 type BookingSuccessRichMenuSwitcher interface {
 	SwitchToBookingSuccess(ctx context.Context, lineUserID string) error
+	SwitchToBookingMenu(ctx context.Context, lineUserID string) error
 }
 
 type BookingService struct {
@@ -299,7 +300,15 @@ func (service *BookingService) DeleteBooking(ctx context.Context, id string) err
 	if id == "" {
 		return fmt.Errorf("%w: id", ErrInvalidBooking)
 	}
-	return service.store.DeleteBooking(ctx, id)
+	booking, err := service.store.FindBookingByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := service.store.DeleteBooking(ctx, id); err != nil {
+		return err
+	}
+	service.switchToBookingMenu(ctx, booking.LineUserID)
+	return nil
 }
 
 func (service *BookingService) CancelBookingByLineUser(ctx context.Context, id string, lineUserID string) error {
@@ -315,7 +324,20 @@ func (service *BookingService) CancelBookingByLineUser(ctx context.Context, id s
 	if booking.LineUserID != lineUserID {
 		return fmt.Errorf("%w: lineUserId", ErrInvalidBooking)
 	}
-	return service.store.DeleteBooking(ctx, id)
+	if err := service.store.DeleteBooking(ctx, id); err != nil {
+		return err
+	}
+	service.switchToBookingMenu(ctx, booking.LineUserID)
+	return nil
+}
+
+func (service *BookingService) switchToBookingMenu(ctx context.Context, lineUserID string) {
+	if service.richMenuSwitcher == nil || strings.TrimSpace(lineUserID) == "" {
+		return
+	}
+	if err := service.richMenuSwitcher.SwitchToBookingMenu(ctx, lineUserID); err != nil {
+		log.Printf("switch line rich menu to booking menu: %v", err)
+	}
 }
 
 func normalizeServiceInput(input ServiceInput) ServiceInput {

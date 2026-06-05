@@ -11,24 +11,34 @@ import (
 
 type LineRichMenuService struct {
 	channelAccessToken string
+	bookingID          string
 	bookingSuccessID   string
 	httpClient         *http.Client
 }
 
-func NewLineRichMenuService(channelAccessToken string, bookingSuccessID string) *LineRichMenuService {
+func NewLineRichMenuService(channelAccessToken string, bookingID string, bookingSuccessID string) *LineRichMenuService {
 	return &LineRichMenuService{
 		channelAccessToken: strings.TrimSpace(channelAccessToken),
+		bookingID:          strings.TrimSpace(bookingID),
 		bookingSuccessID:   strings.TrimSpace(bookingSuccessID),
 		httpClient:         &http.Client{Timeout: 8 * time.Second},
 	}
 }
 
 func (service *LineRichMenuService) SwitchToBookingSuccess(ctx context.Context, lineUserID string) error {
-	if service == nil || service.channelAccessToken == "" || service.bookingSuccessID == "" || strings.TrimSpace(lineUserID) == "" {
+	return service.switchToRichMenu(ctx, lineUserID, service.bookingSuccessID)
+}
+
+func (service *LineRichMenuService) SwitchToBookingMenu(ctx context.Context, lineUserID string) error {
+	return service.switchToRichMenu(ctx, lineUserID, service.bookingID)
+}
+
+func (service *LineRichMenuService) switchToRichMenu(ctx context.Context, lineUserID string, richMenuID string) error {
+	if service == nil || service.channelAccessToken == "" || strings.TrimSpace(richMenuID) == "" || strings.TrimSpace(lineUserID) == "" {
 		return nil
 	}
 
-	endpoint := fmt.Sprintf("https://api.line.me/v2/bot/user/%s/richmenu/%s", strings.TrimSpace(lineUserID), service.bookingSuccessID)
+	endpoint := fmt.Sprintf("https://api.line.me/v2/bot/user/%s/richmenu/%s", strings.TrimSpace(lineUserID), strings.TrimSpace(richMenuID))
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(nil))
 	if err != nil {
 		return err
