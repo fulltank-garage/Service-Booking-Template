@@ -56,6 +56,7 @@ func New(deps Dependencies) *gin.Engine {
 	admin.PUT("/notifications/:id/read", notificationHandler.MarkRead)
 	admin.GET("/push/public-key", notificationHandler.PublicKey)
 	admin.POST("/push/subscribe", notificationHandler.Subscribe)
+	admin.POST("/push/test", notificationHandler.TestPush)
 
 	api.GET("/ws/admin", middleware.AdminAuth(deps.AuthService), webSocketHandler.Admin)
 

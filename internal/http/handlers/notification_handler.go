@@ -69,3 +69,12 @@ func (handler *NotificationHandler) Subscribe(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"data": subscription})
 }
+
+func (handler *NotificationHandler) TestPush(c *gin.Context) {
+	report, err := handler.service.SendTestPush(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorBody("ส่งทดสอบแจ้งเตือนไม่สำเร็จ"))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": report})
+}

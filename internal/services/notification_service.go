@@ -47,6 +47,13 @@ type NotificationService struct {
 	push  PushSender
 }
 
+type PushDeliveryReport struct {
+	Attempted int `json:"attempted"`
+	Sent      int `json:"sent"`
+	Expired   int `json:"expired"`
+	Failed    int `json:"failed"`
+}
+
 func NewNotificationService(store repositories.Store, hub *ws.Hub, redisClient *redis.Client) *NotificationService {
 	return NewNotificationServiceWithPush(store, hub, redisClient, nil)
 }
@@ -141,6 +148,14 @@ func (service *NotificationService) SavePushSubscription(ctx context.Context, su
 	return service.store.SavePushSubscription(ctx, subscription)
 }
 
+func (service *NotificationService) SendTestPush(ctx context.Context) (PushDeliveryReport, error) {
+	return service.sendPushMessage(ctx, PushMessage{
+		Title: "ทดสอบแจ้งเตือน",
+		Body:  "ระบบแจ้งเตือนพร้อมใช้งาน",
+		URL:   "/",
+	})
+}
+
 func (service *NotificationService) Subscribe(ctx context.Context) {
 	if service.redis == nil {
 		return
@@ -193,26 +208,42 @@ func (service *NotificationService) sendPush(ctx context.Context, notification m
 	if service.push == nil {
 		return
 	}
-	subscriptions, err := service.store.ListPushSubscriptions(ctx)
-	if err != nil {
-		log.Printf("list push subscriptions: %v", err)
-		return
-	}
-	message := PushMessage{
+	_, err := service.sendPushMessage(ctx, PushMessage{
 		Title: notification.Title,
 		Body:  notification.Body,
 		URL:   notification.URL,
+	})
+	if err != nil {
+		log.Printf("send push notifications: %v", err)
+	}
+}
+
+func (service *NotificationService) sendPushMessage(ctx context.Context, message PushMessage) (PushDeliveryReport, error) {
+	report := PushDeliveryReport{}
+	if service.push == nil {
+		return report, nil
+	}
+	subscriptions, err := service.store.ListPushSubscriptions(ctx)
+	if err != nil {
+		log.Printf("list push subscriptions: %v", err)
+		return report, err
 	}
 	for _, subscription := range subscriptions {
+		report.Attempted++
 		if err := service.push.Send(ctx, subscription, message); err != nil {
+			report.Failed++
 			log.Printf("send push subscription %s: %v", subscription.Endpoint, err)
 			if errors.Is(err, ErrExpiredPushSubscription) {
+				report.Expired++
 				if deleteErr := service.store.DeletePushSubscription(ctx, subscription.Endpoint); deleteErr != nil {
 					log.Printf("delete expired push subscription %s: %v", subscription.Endpoint, deleteErr)
 				}
 			}
+			continue
 		}
+		report.Sent++
 	}
+	return report, nil
 }
 
 func formatThaiDateLabel(value string) string {
