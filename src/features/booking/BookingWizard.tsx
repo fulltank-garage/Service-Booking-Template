@@ -19,7 +19,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import SendIcon from '@mui/icons-material/Send'
 import { bookingApi } from '../../api/bookingApi'
-import type { AvailabilitySlot, Booking, CreateBookingPayload, ServiceItem } from '../../types/booking'
+import type { AvailabilitySlot, Booking, BookingRules, CreateBookingPayload, ServiceItem } from '../../types/booking'
 import type { LineProfile } from '../../integrations/liff'
 import { formatThaiDateLabel } from '../../utils/dateFormat'
 
@@ -85,6 +85,7 @@ const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
 
 export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizardProps) {
   const [services, setServices] = useState<ServiceItem[]>([])
+  const [bookingRules, setBookingRules] = useState<BookingRules | null>(null)
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [bookingDate, setBookingDate] = useState(todayISO)
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -95,6 +96,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   const [selectedSlot, setSelectedSlot] = useState('')
   const [manualCustomerName, setManualCustomerName] = useState('')
   const [phone, setPhone] = useState('')
+  const [notes, setNotes] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null)
   const [isLoadingServices, setIsLoadingServices] = useState(true)
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
@@ -107,9 +109,10 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
       setIsLoadingServices(true)
       setError('')
       try {
-        const items = await bookingApi.listServices()
+        const [items, rules] = await Promise.all([bookingApi.listServices(), bookingApi.getBookingRules()])
         if (!active) return
         setServices(items)
+        setBookingRules(rules)
       } catch {
         if (active) setError('โหลดข้อมูลไม่สำเร็จ')
       } finally {
@@ -151,6 +154,9 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   const customerName = lineProfile?.displayName ?? manualCustomerName
   const canSubmit = Boolean(selectedServiceId && bookingDate && selectedSlot && customerName.trim() && phone.trim())
   const showInitialSkeleton = isLoadingServices && services.length === 0
+  const todayKey = todayISO()
+  const maxDateKey = toISODate(addDays(parseISODate(todayKey), bookingRules?.maxAdvanceDays ?? 60))
+  const blackoutDates = new Set((bookingRules?.blackoutDates ?? []).map((item) => item.date))
 
   const handleSubmit = async () => {
     if (!canSubmit) return
@@ -162,7 +168,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
       bookingDate,
       slotTime: selectedSlot,
       lineUserId: lineProfile?.userId,
-      notes: '',
+      notes: notes.trim(),
     }
 
     setIsSubmitting(true)
@@ -240,8 +246,10 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
           )}
 
           <BookingCalendar
+            blackoutDates={blackoutDates}
             bookingDate={bookingDate}
-            todayKey={todayISO()}
+            maxDateKey={maxDateKey}
+            todayKey={todayKey}
             visibleMonth={visibleMonth}
             onMonthChange={setVisibleMonth}
             onSelectDate={setBookingDate}
@@ -351,6 +359,17 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             <Grid size={{ xs: 12 }}>
               <TextField fullWidth label="เบอร์โทร" value={phone} onChange={(event) => setPhone(event.target.value)} />
             </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="หมายเหตุ"
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="รายละเอียดเพิ่มเติม เช่น ลายที่อยากทำหรือเวลาที่สะดวก"
+              />
+            </Grid>
           </Grid>
 
           <Stack spacing={1.5}>
@@ -371,13 +390,17 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
 }
 
 function BookingCalendar({
+  blackoutDates,
   bookingDate,
+  maxDateKey,
   todayKey,
   visibleMonth,
   onMonthChange,
   onSelectDate,
 }: {
+  blackoutDates: Set<string>
   bookingDate: string
+  maxDateKey: string
   todayKey: string
   visibleMonth: Date
   onMonthChange: (date: Date) => void
@@ -407,7 +430,7 @@ function BookingCalendar({
 
         {days.map((day) => {
           const isSelected = day.key === bookingDate
-          const isDisabled = !day.inMonth || day.key < todayKey
+          const isDisabled = !day.inMonth || day.key < todayKey || day.key > maxDateKey || blackoutDates.has(day.key)
 
           return (
             <Button

@@ -9,6 +9,7 @@ import { bookingApi } from '../../api/bookingApi'
 vi.mock('../../api/bookingApi', () => ({
   bookingApi: {
     listServices: vi.fn(),
+    getBookingRules: vi.fn(),
     listAvailability: vi.fn(),
     createBooking: vi.fn(),
   },
@@ -37,6 +38,17 @@ describe('BookingWizard', () => {
         isActive: true,
       },
     ])
+    mockedBookingApi.getBookingRules.mockResolvedValue({
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: '',
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      blackoutDates: [],
+    })
     mockedBookingApi.listAvailability.mockResolvedValue([
       { time: '10:00', booked: 0, capacity: 1, available: true },
       { time: '10:30', booked: 1, capacity: 1, available: false },
@@ -63,11 +75,13 @@ describe('BookingWizard', () => {
     await user.click(await screen.findByRole('option', { name: 'บริการทดสอบ' }))
     await user.type(screen.getByLabelText('ชื่อผู้จอง'), 'สมชาย')
     await user.type(screen.getByLabelText('เบอร์โทร'), '0890000000')
+    await user.type(screen.getByLabelText('หมายเหตุ'), 'ขอที่นั่งริมหน้าต่าง')
 
     const submitButton = screen.getByRole('button', { name: /ยืนยันการจอง/i })
     await waitFor(() => expect(submitButton).toBeEnabled())
     await user.click(submitButton)
 
+    expect(mockedBookingApi.createBooking).toHaveBeenCalledWith(expect.objectContaining({ notes: 'ขอที่นั่งริมหน้าต่าง' }))
     expect(await screen.findByText('จองคิวเรียบร้อย')).toBeInTheDocument()
   })
 })

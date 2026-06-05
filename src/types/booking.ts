@@ -31,11 +31,36 @@ export type Booking = {
   createdAt: string
 }
 
+export type BookingBlackoutDate = {
+  id?: string
+  date: string
+  reason?: string
+}
+
+export type BookingRules = {
+  openTime: string
+  closeTime: string
+  slotIntervalMinutes: number
+  slotCapacity: number
+  closedWeekdays: string
+  minAdvanceHours: number
+  maxAdvanceDays: number
+  reminderLeadMinutes: number
+  blackoutDates: BookingBlackoutDate[]
+}
+
 export type CreateBookingPayload = {
   serviceId: string
   customerName: string
   phone: string
   lineUserId?: string
+  bookingDate: string
+  slotTime: string
+  notes?: string
+}
+
+export type RescheduleBookingPayload = {
+  lineUserId: string
   bookingDate: string
   slotTime: string
   notes?: string

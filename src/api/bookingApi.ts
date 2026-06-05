@@ -1,9 +1,14 @@
 import { httpClient } from './httpClient'
-import type { ApiEnvelope, AvailabilitySlot, Booking, CreateBookingPayload, ServiceItem } from '../types/booking'
+import type { ApiEnvelope, AvailabilitySlot, Booking, BookingRules, CreateBookingPayload, RescheduleBookingPayload, ServiceItem } from '../types/booking'
 
 export const bookingApi = {
   listServices: async () => {
     const response = await httpClient.get<ApiEnvelope<ServiceItem[]>>('/services')
+    return response.data.data
+  },
+
+  getBookingRules: async () => {
+    const response = await httpClient.get<ApiEnvelope<BookingRules>>('/booking-rules')
     return response.data.data
   },
 
@@ -28,5 +33,10 @@ export const bookingApi = {
 
   cancelBooking: async (bookingId: string, lineUserId: string) => {
     await httpClient.post(`/bookings/${bookingId}/cancel`, { lineUserId })
+  },
+
+  rescheduleBooking: async (bookingId: string, payload: RescheduleBookingPayload) => {
+    const response = await httpClient.put<ApiEnvelope<Booking>>(`/bookings/${bookingId}/reschedule`, payload)
+    return response.data.data
   },
 }

@@ -1,6 +1,24 @@
 import { expect, test } from '@playwright/test'
 
 test('customer can complete a booking request', async ({ page }) => {
+  await page.route('**/api/v1/booking-rules', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          openTime: '09:00',
+          closeTime: '17:00',
+          slotIntervalMinutes: 30,
+          slotCapacity: 1,
+          closedWeekdays: '',
+          minAdvanceHours: 0,
+          maxAdvanceDays: 60,
+          reminderLeadMinutes: 1440,
+          blackoutDates: [],
+        },
+      }),
+    })
+  })
   await page.route('**/api/v1/services', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
