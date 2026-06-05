@@ -1,8 +1,9 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { Box, Container, Skeleton, Stack } from '@mui/material'
 import { BrandMark } from './components/BrandMark'
-import { initializeLiff, type LineProfile } from './integrations/liff'
+import type { LineProfile } from './integrations/liff'
 import type { Booking } from './types/booking'
+import { initializeLiffOnce } from './appLiffSession'
 
 const BookingWizard = lazy(() => import('./features/booking/BookingWizard').then((module) => ({ default: module.BookingWizard })))
 const BookingSuccessPage = lazy(() =>
@@ -13,8 +14,6 @@ const ServicesCatalogPage = lazy(() =>
 )
 
 const latestBookingStorageKey = 'bookingQueue.latestBooking'
-let liffBootstrapRequest: Promise<LineProfile | null> | null = null
-let liffBootstrapProfile: LineProfile | null = null
 
 const getLiffStatePath = () => {
   const liffState = new URLSearchParams(window.location.search).get('liff.state')
@@ -46,29 +45,13 @@ const readLatestBooking = () => {
   }
 }
 
-const initializeLiffOnce = () => {
-  if (liffBootstrapProfile) {
-    return Promise.resolve(liffBootstrapProfile)
-  }
-  liffBootstrapRequest ??= initializeLiff()
-    .then((profile) => {
-      if (profile) {
-        liffBootstrapProfile = profile
-      }
-      return profile
-    })
-    .finally(() => {
-      liffBootstrapRequest = null
-    })
-  return liffBootstrapRequest
-}
-
 function App() {
   const [lineProfile, setLineProfile] = useState<LineProfile | null>(null)
   const [activePage, setActivePage] = useState(getCurrentPath)
   const [latestBooking, setLatestBooking] = useState<Booking | null>(() => readLatestBooking())
   const [autoCloseSuccess, setAutoCloseSuccess] = useState(false)
   const [isLiffReady, setIsLiffReady] = useState(false)
+  const [lineAppRequired, setLineAppRequired] = useState(false)
   const canRenderCustomerPage = activePage === 'services' || Boolean(lineProfile) || isLiffReady
 
   useEffect(() => {
@@ -81,11 +64,13 @@ function App() {
       .then((profile) => {
         if (!active) return
         setLineProfile(profile)
+        setLineAppRequired(!profile)
         setIsLiffReady(true)
       })
       .catch(() => {
         if (!active) return
         setLineProfile(null)
+        setLineAppRequired(true)
         setIsLiffReady(true)
       })
 
@@ -132,6 +117,8 @@ function App() {
       <ServicesCatalogPage />
     ) : !canRenderCustomerPage ? (
       <CustomerPageSkeleton />
+    ) : lineAppRequired && !lineProfile ? (
+      <LineAppRequiredPage />
     ) : activePage === 'success' ? (
       <BookingSuccessPage
         autoCloseOnSuccess={autoCloseSuccess}
@@ -175,6 +162,40 @@ function App() {
       <Container maxWidth={false} sx={{ width: '100%', maxWidth: 430, px: 2, py: 2.5, mx: 'auto' }}>
         <Suspense fallback={<CustomerPageSkeleton />}>{pageContent}</Suspense>
       </Container>
+    </Box>
+  )
+}
+
+function LineAppRequiredPage() {
+  return (
+    <Box
+      component="section"
+      sx={{
+        minHeight: 'calc(100vh - 128px)',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <Box
+        sx={{
+          width: '100%',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3,
+          bgcolor: 'background.paper',
+          p: 3,
+          textAlign: 'center',
+        }}
+      >
+        <Stack spacing={1.2}>
+          <Box component="h2" sx={{ m: 0, fontSize: '1.45rem', fontWeight: 900, lineHeight: 1.2 }}>
+            กรุณาเปิดผ่านแอป LINE
+          </Box>
+          <Box sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1.65 }}>
+            หน้าจองคิวและข้อมูลการจองใช้งานได้เมื่อเปิดจากแอป LINE เท่านั้น
+          </Box>
+        </Stack>
+      </Box>
     </Box>
   )
 }

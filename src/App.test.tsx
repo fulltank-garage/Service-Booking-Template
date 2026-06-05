@@ -6,6 +6,7 @@ import App from './App'
 import { appTheme } from './theme/theme'
 import { initializeLiff } from './integrations/liff'
 import { bookingApi } from './api/bookingApi'
+import { resetCustomerSessionForTests } from './appLiffSession'
 
 vi.mock('./integrations/liff', () => ({
   closeLiffWindow: vi.fn(),
@@ -84,6 +85,7 @@ const renderAppStrict = () =>
 
 describe('App routing', () => {
   beforeEach(() => {
+    resetCustomerSessionForTests()
     mockedInitializeLiff.mockReset()
     mockedInitializeLiff.mockResolvedValue(null)
     mockedBookingApi.listServices.mockClear()
@@ -116,7 +118,7 @@ describe('App routing', () => {
 
     renderApp()
 
-    expect(await screen.findByRole('heading', { name: 'ยังไม่พบข้อมูลการจอง' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'กรุณาเปิดผ่านแอป LINE' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'จองคิว' })).not.toBeInTheDocument()
     expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
   })
@@ -124,8 +126,19 @@ describe('App routing', () => {
   it('starts LIFF only on customer booking routes', async () => {
     renderApp()
 
-    await screen.findByRole('heading', { name: 'จองคิว' })
+    await screen.findByRole('heading', { name: 'กรุณาเปิดผ่านแอป LINE' })
     expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocks browser access to the customer booking flow', async () => {
+    mockedInitializeLiff.mockResolvedValue(null)
+
+    renderAppStrict()
+
+    expect(await screen.findByRole('heading', { name: 'กรุณาเปิดผ่านแอป LINE' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'จองคิว' })).not.toBeInTheDocument()
+    expect(mockedBookingApi.listServices).not.toHaveBeenCalled()
+    expect(mockedBookingApi.getBookingRules).not.toHaveBeenCalled()
   })
 
   it('waits for LIFF before rendering the rich menu booking detail page', async () => {
