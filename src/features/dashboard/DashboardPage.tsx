@@ -63,7 +63,6 @@ const pageLabels = {
   overview: 'จัดการคิวจองบริการ',
   bookings: 'รายการจอง',
   services: 'บริการของร้าน',
-  notifications: 'รายการแจ้งเตือน',
   settings: 'ตั้งค่าการจอง',
 } as const
 
@@ -236,19 +235,6 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
   }
 
-  const handleMarkNotificationRead = async (notification: AdminNotification) => {
-    if (notification.isRead) return
-    setNotifications((current) => current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)))
-    try {
-      const nextNotification = await adminApi.markNotificationRead(notification.id)
-      setNotifications((current) => current.map((item) => (item.id === nextNotification.id ? nextNotification : item)))
-      setNotice('อ่านแจ้งเตือนแล้ว')
-    } catch {
-      setNotice('อัปเดตแจ้งเตือนไม่สำเร็จ')
-      void loadData()
-    }
-  }
-
   const handleChangePage = (page: AdminPage) => {
     setActivePage(page)
     setIsNavOpen(false)
@@ -331,9 +317,6 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                     }}
                     onError={() => setNotice('บันทึกข้อมูลบริการไม่สำเร็จ')}
                   />
-                )}
-                {activePage === 'notifications' && (
-                  <NotificationsPage notifications={notifications} onMarkRead={handleMarkNotificationRead} />
                 )}
                 {activePage === 'settings' && (
                   <BookingSettingsPage
@@ -644,7 +627,6 @@ function SidebarContent({
     { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <RoomServiceIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
-    { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon /> },
     { page: 'settings', label: 'ตั้งค่าการจอง', icon: <SettingsIcon /> },
   ]
 
@@ -900,67 +882,6 @@ function BookingsPage({
   onStatusChange: (booking: Booking, status: BookingStatus) => void
 }) {
   return <BookingsCard bookings={bookings} onStatusChange={onStatusChange} />
-}
-
-function NotificationsPage({
-  notifications,
-  onMarkRead,
-}: {
-  notifications: AdminNotification[]
-  onMarkRead: (notification: AdminNotification) => void
-}) {
-  return (
-    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack direction="row" spacing={1.5} sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h2">รายการแจ้งเตือน</Typography>
-          <Chip color="secondary" label={`${notifications.filter((item) => !item.isRead).length} ยังไม่อ่าน`} />
-        </Stack>
-
-        <Stack spacing={1.4}>
-          {notifications.map((notification) => (
-            <Box
-              key={notification.id}
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 2.5,
-                bgcolor: notification.isRead ? 'background.default' : 'secondary.main',
-                p: 1.6,
-              }}
-            >
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontWeight: 950, lineHeight: 1.25 }}>{notification.title}</Typography>
-                  <Typography sx={{ mt: 0.4, color: 'text.secondary', fontSize: '0.86rem', fontWeight: 760, lineHeight: 1.45 }}>
-                    {notification.body}
-                  </Typography>
-                  <Typography sx={{ mt: 0.6, color: 'text.secondary', fontSize: '0.72rem', fontWeight: 760 }}>
-                    {new Intl.DateTimeFormat('th-TH', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    }).format(new Date(notification.createdAt))}
-                  </Typography>
-                </Box>
-                <Button
-                  variant={notification.isRead ? 'outlined' : 'contained'}
-                  disabled={notification.isRead}
-                  onClick={() => onMarkRead(notification)}
-                >
-                  {notification.isRead ? 'อ่านแล้ว' : 'อ่านแล้ว'}
-                </Button>
-              </Stack>
-            </Box>
-          ))}
-          {notifications.length === 0 && (
-            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, py: 5, textAlign: 'center' }}>
-              <Typography sx={{ color: 'text.secondary', fontWeight: 850 }}>ยังไม่มีรายการแจ้งเตือน</Typography>
-            </Box>
-          )}
-        </Stack>
-      </CardContent>
-    </Card>
-  )
 }
 
 function BookingSettingsPage({
