@@ -75,6 +75,22 @@ const pageLabels = {
 const formatThaiPrice = (priceCents: number) =>
   `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
 
+const formatNotificationTimestamp = (createdAt?: string) => {
+  if (!createdAt) {
+    return 'ไม่พบเวลาการแจ้งเตือน'
+  }
+
+  const createdDate = new Date(createdAt)
+  if (Number.isNaN(createdDate.getTime())) {
+    return 'ไม่พบเวลาการแจ้งเตือน'
+  }
+
+  return `${formatThaiDateLabel(createdDate.toISOString().slice(0, 10))} ${new Intl.DateTimeFormat('th-TH', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(createdDate)}`
+}
+
 const upsertById = <T extends { id: string }>(items: T[], nextItem: T) => {
   const existingIndex = items.findIndex((item) => item.id === nextItem.id)
   if (existingIndex === -1) {
@@ -1243,8 +1259,7 @@ function NotificationsPage({
                       <Typography sx={{ fontWeight: 950 }}>{notification.title}</Typography>
                       <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>{notification.body}</Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
-                        {formatThaiDateLabel(notification.createdAt.slice(0, 10))}{' '}
-                        {new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' }).format(new Date(notification.createdAt))}
+                        {formatNotificationTimestamp(notification.createdAt)}
                       </Typography>
                     </Box>
                     {!notification.isRead && (

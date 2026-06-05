@@ -156,6 +156,46 @@ describe('DashboardPage', () => {
     expect(await screen.findAllByLabelText('1 รายการแจ้งเตือนที่ยังไม่อ่าน')).not.toHaveLength(0)
   })
 
+  it('opens notifications after saving settings even when notification timestamps are missing', async () => {
+    const user = userEvent.setup()
+    const settings = {
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: '',
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      blackoutDates: [],
+    }
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([
+      {
+        id: 'notification-missing-date',
+        type: 'booking_settings.updated',
+        title: 'อัปเดตการตั้งค่าร้าน',
+        body: 'ตั้งค่าร้านถูกบันทึกแล้ว',
+        url: '/settings',
+        isRead: false,
+        createdAt: undefined as unknown as string,
+      },
+    ])
+    mockedAdminApi.getBookingSettings.mockResolvedValue(settings)
+    mockedAdminApi.updateBookingSettings.mockResolvedValue(settings)
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'การตั้งค่าร้าน' }))
+    await user.click(await screen.findByRole('button', { name: 'บันทึกตั้งค่า' }))
+    await user.click(screen.getByRole('button', { name: 'รายการแจ้งเตือน' }))
+
+    expect(await screen.findByRole('heading', { name: 'รายการแจ้งเตือน' })).toBeInTheDocument()
+    expect(await screen.findByText('อัปเดตการตั้งค่าร้าน')).toBeInTheDocument()
+  })
+
   it('removes a booking when a realtime delete event arrives', async () => {
     mockedAdminApi.listBookings.mockResolvedValue([
       {
