@@ -44,7 +44,7 @@ func New(deps Dependencies) *gin.Engine {
 	admin.DELETE("/bookings/:id", bookingHandler.DeleteBooking)
 	admin.GET("/booking-settings", bookingHandler.GetBookingSettings)
 	admin.PUT("/booking-settings", bookingHandler.SaveBookingSettings)
-	admin.GET("/services", bookingHandler.ListServices)
+	admin.GET("/services", bookingHandler.ListAdminServices)
 	admin.POST("/services", bookingHandler.CreateService)
 	admin.PUT("/services/:id", bookingHandler.UpdateService)
 	admin.DELETE("/services/:id", bookingHandler.DeleteService)

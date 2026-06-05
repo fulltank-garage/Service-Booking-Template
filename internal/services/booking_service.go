@@ -83,6 +83,10 @@ func (service *BookingService) ListServices(ctx context.Context) ([]models.Servi
 	return service.store.ListServices(ctx)
 }
 
+func (service *BookingService) ListAdminServices(ctx context.Context) ([]models.Service, error) {
+	return service.store.ListAdminServices(ctx)
+}
+
 func (service *BookingService) LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error) {
 	lineUserID = strings.TrimSpace(lineUserID)
 	if lineUserID == "" {
@@ -119,7 +123,7 @@ func (service *BookingService) UpdateService(ctx context.Context, id string, inp
 	if err := validateServiceInput(input); err != nil {
 		return models.Service{}, err
 	}
-	item, err := service.store.FindServiceByID(ctx, strings.TrimSpace(id))
+	item, err := service.store.FindAnyServiceByID(ctx, strings.TrimSpace(id))
 	if err != nil {
 		return models.Service{}, err
 	}

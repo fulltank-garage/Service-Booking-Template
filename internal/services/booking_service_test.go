@@ -62,6 +62,39 @@ func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 	}
 }
 
+func TestUpdateServiceCanReactivateInactiveService(t *testing.T) {
+	store := &fakeStore{
+		service: models.Service{
+			BaseModel:       models.BaseModel{ID: "svc-1"},
+			NameTH:          "ทำเล็บเจล",
+			NameEN:          "Gel nail",
+			DescriptionTH:   "ทำเล็บเจลสีพื้น",
+			DurationMinutes: 45,
+			PriceCents:      35000,
+			AccentColor:     "#FF008C",
+			IsActive:        false,
+		},
+	}
+	service := NewBookingService(store, nil, nil, 1)
+
+	updated, err := service.UpdateService(context.Background(), "svc-1", ServiceInput{
+		NameTH:          "ทำเล็บเจล",
+		NameEN:          "Gel nail",
+		DescriptionTH:   "ทำเล็บเจลสีพื้น",
+		DurationMinutes: 45,
+		PriceCents:      35000,
+		AccentColor:     "#FF008C",
+		IsActive:        true,
+	})
+
+	if err != nil {
+		t.Fatalf("update service: %v", err)
+	}
+	if !updated.IsActive || !store.service.IsActive {
+		t.Fatal("expected inactive service to be reactivated")
+	}
+}
+
 func TestListAvailabilityReturnsSixteenBusinessSlots(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
 	service := NewBookingService(store, nil, nil, 3)
@@ -240,7 +273,16 @@ type fakeStore struct {
 func (store *fakeStore) ListServices(context.Context) ([]models.Service, error) {
 	return []models.Service{store.service}, nil
 }
+func (store *fakeStore) ListAdminServices(context.Context) ([]models.Service, error) {
+	return []models.Service{store.service}, nil
+}
 func (store *fakeStore) FindServiceByID(_ context.Context, id string) (models.Service, error) {
+	if id != store.service.ID {
+		return models.Service{}, errors.New("not found")
+	}
+	return store.service, nil
+}
+func (store *fakeStore) FindAnyServiceByID(_ context.Context, id string) (models.Service, error) {
 	if id != store.service.ID {
 		return models.Service{}, errors.New("not found")
 	}

@@ -111,7 +111,13 @@ type notificationStore struct {
 func (store *notificationStore) ListServices(context.Context) ([]models.Service, error) {
 	return nil, nil
 }
+func (store *notificationStore) ListAdminServices(context.Context) ([]models.Service, error) {
+	return nil, nil
+}
 func (store *notificationStore) FindServiceByID(context.Context, string) (models.Service, error) {
+	return models.Service{}, nil
+}
+func (store *notificationStore) FindAnyServiceByID(context.Context, string) (models.Service, error) {
 	return models.Service{}, nil
 }
 func (store *notificationStore) CreateService(context.Context, *models.Service) error { return nil }

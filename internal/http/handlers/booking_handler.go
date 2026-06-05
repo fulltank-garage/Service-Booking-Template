@@ -27,6 +27,15 @@ func (handler *BookingHandler) ListServices(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": items})
 }
 
+func (handler *BookingHandler) ListAdminServices(c *gin.Context) {
+	items, err := handler.service.ListAdminServices(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorBody("โหลดรายการบริการไม่สำเร็จ"))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
 func (handler *BookingHandler) CreateService(c *gin.Context) {
 	var input services.ServiceInput
 	if err := c.ShouldBindJSON(&input); err != nil {
