@@ -196,6 +196,34 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('อัปเดตการตั้งค่าร้าน')).toBeInTheDocument()
   })
 
+  it('saves shop times and reminder lead from dropdown controls', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.updateBookingSettings.mockImplementation(async (payload) => payload)
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'การตั้งค่าร้าน' }))
+    await user.click(await screen.findByLabelText('เวลาเปิดร้าน'))
+    await user.click(await screen.findByRole('option', { name: '10:30' }))
+    await user.click(screen.getByLabelText('เวลาปิดร้าน'))
+    await user.click(await screen.findByRole('option', { name: '18:30' }))
+    await user.click(screen.getByLabelText('เตือนก่อนนัด'))
+    await user.click(await screen.findByRole('option', { name: '2 ชั่วโมงก่อนนัด' }))
+    await user.click(screen.getByRole('button', { name: 'บันทึกตั้งค่า' }))
+
+    await waitFor(() => {
+      expect(mockedAdminApi.updateBookingSettings).toHaveBeenCalledWith(expect.objectContaining({
+        openTime: '10:30',
+        closeTime: '18:30',
+        reminderLeadMinutes: 120,
+      }))
+    })
+  })
+
   it('removes a booking when a realtime delete event arrives', async () => {
     mockedAdminApi.listBookings.mockResolvedValue([
       {

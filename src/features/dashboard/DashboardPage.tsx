@@ -69,6 +69,24 @@ const pageLabels = {
 const formatThaiPrice = (priceCents: number) =>
   `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
 
+const shopTimeOptions = Array.from({ length: 48 }, (_, index) => {
+  const hours = Math.floor(index / 2)
+  const minutes = index % 2 === 0 ? '00' : '30'
+  const value = `${String(hours).padStart(2, '0')}:${minutes}`
+  return { value, label: value }
+})
+
+const reminderLeadOptions = [
+  { value: 30, label: '30 นาทีก่อนนัด' },
+  { value: 60, label: '1 ชั่วโมงก่อนนัด' },
+  { value: 120, label: '2 ชั่วโมงก่อนนัด' },
+  { value: 180, label: '3 ชั่วโมงก่อนนัด' },
+  { value: 360, label: '6 ชั่วโมงก่อนนัด' },
+  { value: 720, label: '12 ชั่วโมงก่อนนัด' },
+  { value: 1440, label: '1 วันก่อนนัด' },
+  { value: 2880, label: '2 วันก่อนนัด' },
+]
+
 const formatNotificationTimestamp = (createdAt?: string) => {
   if (!createdAt) {
     return 'ไม่พบเวลาการแจ้งเตือน'
@@ -1344,10 +1362,28 @@ function BookingSettingsPage({
         <Stack spacing={2}>
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth label="เวลาเปิดร้าน" value={openTime} onChange={(event) => setOpenTime(event.target.value)} />
+              <FormControl fullWidth>
+                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาเปิดร้าน</Typography>
+                <Select aria-label="เวลาเปิดร้าน" value={openTime} onChange={(event) => setOpenTime(event.target.value)}>
+                  {shopTimeOptions.map((option) => (
+                    <MenuItem key={`open-${option.value}`} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth label="เวลาปิดร้าน" value={closeTime} onChange={(event) => setCloseTime(event.target.value)} />
+              <FormControl fullWidth>
+                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาปิดร้าน</Typography>
+                <Select aria-label="เวลาปิดร้าน" value={closeTime} onChange={(event) => setCloseTime(event.target.value)}>
+                  {shopTimeOptions.map((option) => (
+                    <MenuItem key={`close-${option.value}`} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
@@ -1377,13 +1413,20 @@ function BookingSettingsPage({
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="เตือนก่อนนัด (นาที)"
-                type="number"
-                value={reminderLeadMinutes}
-                onChange={(event) => setReminderLeadMinutes(event.target.value)}
-              />
+              <FormControl fullWidth>
+                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เตือนก่อนนัด</Typography>
+                <Select
+                  aria-label="เตือนก่อนนัด"
+                  value={reminderLeadMinutes}
+                  onChange={(event) => setReminderLeadMinutes(event.target.value)}
+                >
+                  {reminderLeadOptions.map((option) => (
+                    <MenuItem key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
 
