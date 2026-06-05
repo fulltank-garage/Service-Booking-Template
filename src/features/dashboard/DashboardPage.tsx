@@ -32,6 +32,7 @@ import {
   Typography,
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
+import { overlay } from '../../theme/theme'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -741,10 +742,10 @@ function MobileNavDrawer({
       sx={{
         display: { xs: 'block', lg: 'none' },
         '& .MuiBackdrop-root': {
-          bgcolor: 'rgba(255, 255, 255, 0.72)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          transition: 'opacity 340ms ease',
+          bgcolor: overlay.backgroundColor,
+          backdropFilter: overlay.backdropFilter,
+          WebkitBackdropFilter: overlay.backdropFilter,
+          transition: overlay.transition,
         },
         '& .MuiDrawer-paper': {
           width: { xs: 'min(84vw, 320px)', sm: 340 },
@@ -2041,9 +2042,9 @@ function BottomEditorSheet({
             bottom: 0,
             left: 0,
             border: 0,
-            bgcolor: 'rgba(255, 255, 255, 0.72)',
-            backdropFilter: 'blur(14px)',
-            WebkitBackdropFilter: 'blur(14px)',
+            bgcolor: overlay.backgroundColor,
+            backdropFilter: overlay.backdropFilter,
+            WebkitBackdropFilter: overlay.backdropFilter,
             opacity: isOpen ? 1 : 0,
             transition: `opacity ${isOpen ? 360 : 280}ms ease`,
           }}

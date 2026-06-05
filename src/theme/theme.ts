@@ -9,6 +9,12 @@ export const colors = {
   border: '#E5E7EB',
 }
 
+export const overlay = {
+  backgroundColor: 'rgba(255, 255, 255, 0.72)',
+  backdropFilter: 'blur(14px)',
+  transition: 'opacity 340ms ease',
+}
+
 export const appTheme = createTheme({
   palette: {
     mode: 'light',
@@ -54,10 +60,10 @@ export const appTheme = createTheme({
     MuiBackdrop: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.72)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          transition: 'opacity 340ms ease',
+          backgroundColor: overlay.backgroundColor,
+          backdropFilter: overlay.backdropFilter,
+          WebkitBackdropFilter: overlay.backdropFilter,
+          transition: overlay.transition,
           '.MuiPopover-root &': {
             backgroundColor: 'transparent',
             backdropFilter: 'none',
