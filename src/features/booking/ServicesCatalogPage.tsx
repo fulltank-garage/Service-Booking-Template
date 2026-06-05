@@ -50,9 +50,6 @@ export function ServicesCatalogPage() {
         <Typography variant="h2" sx={{ fontSize: '1.8rem' }}>
           บริการทางร้าน
         </Typography>
-        <Typography sx={{ mt: 0.75, color: 'text.secondary' }}>
-          รายการบริการทั้งหมดดึงจากระบบ Admin
-        </Typography>
       </Box>
 
       {error && <Alert severity="error">{error}</Alert>}
