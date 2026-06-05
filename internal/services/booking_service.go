@@ -170,7 +170,8 @@ func (service *BookingService) ListAvailability(ctx context.Context, serviceID s
 	if err != nil {
 		return nil, fmt.Errorf("%w: bookingDate", ErrInvalidBooking)
 	}
-	if _, err := service.store.FindServiceByID(ctx, serviceID); err != nil {
+	serviceItem, err := service.store.FindServiceByID(ctx, serviceID)
+	if err != nil {
 		return nil, err
 	}
 	settings, err := service.loadBookingSettings(ctx)
@@ -181,16 +182,17 @@ func (service *BookingService) ListAvailability(ctx context.Context, serviceID s
 		return []AvailabilitySlot{}, nil
 	}
 
-	slots, err := businessSlots(settings)
+	slots, err := serviceSlots(settings, serviceItem.DurationMinutes)
+	if err != nil {
+		return nil, err
+	}
+	existingBookings, err := service.store.ListBookings(ctx, models.BookingFilter{Date: date})
 	if err != nil {
 		return nil, err
 	}
 	availability := make([]AvailabilitySlot, 0, len(slots))
 	for _, slot := range slots {
-		count, err := service.store.CountBookingsForSlot(ctx, serviceID, date, slot)
-		if err != nil {
-			return nil, err
-		}
+		count := countOverlappingBookings(existingBookings, slot, serviceItem.DurationMinutes)
 		availability = append(availability, AvailabilitySlot{
 			Time:      slot,
 			Booked:    count,
@@ -218,23 +220,24 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	if isClosedWeekday(settings.ClosedWeekdays, bookingDate.Weekday()) {
 		return models.Booking{}, ErrSlotUnavailable
 	}
-	slots, err := businessSlots(settings)
+	serviceItem, err := service.store.FindServiceByID(ctx, input.ServiceID)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	slots, err := serviceSlots(settings, serviceItem.DurationMinutes)
 	if err != nil {
 		return models.Booking{}, err
 	}
 	if !containsSlot(slots, input.SlotTime) {
 		return models.Booking{}, ErrSlotUnavailable
 	}
-	booked, err := service.store.CountBookingsForSlot(ctx, input.ServiceID, input.BookingDate, input.SlotTime)
+	existingBookings, err := service.store.ListBookings(ctx, models.BookingFilter{Date: input.BookingDate})
 	if err != nil {
 		return models.Booking{}, err
 	}
+	booked := countOverlappingBookings(existingBookings, input.SlotTime, serviceItem.DurationMinutes)
 	if booked >= int64(settings.SlotCapacity) {
 		return models.Booking{}, ErrSlotUnavailable
-	}
-	serviceItem, err := service.store.FindServiceByID(ctx, input.ServiceID)
-	if err != nil {
-		return models.Booking{}, err
 	}
 
 	booking := models.Booking{
@@ -454,13 +457,20 @@ func validateBookingSettings(settings models.BookingSettings) error {
 }
 
 func businessSlots(settings models.BookingSettings) ([]string, error) {
+	return serviceSlots(settings, settings.SlotIntervalMinutes)
+}
+
+func serviceSlots(settings models.BookingSettings, durationMinutes int) ([]string, error) {
 	if err := validateBookingSettings(settings); err != nil {
 		return nil, err
+	}
+	if durationMinutes <= 0 {
+		durationMinutes = settings.SlotIntervalMinutes
 	}
 	start, _ := parseClock(settings.OpenTime)
 	closeAt, _ := parseClock(settings.CloseTime)
 	slots := make([]string, 0, 16)
-	for current := start; current.Before(closeAt); current = current.Add(time.Duration(settings.SlotIntervalMinutes) * time.Minute) {
+	for current := start; !current.Add(time.Duration(durationMinutes) * time.Minute).After(closeAt); current = current.Add(time.Duration(durationMinutes) * time.Minute) {
 		slots = append(slots, current.Format("15:04"))
 	}
 	return slots, nil
@@ -487,6 +497,41 @@ func containsSlot(slots []string, slot string) bool {
 		}
 	}
 	return false
+}
+
+func countOverlappingBookings(bookings []models.Booking, slot string, durationMinutes int) int64 {
+	slotStart, ok := clockMinutes(slot)
+	if !ok || durationMinutes <= 0 {
+		return 0
+	}
+	slotEnd := slotStart + durationMinutes
+	var count int64
+	for _, booking := range bookings {
+		if booking.Status == models.BookingStatusCancelled {
+			continue
+		}
+		bookingDuration := booking.Service.DurationMinutes
+		if bookingDuration <= 0 {
+			bookingDuration = durationMinutes
+		}
+		bookingStart, ok := clockMinutes(booking.SlotTime)
+		if !ok {
+			continue
+		}
+		bookingEnd := bookingStart + bookingDuration
+		if slotStart < bookingEnd && bookingStart < slotEnd {
+			count++
+		}
+	}
+	return count
+}
+
+func clockMinutes(value string) (int, bool) {
+	parsed, err := time.Parse("15:04", value)
+	if err != nil {
+		return 0, false
+	}
+	return parsed.Hour()*60 + parsed.Minute(), true
 }
 
 func bookingCode(date string) string {
