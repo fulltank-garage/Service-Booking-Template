@@ -253,8 +253,41 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
       (event: AdminRealtimeEvent) => {
         setLatestRealtimeAt(new Date())
 
-        if (event.booking) {
+        if (event.type === 'booking.deleted' || event.type === 'booking.cancelled') {
+          const bookingId = event.booking?.id ?? event.bookingId
+          if (bookingId) {
+            setBookings((current) => current.filter((booking) => booking.id !== bookingId))
+          } else {
+            void loadData()
+          }
+        } else if (event.booking) {
           setBookings((current) => upsertById(current, event.booking as Booking))
+        }
+
+        if ((event.type === 'service.created' || event.type === 'service.updated') && event.service) {
+          setServices((current) => upsertById(current, event.service as ServiceItem))
+        }
+
+        if (event.type === 'service.deleted') {
+          if (event.service?.id) {
+            setServices((current) => current.filter((service) => service.id !== event.service?.id))
+          } else {
+            void loadData()
+          }
+        }
+
+        if (event.type === 'booking_settings.updated') {
+          if (event.settings) {
+            setBookingSettings(event.settings)
+          } else {
+            void loadData()
+          }
+        }
+
+        if ((event.type === 'booking.created' || event.type === 'booking.updated') && event.booking) {
+          if (event.booking.bookingDate !== selectedBookingDate) {
+            void loadData()
+          }
         }
 
         if (event.notification) {
@@ -271,7 +304,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           void loadData()
         }
       },
-      [handleRealtimeNotification, loadData],
+      [handleRealtimeNotification, loadData, selectedBookingDate],
     ),
     onLegacyNotification: handleRealtimeNotification,
     onRefresh: loadData,

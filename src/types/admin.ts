@@ -56,9 +56,24 @@ export type BookingSettings = {
 }
 
 export type AdminRealtimeEvent = {
-  type: 'booking.created' | 'booking.updated' | 'notification.created' | 'notification.read' | 'dashboard.summary.updated' | string
+  type:
+    | 'booking.created'
+    | 'booking.updated'
+    | 'booking.deleted'
+    | 'booking.cancelled'
+    | 'service.created'
+    | 'service.updated'
+    | 'service.deleted'
+    | 'booking_settings.updated'
+    | 'notification.created'
+    | 'notification.read'
+    | 'dashboard.summary.updated'
+    | string
   notification?: AdminNotification
   booking?: Booking
+  bookingId?: string
+  service?: ServiceItem
+  settings?: BookingSettings
 }
 
 export type ApiEnvelope<T> = {

@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
 import { appTheme } from '../../theme/theme'
 import { adminApi } from '../../api/adminApi'
-import type { AdminNotification } from '../../types/admin'
+import type { AdminNotification, AdminRealtimeEvent } from '../../types/admin'
 
 const realtimeState = vi.hoisted(() => ({
-  options: null as null | { onRefresh?: () => void | Promise<void> },
+  options: null as null | {
+    onEvent?: (event: AdminRealtimeEvent) => void
+    onRefresh?: () => void | Promise<void>
+  },
 }))
 
 vi.mock('../../api/adminApi', () => ({
@@ -147,6 +150,65 @@ describe('DashboardPage', () => {
 
     renderPage()
     expect(await screen.findAllByLabelText('1 รายการแจ้งเตือนที่ยังไม่อ่าน')).not.toHaveLength(0)
+  })
+
+  it('removes a booking when a realtime delete event arrives', async () => {
+    mockedAdminApi.listBookings.mockResolvedValue([
+      {
+        id: 'booking-1',
+        serviceId: 'service-1',
+        bookingCode: 'Q-1006-0001',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        bookingDate: '2026-06-10',
+        slotTime: '10:00',
+        status: 'pending',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+    ])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+
+    renderPage()
+    expect(await screen.findAllByText('สมชาย')).not.toHaveLength(0)
+
+    act(() => {
+      realtimeState.options?.onEvent?.({ type: 'booking.deleted', bookingId: 'booking-1' })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryAllByText('สมชาย')).toHaveLength(0)
+    })
+  })
+
+  it('adds a service when a realtime service event arrives', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'บริการของร้าน' }))
+    expect(await screen.findAllByText('ยังไม่มีรายการบริการ')).not.toHaveLength(0)
+
+    act(() => {
+      realtimeState.options?.onEvent?.({
+        type: 'service.created',
+        service: {
+          id: 'service-1',
+          nameTh: 'ล้างรถ',
+          nameEn: 'Car wash',
+          descriptionTh: 'ล้างรถภายนอก',
+          durationMinutes: 30,
+          priceCents: 25000,
+          accentColor: '#FF008C',
+          isActive: true,
+        },
+      })
+    })
+
+    expect(await screen.findAllByText('ล้างรถ')).not.toHaveLength(0)
   })
 
   it('lets an inactive shop service switch back on', async () => {
