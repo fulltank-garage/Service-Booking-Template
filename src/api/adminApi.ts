@@ -18,6 +18,22 @@ export type ServicePayload = {
   isActive: boolean
 }
 
+export type BookingPayload = {
+  serviceId: string
+  customerName: string
+  phone: string
+  bookingDate: string
+  slotTime: string
+  notes: string
+  status: BookingStatus
+}
+
+export type BookingListParams = {
+  date?: string
+  status?: BookingStatus | 'all'
+  query?: string
+}
+
 export const adminApi = {
   login: async (email: string, password: string) => {
     const response = await httpClient.post<ApiEnvelope<AdminLoginResponse>>('/admin/auth/login', { email, password })
@@ -28,9 +44,13 @@ export const adminApi = {
     await httpClient.post('/admin/auth/logout')
   },
 
-  listBookings: async (date?: string) => {
+  listBookings: async (params?: BookingListParams) => {
     const response = await httpClient.get<ApiEnvelope<Booking[]>>('/admin/bookings', {
-      params: date ? { date } : undefined,
+      params: {
+        ...(params?.date ? { date: params.date } : {}),
+        ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
+        ...(params?.query ? { query: params.query } : {}),
+      },
     })
     return response.data.data
   },
@@ -56,6 +76,11 @@ export const adminApi = {
 
   updateBookingStatus: async (id: string, status: BookingStatus) => {
     const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}/status`, { status })
+    return response.data.data
+  },
+
+  updateBooking: async (id: string, payload: BookingPayload) => {
+    const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}`, payload)
     return response.data.data
   },
 

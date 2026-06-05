@@ -13,9 +13,12 @@ export type ServiceItem = {
 
 export type Booking = {
   id: string
+  serviceId: string
   bookingCode: string
   customerName: string
   phone: string
+  lineUserId?: string
+  notes?: string
   bookingDate: string
   slotTime: string
   status: BookingStatus
@@ -34,12 +37,22 @@ export type AdminNotification = {
   createdAt: string
 }
 
+export type BookingBlackoutDate = {
+  id?: string
+  date: string
+  reason?: string
+}
+
 export type BookingSettings = {
   openTime: string
   closeTime: string
   slotIntervalMinutes: number
   slotCapacity: number
   closedWeekdays: string
+  minAdvanceHours: number
+  maxAdvanceDays: number
+  reminderLeadMinutes: number
+  blackoutDates: BookingBlackoutDate[]
 }
 
 export type AdminRealtimeEvent = {

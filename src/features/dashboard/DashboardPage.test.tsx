@@ -62,6 +62,10 @@ describe('DashboardPage', () => {
       slotIntervalMinutes: 30,
       slotCapacity: 1,
       closedWeekdays: '',
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      blackoutDates: [],
     })
   })
 

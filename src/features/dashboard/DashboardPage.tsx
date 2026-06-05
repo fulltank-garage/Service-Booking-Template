@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   Drawer,
+  FormControl,
   Grid,
   IconButton,
   InputAdornment,
@@ -48,7 +49,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import SettingsIcon from '@mui/icons-material/Settings'
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt'
 import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
-import { adminApi, type ServicePayload } from '../../api/adminApi'
+import { adminApi, type BookingPayload, type ServicePayload } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
 import type { AdminNotification, AdminRealtimeEvent, Booking, BookingSettings, BookingStatus, ServiceItem } from '../../types/admin'
@@ -164,6 +165,8 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null)
   const [selectedBookingDate, setSelectedBookingDate] = useState(todayISO)
+  const [bookingQuery, setBookingQuery] = useState('')
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<BookingStatus | 'all'>('all')
   const [isLoading, setIsLoading] = useState(true)
   const [shouldShowDataSkeleton, setShouldShowDataSkeleton] = useState(false)
   const hasLoadedDataRef = useRef(false)
@@ -192,7 +195,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
 
     try {
       const [bookingItems, notificationItems, serviceItems, settings] = await Promise.all([
-        adminApi.listBookings(selectedBookingDate),
+        adminApi.listBookings({ date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }),
         adminApi.listNotifications(),
         adminApi.listServices(),
         adminApi.getBookingSettings(),
@@ -221,7 +224,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     } finally {
       setIsLoading(false)
     }
-  }, [selectedBookingDate, showNotificationNotice])
+  }, [bookingQuery, bookingStatusFilter, selectedBookingDate, showNotificationNotice])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setShouldShowDataSkeleton(isLoading), isLoading ? 180 : 0)
@@ -312,6 +315,18 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
   }
 
+  const handleUpdateBooking = async (booking: Booking, payload: BookingPayload) => {
+    try {
+      const updated = await adminApi.updateBooking(booking.id, payload)
+      setBookings((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      setNotice('แก้ไขรายการจองแล้ว')
+    } catch {
+      setNotice('แก้ไขรายการจองไม่สำเร็จ')
+      void loadData()
+      throw new Error('update booking failed')
+    }
+  }
+
   const handleChangePage = (page: AdminPage) => {
     setActivePage(page)
     setIsNavOpen(false)
@@ -374,14 +389,20 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                   <OverviewPage summary={summary} />
                 )}
                 {activePage === 'bookings' && (
-                  <BookingsPage
-                    bookings={bookings}
-                    selectedDate={selectedBookingDate}
-                    onDeleteBooking={handleDeleteBooking}
-                    onNextDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, 1))}
-                    onPreviousDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, -1))}
-                    onStatusChange={handleStatusChange}
-                  />
+	                  <BookingsPage
+	                    bookings={bookings}
+	                    query={bookingQuery}
+	                    selectedDate={selectedBookingDate}
+	                    services={services}
+	                    statusFilter={bookingStatusFilter}
+	                    onDeleteBooking={handleDeleteBooking}
+	                    onQueryChange={setBookingQuery}
+	                    onNextDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, 1))}
+	                    onPreviousDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, -1))}
+	                    onStatusFilterChange={setBookingStatusFilter}
+	                    onStatusChange={handleStatusChange}
+	                    onUpdateBooking={handleUpdateBooking}
+	                  />
                 )}
                 {activePage === 'services' && (
                   <ServicesPage
@@ -1023,27 +1044,45 @@ function OverviewPage({
 
 function BookingsPage({
   bookings,
+  query,
   selectedDate,
+  services,
+  statusFilter,
   onDeleteBooking,
   onNextDay,
   onPreviousDay,
+  onQueryChange,
+  onStatusFilterChange,
   onStatusChange,
+  onUpdateBooking,
 }: {
   bookings: Booking[]
+  query: string
   selectedDate: string
+  services: ServiceItem[]
+  statusFilter: BookingStatus | 'all'
   onDeleteBooking: (booking: Booking) => void
   onNextDay: () => void
   onPreviousDay: () => void
+  onQueryChange: (query: string) => void
+  onStatusFilterChange: (status: BookingStatus | 'all') => void
   onStatusChange: (booking: Booking, status: BookingStatus) => void
+  onUpdateBooking: (booking: Booking, payload: BookingPayload) => Promise<void>
 }) {
   return (
     <BookingsCard
       bookings={bookings}
+      query={query}
       selectedDate={selectedDate}
+      services={services}
+      statusFilter={statusFilter}
       onDeleteBooking={onDeleteBooking}
       onNextDay={onNextDay}
       onPreviousDay={onPreviousDay}
+      onQueryChange={onQueryChange}
+      onStatusFilterChange={onStatusFilterChange}
       onStatusChange={onStatusChange}
+      onUpdateBooking={onUpdateBooking}
     />
   )
 }
@@ -1168,7 +1207,11 @@ function BookingSettingsPage({
   const [openTime, setOpenTime] = useState(settings?.openTime ?? '09:00')
   const [closeTime, setCloseTime] = useState(settings?.closeTime ?? '17:00')
   const [slotCapacity, setSlotCapacity] = useState(String(settings?.slotCapacity ?? 1))
+  const [minAdvanceHours, setMinAdvanceHours] = useState(String(settings?.minAdvanceHours ?? 0))
+  const [maxAdvanceDays, setMaxAdvanceDays] = useState(String(settings?.maxAdvanceDays ?? 60))
+  const [reminderLeadMinutes, setReminderLeadMinutes] = useState(String(settings?.reminderLeadMinutes ?? 1440))
   const [closedWeekdays, setClosedWeekdays] = useState(settings?.closedWeekdays ?? '')
+  const [blackoutDates, setBlackoutDates] = useState(settings?.blackoutDates ?? [])
   const [isSaving, setIsSaving] = useState(false)
 
   const handleSave = async () => {
@@ -1181,6 +1224,12 @@ function BookingSettingsPage({
         slotIntervalMinutes: settings?.slotIntervalMinutes ?? 30,
         slotCapacity: Number(slotCapacity),
         closedWeekdays,
+        minAdvanceHours: Number(minAdvanceHours),
+        maxAdvanceDays: Number(maxAdvanceDays),
+        reminderLeadMinutes: Number(reminderLeadMinutes),
+        blackoutDates: blackoutDates
+          .map((item) => ({ date: item.date.trim(), reason: item.reason?.trim() ?? '' }))
+          .filter((item) => item.date),
       })
     } catch {
       onError()
@@ -1224,6 +1273,33 @@ function BookingSettingsPage({
                 onChange={(event) => setSlotCapacity(event.target.value)}
               />
             </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="จองล่วงหน้าอย่างน้อย (ชั่วโมง)"
+                type="number"
+                value={minAdvanceHours}
+                onChange={(event) => setMinAdvanceHours(event.target.value)}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="จองล่วงหน้าได้สูงสุด (วัน)"
+                type="number"
+                value={maxAdvanceDays}
+                onChange={(event) => setMaxAdvanceDays(event.target.value)}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="เตือนก่อนนัด (นาที)"
+                type="number"
+                value={reminderLeadMinutes}
+                onChange={(event) => setReminderLeadMinutes(event.target.value)}
+              />
+            </Grid>
           </Grid>
 
           <Box>
@@ -1251,6 +1327,63 @@ function BookingSettingsPage({
                 </MenuItem>
               ))}
             </Select>
+          </Box>
+
+          <Box>
+            <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: '0.9rem', fontWeight: 900 }}>วันหยุดเฉพาะวันที่</Typography>
+              <Button
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={() => setBlackoutDates((current) => [...current, { date: '', reason: '' }])}
+              >
+                เพิ่มวันหยุด
+              </Button>
+            </Stack>
+            <Stack spacing={1}>
+              {blackoutDates.length === 0 && (
+                <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>ยังไม่มีวันหยุดเฉพาะวันที่</Typography>
+              )}
+              {blackoutDates.map((item, index) => (
+                <Grid container spacing={1} key={`${item.id ?? 'new'}-${index}`}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      value={item.date}
+                      onChange={(event) =>
+                        setBlackoutDates((current) =>
+                          current.map((dateItem, itemIndex) => (itemIndex === index ? { ...dateItem, date: event.target.value } : dateItem)),
+                        )
+                      }
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      fullWidth
+                      placeholder="เหตุผล เช่น ร้านหยุดพิเศษ"
+                      value={item.reason ?? ''}
+                      onChange={(event) =>
+                        setBlackoutDates((current) =>
+                          current.map((dateItem, itemIndex) => (itemIndex === index ? { ...dateItem, reason: event.target.value } : dateItem)),
+                        )
+                      }
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => setBlackoutDates((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                      sx={{ minHeight: 56, bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+                    >
+                      ลบ
+                    </Button>
+                  </Grid>
+                </Grid>
+              ))}
+            </Stack>
           </Box>
 
           <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>
@@ -1852,26 +1985,111 @@ function BottomEditorSheet({
 
 function BookingsCard({
   bookings,
+  query,
   selectedDate,
+  services,
+  statusFilter,
   onDeleteBooking,
   onNextDay,
   onPreviousDay,
+  onQueryChange,
+  onStatusFilterChange,
   onStatusChange,
+  onUpdateBooking,
 }: {
   bookings: Booking[]
+  query: string
   selectedDate: string
+  services: ServiceItem[]
+  statusFilter: BookingStatus | 'all'
   onDeleteBooking: (booking: Booking) => void
   onNextDay: () => void
   onPreviousDay: () => void
+  onQueryChange: (query: string) => void
+  onStatusFilterChange: (status: BookingStatus | 'all') => void
   onStatusChange: (booking: Booking, status: BookingStatus) => void
+  onUpdateBooking: (booking: Booking, payload: BookingPayload) => Promise<void>
 }) {
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
+  const [editServiceId, setEditServiceId] = useState('')
+  const [editCustomerName, setEditCustomerName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editSlotTime, setEditSlotTime] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editStatus, setEditStatus] = useState<BookingStatus>('pending')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const openEditBooking = (booking: Booking) => {
+    setEditingBooking(booking)
+    setEditServiceId(booking.serviceId)
+    setEditCustomerName(booking.customerName)
+    setEditPhone(booking.phone)
+    setEditDate(booking.bookingDate)
+    setEditSlotTime(booking.slotTime)
+    setEditNotes(booking.notes ?? '')
+    setEditStatus(booking.status)
+  }
+
+  const handleSaveBooking = async () => {
+    if (!editingBooking || isSaving) return
+    setIsSaving(true)
+    try {
+      await onUpdateBooking(editingBooking, {
+        serviceId: editServiceId,
+        customerName: editCustomerName.trim(),
+        phone: editPhone.trim(),
+        bookingDate: editDate,
+        slotTime: editSlotTime.trim(),
+        notes: editNotes.trim(),
+        status: editStatus,
+      })
+      setEditingBooking(null)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
-    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-      <CardContent sx={{ p: 2.5 }}>
+    <>
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 2.5 }}>
         <Stack spacing={1.5} sx={{ mb: 2 }}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
             <Typography variant="h2">รายการจอง</Typography>
             <Typography sx={{ fontWeight: 950, color: 'primary.main' }}>{formatThaiDateLabel(selectedDate)}</Typography>
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
+            <TextField
+              placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่จอง"
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              size="small"
+              sx={{ flex: 1 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
+              <Select
+                aria-label="กรองสถานะ"
+                value={statusFilter}
+                onChange={(event) => onStatusFilterChange(event.target.value as BookingStatus | 'all')}
+              >
+                <MenuItem value="all">ทุกสถานะ</MenuItem>
+                {Object.entries(statusLabels).map(([status, label]) => (
+                  <MenuItem key={status} value={status}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Stack>
           <Stack direction="row" spacing={0.8} sx={{ justifyContent: 'flex-end' }}>
             <Button variant="outlined" onClick={onPreviousDay}>
@@ -1927,7 +2145,7 @@ function BookingsCard({
                         {formatThaiDateLabel(booking.bookingDate)} {booking.slotTime} · {booking.phone}
                       </Typography>
                     </Box>
-                    <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onStatusChange={onStatusChange} />
+	                    <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
                   </Stack>
                 </Box>
               ))}
@@ -1961,7 +2179,7 @@ function BookingsCard({
                   <TableCell>
                     <Stack spacing={1}>
                       <Chip color={booking.status === 'completed' ? 'secondary' : 'primary'} label={statusLabels[booking.status]} />
-                      <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onStatusChange={onStatusChange} />
+	                      <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -1971,22 +2189,81 @@ function BookingsCard({
         </TableContainer>
           </>
         )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+      <Dialog open={Boolean(editingBooking)} onClose={() => setEditingBooking(null)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 950 }}>แก้ไขรายการจอง</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <FormControl fullWidth>
+              <Select aria-label="บริการ" value={editServiceId} onChange={(event) => setEditServiceId(event.target.value)}>
+                {services.map((service) => (
+                  <MenuItem key={service.id} value={service.id}>
+                    {service.nameTh}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField fullWidth label="ชื่อผู้จอง" value={editCustomerName} onChange={(event) => setEditCustomerName(event.target.value)} />
+            <TextField fullWidth label="เบอร์โทร" value={editPhone} onChange={(event) => setEditPhone(event.target.value)} />
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField fullWidth label="วันที่" type="date" value={editDate} onChange={(event) => setEditDate(event.target.value)} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField fullWidth label="เวลา" value={editSlotTime} onChange={(event) => setEditSlotTime(event.target.value)} placeholder="10:00" />
+              </Grid>
+            </Grid>
+            <FormControl fullWidth>
+              <Select aria-label="สถานะ" value={editStatus} onChange={(event) => setEditStatus(event.target.value as BookingStatus)}>
+                {Object.entries(statusLabels).map(([status, label]) => (
+                  <MenuItem key={status} value={status}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField fullWidth multiline minRows={3} label="หมายเหตุ" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button variant="outlined" disabled={isSaving} onClick={() => setEditingBooking(null)}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!editServiceId || !editCustomerName.trim() || !editPhone.trim() || !editDate || !editSlotTime.trim() || isSaving}
+            onClick={handleSaveBooking}
+          >
+            {isSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   )
 }
 
 function BookingActionButtons({
   booking,
   onDeleteBooking,
+  onEditBooking,
   onStatusChange,
 }: {
   booking: Booking
   onDeleteBooking: (booking: Booking) => void
+  onEditBooking: (booking: Booking) => void
   onStatusChange: (booking: Booking, status: BookingStatus) => void
 }) {
   return (
     <Stack direction="row" spacing={1} sx={{ justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+      <Button
+        fullWidth
+        variant="outlined"
+        startIcon={<EditIcon />}
+        onClick={() => onEditBooking(booking)}
+      >
+        แก้ไข
+      </Button>
       <Button
         fullWidth
         variant="contained"
