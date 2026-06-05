@@ -62,6 +62,8 @@ const parseISODate = (value: string) => {
 const toISODate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
+const digitsOnly = (value: string) => value.replace(/\D/g, '')
+
 const addDays = (date: Date, count: number) => {
   const next = new Date(date)
   next.setDate(next.getDate() + count)
@@ -404,7 +406,13 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               />
             </Grid>
             <Grid size={{ xs: 12 }}>
-              <TextField fullWidth label="เบอร์โทร" value={phone} onChange={(event) => setPhone(event.target.value)} />
+              <TextField
+                fullWidth
+                label="เบอร์โทร"
+                value={phone}
+                onChange={(event) => setPhone(digitsOnly(event.target.value))}
+                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+              />
             </Grid>
             <Grid size={{ xs: 12 }}>
               <TextField

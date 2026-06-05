@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Alert, Box, Card, CardContent, Chip, Divider, Skeleton, Stack, Typography } from '@mui/material'
-import RoomServiceIcon from '@mui/icons-material/RoomService'
 import { bookingApi } from '../../api/bookingApi'
 import type { ServiceItem } from '../../types/booking'
 
@@ -72,29 +71,14 @@ export function ServicesCatalogPage() {
             <Card key={service.id} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
               <CardContent sx={{ p: 2 }}>
                 <Stack spacing={1.3}>
-                  <Stack direction="row" spacing={1.3} sx={{ alignItems: 'flex-start' }}>
-                    <Box
-                      sx={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 2.2,
-                        bgcolor: 'secondary.main',
-                        display: 'grid',
-                        placeItems: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <RoomServiceIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-                    </Box>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography sx={{ fontSize: '1.18rem', fontWeight: 950, lineHeight: 1.2 }}>
-                        {service.nameTh}
-                      </Typography>
-                      <Typography sx={{ mt: 0.45, color: 'text.secondary', lineHeight: 1.5 }}>
-                        {service.descriptionTh || 'ดูรายละเอียดและเลือกเวลาจองได้จากหน้าเริ่มการจอง'}
-                      </Typography>
-                    </Box>
-                  </Stack>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '1.18rem', fontWeight: 950, lineHeight: 1.2 }}>
+                      {service.nameTh}
+                    </Typography>
+                    <Typography sx={{ mt: 0.45, color: 'text.secondary', lineHeight: 1.5 }}>
+                      {service.descriptionTh || 'ดูรายละเอียดและเลือกเวลาจองได้จากหน้าเริ่มการจอง'}
+                    </Typography>
+                  </Box>
                   <Divider />
                   <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <Chip color="secondary" label={`${service.durationMinutes} นาที`} />
