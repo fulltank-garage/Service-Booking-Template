@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
+	"github.com/fulltank-garage/service-booking-template-api/internal/repositories"
 )
 
 func TestCreateBookingRejectsFullSlot(t *testing.T) {
@@ -216,6 +217,136 @@ func TestCreateBookingAllowsOverlappingSlotWhenCapacityAvailable(t *testing.T) {
 	}
 }
 
+func TestCreateBookingRejectsBlackoutDate(t *testing.T) {
+	store := &fakeStore{
+		service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true, DurationMinutes: 30},
+		settings: models.BookingSettings{
+			OpenTime:            "09:00",
+			CloseTime:           "17:00",
+			SlotIntervalMinutes: 30,
+			SlotCapacity:        1,
+			MinAdvanceHours:     0,
+			MaxAdvanceDays:      36500,
+		},
+		blackoutDates: []models.BookingBlackoutDate{{Date: "2026-06-10", Reason: "Shop holiday"}},
+	}
+	service := NewBookingService(store, nil, nil, 1)
+
+	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
+		ServiceID:    "svc-1",
+		CustomerName: "Somchai",
+		Phone:        "0890000000",
+		BookingDate:  "2026-06-10",
+		SlotTime:     "10:00",
+	})
+
+	if !errors.Is(err, ErrSlotUnavailable) {
+		t.Fatalf("expected blackout date to be unavailable, got %v", err)
+	}
+}
+
+func TestCreateBookingRejectsDateOutsideBookingWindow(t *testing.T) {
+	store := &fakeStore{
+		service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true, DurationMinutes: 30},
+		settings: models.BookingSettings{
+			OpenTime:            "09:00",
+			CloseTime:           "17:00",
+			SlotIntervalMinutes: 30,
+			SlotCapacity:        1,
+			MinAdvanceHours:     24,
+			MaxAdvanceDays:      30,
+		},
+	}
+	service := NewBookingService(store, nil, nil, 1)
+	service.now = func() time.Time {
+		return time.Date(2026, 6, 5, 12, 0, 0, 0, time.FixedZone("ICT", 7*60*60))
+	}
+
+	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
+		ServiceID:    "svc-1",
+		CustomerName: "Somchai",
+		Phone:        "0890000000",
+		BookingDate:  "2026-06-05",
+		SlotTime:     "13:00",
+	})
+
+	if !errors.Is(err, ErrSlotUnavailable) {
+		t.Fatalf("expected too-soon booking to be unavailable, got %v", err)
+	}
+}
+
+func TestRescheduleBookingByLineUserUpdatesSlotAndNotes(t *testing.T) {
+	store := &fakeStore{
+		service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true, DurationMinutes: 30},
+		settings: models.BookingSettings{
+			OpenTime:            "09:00",
+			CloseTime:           "17:00",
+			SlotIntervalMinutes: 30,
+			SlotCapacity:        1,
+			MaxAdvanceDays:      36500,
+		},
+		created: &models.Booking{
+			BaseModel:    models.BaseModel{ID: "booking-1"},
+			ServiceID:    "svc-1",
+			Service:      models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, DurationMinutes: 30},
+			LineUserID:   "line-user-1",
+			CustomerName: "Somchai",
+			Phone:        "0890000000",
+			BookingDate:  "2026-06-10",
+			SlotTime:     "10:00",
+			Status:       models.BookingStatusPending,
+		},
+	}
+	service := NewBookingService(store, nil, nil, 1)
+
+	booking, err := service.RescheduleBookingByLineUser(context.Background(), "booking-1", RescheduleBookingInput{
+		LineUserID:  "line-user-1",
+		BookingDate: "2026-06-11",
+		SlotTime:    "11:00",
+		Notes:       "ขอเลื่อนเป็นช่วงสาย",
+	})
+
+	if err != nil {
+		t.Fatalf("reschedule booking: %v", err)
+	}
+	if booking.BookingDate != "2026-06-11" || booking.SlotTime != "11:00" {
+		t.Fatalf("expected rescheduled booking, got %s %s", booking.BookingDate, booking.SlotTime)
+	}
+	if booking.Notes != "ขอเลื่อนเป็นช่วงสาย" {
+		t.Fatalf("expected notes to update, got %q", booking.Notes)
+	}
+}
+
+func TestListReminderCandidatesReturnsUpcomingActiveBookings(t *testing.T) {
+	store := &fakeStore{
+		bookings: []models.Booking{
+			{
+				BaseModel:   models.BaseModel{ID: "booking-1"},
+				BookingDate: "2026-06-06",
+				SlotTime:    "10:00",
+				Status:      models.BookingStatusPending,
+			},
+			{
+				BaseModel:   models.BaseModel{ID: "booking-2"},
+				BookingDate: "2026-06-06",
+				SlotTime:    "15:00",
+				Status:      models.BookingStatusCancelled,
+			},
+		},
+	}
+	service := NewBookingService(store, nil, nil, 1)
+	now := time.Date(2026, 6, 5, 12, 0, 0, 0, time.FixedZone("ICT", 7*60*60))
+
+	candidates, err := service.ListReminderCandidates(context.Background(), now, 24*60)
+
+	if err != nil {
+		t.Fatalf("list reminder candidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].ID != "booking-1" {
+		t.Fatalf("expected one active upcoming candidate, got %#v", candidates)
+	}
+}
+
 func TestCancelBookingByLineUserDeletesBookingAndSwitchesRichMenu(t *testing.T) {
 	store := &fakeStore{
 		created: &models.Booking{
@@ -263,11 +394,12 @@ func TestCancelBookingByLineUserRejectsDifferentLineUser(t *testing.T) {
 }
 
 type fakeStore struct {
-	service   models.Service
-	slotCount int64
-	created   *models.Booking
-	bookings  []models.Booking
-	settings  models.BookingSettings
+	service       models.Service
+	slotCount     int64
+	created       *models.Booking
+	bookings      []models.Booking
+	settings      models.BookingSettings
+	blackoutDates []models.BookingBlackoutDate
 }
 
 func (store *fakeStore) ListServices(context.Context) ([]models.Service, error) {
@@ -318,6 +450,13 @@ func (store *fakeStore) CreateBooking(_ context.Context, booking *models.Booking
 	store.created = booking
 	return nil
 }
+func (store *fakeStore) CreateBookingWithAvailability(_ context.Context, booking *models.Booking, durationMinutes int, capacity int) error {
+	if countOverlappingBookings(store.bookings, booking.SlotTime, durationMinutes) >= int64(capacity) {
+		return repositories.ErrSlotCapacityReached
+	}
+	store.created = booking
+	return nil
+}
 func (store *fakeStore) FindBookingByID(context.Context, string) (models.Booking, error) {
 	if store.created == nil {
 		return models.Booking{}, errors.New("not found")
@@ -329,6 +468,13 @@ func (store *fakeStore) LatestBookingByLineUser(context.Context, string) (models
 }
 func (store *fakeStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
 	return store.bookings, nil
+}
+func (store *fakeStore) UpdateBookingWithAvailability(_ context.Context, booking *models.Booking, durationMinutes int, capacity int) (models.Booking, error) {
+	if countOverlappingBookings(store.bookings, booking.SlotTime, durationMinutes) >= int64(capacity) {
+		return models.Booking{}, repositories.ErrSlotCapacityReached
+	}
+	store.created = booking
+	return *booking, nil
 }
 func (store *fakeStore) UpdateBookingStatus(context.Context, string, string) (models.Booking, error) {
 	return models.Booking{}, nil
@@ -355,7 +501,11 @@ func (store *fakeStore) ListPushSubscriptions(context.Context) ([]models.PushSub
 }
 func (store *fakeStore) DeletePushSubscription(context.Context, string) error { return nil }
 func (store *fakeStore) GetBookingSettings(context.Context) (models.BookingSettings, error) {
+	store.settings.BlackoutDates = store.blackoutDates
 	return store.settings, nil
+}
+func (store *fakeStore) ListBlackoutDates(context.Context) ([]models.BookingBlackoutDate, error) {
+	return store.blackoutDates, nil
 }
 func (store *fakeStore) SaveBookingSettings(_ context.Context, settings *models.BookingSettings) error {
 	store.settings = *settings

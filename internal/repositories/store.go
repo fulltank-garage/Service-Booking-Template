@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
@@ -23,12 +25,15 @@ type Store interface {
 	RevokeAdminSession(ctx context.Context, tokenHash string) error
 	CountBookingsForSlot(ctx context.Context, serviceID string, date string, slotTime string) (int64, error)
 	CreateBooking(ctx context.Context, booking *models.Booking) error
+	CreateBookingWithAvailability(ctx context.Context, booking *models.Booking, durationMinutes int, capacity int) error
 	FindBookingByID(ctx context.Context, id string) (models.Booking, error)
 	LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error)
 	ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error)
+	UpdateBookingWithAvailability(ctx context.Context, booking *models.Booking, durationMinutes int, capacity int) (models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, id string, status string) (models.Booking, error)
 	DeleteBooking(ctx context.Context, id string) error
 	GetBookingSettings(ctx context.Context) (models.BookingSettings, error)
+	ListBlackoutDates(ctx context.Context) ([]models.BookingBlackoutDate, error)
 	SaveBookingSettings(ctx context.Context, settings *models.BookingSettings) error
 	CreateNotification(ctx context.Context, notification *models.Notification) error
 	ListNotifications(ctx context.Context, unreadOnly bool, limit int) ([]models.Notification, error)
@@ -128,6 +133,24 @@ func (store *GormStore) CreateBooking(ctx context.Context, booking *models.Booki
 	return store.db.WithContext(ctx).Create(booking).Error
 }
 
+func (store *GormStore) CreateBookingWithAvailability(ctx context.Context, booking *models.Booking, durationMinutes int, capacity int) error {
+	return store.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockBookingDate(tx, booking.BookingDate); err != nil {
+			return err
+		}
+		var bookings []models.Booking
+		if err := tx.Preload("Service").
+			Where("booking_date = ? AND status <> ?", booking.BookingDate, models.BookingStatusCancelled).
+			Find(&bookings).Error; err != nil {
+			return err
+		}
+		if countOverlappingBookings(bookings, booking.SlotTime, durationMinutes, "") >= int64(capacity) {
+			return ErrSlotCapacityReached
+		}
+		return tx.Create(booking).Error
+	})
+}
+
 func (store *GormStore) FindBookingByID(ctx context.Context, id string) (models.Booking, error) {
 	var booking models.Booking
 	err := store.db.WithContext(ctx).Preload("Service").First(&booking, "id = ?", id).Error
@@ -153,11 +176,43 @@ func (store *GormStore) ListBookings(ctx context.Context, filter models.BookingF
 	if filter.Date != "" {
 		query = query.Where("booking_date = ?", filter.Date)
 	}
+	if strings.TrimSpace(filter.Query) != "" {
+		term := "%" + strings.ToLower(strings.TrimSpace(filter.Query)) + "%"
+		query = query.Where(
+			"LOWER(booking_code) LIKE ? OR LOWER(customer_name) LIKE ? OR LOWER(phone) LIKE ?",
+			term,
+			term,
+			term,
+		)
+	}
 	if filter.Limit > 0 {
 		query = query.Limit(filter.Limit)
 	}
 	err := query.Find(&bookings).Error
 	return bookings, err
+}
+
+func (store *GormStore) UpdateBookingWithAvailability(ctx context.Context, booking *models.Booking, durationMinutes int, capacity int) (models.Booking, error) {
+	var updated models.Booking
+	err := store.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockBookingDate(tx, booking.BookingDate); err != nil {
+			return err
+		}
+		var bookings []models.Booking
+		if err := tx.Preload("Service").
+			Where("booking_date = ? AND status <> ? AND id <> ?", booking.BookingDate, models.BookingStatusCancelled, booking.ID).
+			Find(&bookings).Error; err != nil {
+			return err
+		}
+		if countOverlappingBookings(bookings, booking.SlotTime, durationMinutes, booking.ID) >= int64(capacity) {
+			return ErrSlotCapacityReached
+		}
+		if err := tx.Save(booking).Error; err != nil {
+			return err
+		}
+		return tx.Preload("Service").First(&updated, "id = ?", booking.ID).Error
+	})
+	return updated, err
 }
 
 func (store *GormStore) UpdateBookingStatus(ctx context.Context, id string, status string) (models.Booking, error) {
@@ -190,14 +245,90 @@ func (store *GormStore) GetBookingSettings(ctx context.Context) (models.BookingS
 	var settings models.BookingSettings
 	err := store.db.WithContext(ctx).First(&settings, "id = ?", "default").Error
 	if err == gorm.ErrRecordNotFound {
-		return models.BookingSettings{}, nil
+		settings = models.BookingSettings{}
+	} else if err != nil {
+		return settings, err
 	}
-	return settings, err
+	blackoutDates, err := store.ListBlackoutDates(ctx)
+	if err != nil {
+		return settings, err
+	}
+	settings.BlackoutDates = blackoutDates
+	return settings, nil
+}
+
+func (store *GormStore) ListBlackoutDates(ctx context.Context) ([]models.BookingBlackoutDate, error) {
+	var blackoutDates []models.BookingBlackoutDate
+	err := store.db.WithContext(ctx).Order("date ASC").Find(&blackoutDates).Error
+	return blackoutDates, err
 }
 
 func (store *GormStore) SaveBookingSettings(ctx context.Context, settings *models.BookingSettings) error {
 	settings.ID = "default"
-	return store.db.WithContext(ctx).Save(settings).Error
+	return store.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(settings).Error; err != nil {
+			return err
+		}
+		if settings.BlackoutDates == nil {
+			return nil
+		}
+		if err := tx.Unscoped().Where("1 = 1").Delete(&models.BookingBlackoutDate{}).Error; err != nil {
+			return err
+		}
+		for index := range settings.BlackoutDates {
+			item := settings.BlackoutDates[index]
+			item.Date = strings.TrimSpace(item.Date)
+			item.Reason = strings.TrimSpace(item.Reason)
+			if item.Date == "" {
+				continue
+			}
+			if err := tx.Create(&item).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+var ErrSlotCapacityReached = errors.New("slot capacity reached")
+
+func lockBookingDate(tx *gorm.DB, date string) error {
+	return tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "booking:"+date).Error
+}
+
+func countOverlappingBookings(bookings []models.Booking, slot string, durationMinutes int, excludeID string) int64 {
+	slotStart, ok := clockMinutes(slot)
+	if !ok || durationMinutes <= 0 {
+		return 0
+	}
+	slotEnd := slotStart + durationMinutes
+	var count int64
+	for _, booking := range bookings {
+		if booking.ID == excludeID || booking.Status == models.BookingStatusCancelled {
+			continue
+		}
+		bookingDuration := booking.Service.DurationMinutes
+		if bookingDuration <= 0 {
+			bookingDuration = durationMinutes
+		}
+		bookingStart, ok := clockMinutes(booking.SlotTime)
+		if !ok {
+			continue
+		}
+		bookingEnd := bookingStart + bookingDuration
+		if slotStart < bookingEnd && bookingStart < slotEnd {
+			count++
+		}
+	}
+	return count
+}
+
+func clockMinutes(value string) (int, bool) {
+	parsed, err := time.Parse("15:04", value)
+	if err != nil {
+		return 0, false
+	}
+	return parsed.Hour()*60 + parsed.Minute(), true
 }
 
 func (store *GormStore) CreateNotification(ctx context.Context, notification *models.Notification) error {

@@ -70,7 +70,19 @@ CREATE TABLE IF NOT EXISTS booking_settings (
   close_time varchar(5) NOT NULL DEFAULT '17:00',
   slot_interval_minutes integer NOT NULL DEFAULT 30,
   slot_capacity integer NOT NULL DEFAULT 1,
-  closed_weekdays varchar(32) NOT NULL DEFAULT ''
+  closed_weekdays varchar(32) NOT NULL DEFAULT '',
+  min_advance_hours integer NOT NULL DEFAULT 0,
+  max_advance_days integer NOT NULL DEFAULT 60,
+  reminder_lead_minutes integer NOT NULL DEFAULT 1440
+);
+
+CREATE TABLE IF NOT EXISTS booking_blackout_dates (
+  id varchar(36) PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  deleted_at timestamptz,
+  date varchar(10) NOT NULL UNIQUE,
+  reason varchar(180)
 );
 
 CREATE TABLE IF NOT EXISTS notifications (

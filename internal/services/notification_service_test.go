@@ -138,6 +138,9 @@ func (store *notificationStore) CountBookingsForSlot(context.Context, string, st
 	return 0, nil
 }
 func (store *notificationStore) CreateBooking(context.Context, *models.Booking) error { return nil }
+func (store *notificationStore) CreateBookingWithAvailability(context.Context, *models.Booking, int, int) error {
+	return nil
+}
 func (store *notificationStore) FindBookingByID(context.Context, string) (models.Booking, error) {
 	return models.Booking{}, nil
 }
@@ -146,6 +149,9 @@ func (store *notificationStore) LatestBookingByLineUser(context.Context, string)
 }
 func (store *notificationStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
 	return nil, nil
+}
+func (store *notificationStore) UpdateBookingWithAvailability(context.Context, *models.Booking, int, int) (models.Booking, error) {
+	return models.Booking{}, nil
 }
 func (store *notificationStore) UpdateBookingStatus(context.Context, string, string) (models.Booking, error) {
 	return models.Booking{}, nil
@@ -178,6 +184,9 @@ func (store *notificationStore) DeletePushSubscription(_ context.Context, endpoi
 }
 func (store *notificationStore) GetBookingSettings(context.Context) (models.BookingSettings, error) {
 	return models.BookingSettings{}, nil
+}
+func (store *notificationStore) ListBlackoutDates(context.Context) ([]models.BookingBlackoutDate, error) {
+	return nil, nil
 }
 func (store *notificationStore) SaveBookingSettings(context.Context, *models.BookingSettings) error {
 	return nil

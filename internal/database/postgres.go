@@ -26,6 +26,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Staff{},
 		&models.Booking{},
 		&models.BookingSettings{},
+		&models.BookingBlackoutDate{},
 		&models.Notification{},
 		&models.PushSubscription{},
 	)

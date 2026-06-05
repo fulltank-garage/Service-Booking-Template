@@ -30,6 +30,23 @@ type CreateBookingInput struct {
 	Notes        string `json:"notes"`
 }
 
+type RescheduleBookingInput struct {
+	LineUserID  string `json:"lineUserId"`
+	BookingDate string `json:"bookingDate"`
+	SlotTime    string `json:"slotTime"`
+	Notes       string `json:"notes"`
+}
+
+type UpdateBookingInput struct {
+	ServiceID    string `json:"serviceId"`
+	CustomerName string `json:"customerName"`
+	Phone        string `json:"phone"`
+	BookingDate  string `json:"bookingDate"`
+	SlotTime     string `json:"slotTime"`
+	Notes        string `json:"notes"`
+	Status       string `json:"status"`
+}
+
 type ServiceInput struct {
 	NameTH          string `json:"nameTh"`
 	NameEN          string `json:"nameEn"`
@@ -48,11 +65,15 @@ type AvailabilitySlot struct {
 }
 
 type BookingSettingsInput struct {
-	OpenTime            string `json:"openTime"`
-	CloseTime           string `json:"closeTime"`
-	SlotIntervalMinutes int    `json:"slotIntervalMinutes"`
-	SlotCapacity        int    `json:"slotCapacity"`
-	ClosedWeekdays      string `json:"closedWeekdays"`
+	OpenTime            string                       `json:"openTime"`
+	CloseTime           string                       `json:"closeTime"`
+	SlotIntervalMinutes int                          `json:"slotIntervalMinutes"`
+	SlotCapacity        int                          `json:"slotCapacity"`
+	ClosedWeekdays      string                       `json:"closedWeekdays"`
+	MinAdvanceHours     int                          `json:"minAdvanceHours"`
+	MaxAdvanceDays      int                          `json:"maxAdvanceDays"`
+	ReminderLeadMinutes int                          `json:"reminderLeadMinutes"`
+	BlackoutDates       []models.BookingBlackoutDate `json:"blackoutDates"`
 }
 
 type BookingNotifier interface {
@@ -70,13 +91,20 @@ type BookingService struct {
 	notifier         BookingNotifier
 	richMenuSwitcher BookingSuccessRichMenuSwitcher
 	capacity         int
+	now              func() time.Time
 }
 
 func NewBookingService(store repositories.Store, notifier BookingNotifier, richMenuSwitcher BookingSuccessRichMenuSwitcher, capacity int) *BookingService {
 	if capacity <= 0 {
 		capacity = 1
 	}
-	return &BookingService{store: store, notifier: notifier, richMenuSwitcher: richMenuSwitcher, capacity: capacity}
+	return &BookingService{
+		store:            store,
+		notifier:         notifier,
+		richMenuSwitcher: richMenuSwitcher,
+		capacity:         capacity,
+		now:              time.Now,
+	}
 }
 
 func (service *BookingService) ListServices(ctx context.Context) ([]models.Service, error) {
@@ -185,6 +213,9 @@ func (service *BookingService) ListAvailability(ctx context.Context, serviceID s
 	if isClosedWeekday(settings.ClosedWeekdays, bookingDate.Weekday()) {
 		return []AvailabilitySlot{}, nil
 	}
+	if isBlackoutDate(settings.BlackoutDates, inputDate(bookingDate)) {
+		return []AvailabilitySlot{}, nil
+	}
 
 	slots, err := serviceSlots(settings, serviceItem.DurationMinutes)
 	if err != nil {
@@ -197,11 +228,12 @@ func (service *BookingService) ListAvailability(ctx context.Context, serviceID s
 	availability := make([]AvailabilitySlot, 0, len(slots))
 	for _, slot := range slots {
 		count := countOverlappingBookings(existingBookings, slot, serviceItem.DurationMinutes)
+		isInsideBookingWindow := validateBookingWindow(settings, date, slot, service.now()) == nil
 		availability = append(availability, AvailabilitySlot{
 			Time:      slot,
 			Booked:    count,
 			Capacity:  settings.SlotCapacity,
-			Available: count < int64(settings.SlotCapacity),
+			Available: isInsideBookingWindow && count < int64(settings.SlotCapacity),
 		})
 	}
 	return availability, nil
@@ -224,8 +256,14 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	if isClosedWeekday(settings.ClosedWeekdays, bookingDate.Weekday()) {
 		return models.Booking{}, ErrSlotUnavailable
 	}
+	if isBlackoutDate(settings.BlackoutDates, input.BookingDate) {
+		return models.Booking{}, ErrSlotUnavailable
+	}
 	serviceItem, err := service.store.FindServiceByID(ctx, input.ServiceID)
 	if err != nil {
+		return models.Booking{}, err
+	}
+	if err := validateBookingWindow(settings, input.BookingDate, input.SlotTime, service.now()); err != nil {
 		return models.Booking{}, err
 	}
 	slots, err := serviceSlots(settings, serviceItem.DurationMinutes)
@@ -235,15 +273,6 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	if !containsSlot(slots, input.SlotTime) {
 		return models.Booking{}, ErrSlotUnavailable
 	}
-	existingBookings, err := service.store.ListBookings(ctx, models.BookingFilter{Date: input.BookingDate})
-	if err != nil {
-		return models.Booking{}, err
-	}
-	booked := countOverlappingBookings(existingBookings, input.SlotTime, serviceItem.DurationMinutes)
-	if booked >= int64(settings.SlotCapacity) {
-		return models.Booking{}, ErrSlotUnavailable
-	}
-
 	booking := models.Booking{
 		BookingCode:  bookingCode(input.BookingDate),
 		ServiceID:    input.ServiceID,
@@ -255,7 +284,10 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 		SlotTime:     input.SlotTime,
 		Status:       models.BookingStatusPending,
 	}
-	if err := service.store.CreateBooking(ctx, &booking); err != nil {
+	if err := service.store.CreateBookingWithAvailability(ctx, &booking, serviceItem.DurationMinutes, settings.SlotCapacity); err != nil {
+		if errors.Is(err, repositories.ErrSlotCapacityReached) {
+			return models.Booking{}, ErrSlotUnavailable
+		}
 		return models.Booking{}, err
 	}
 	booking.Service = serviceItem
@@ -283,6 +315,123 @@ func (service *BookingService) ListBookings(ctx context.Context, filter models.B
 		filter.Limit = 80
 	}
 	return service.store.ListBookings(ctx, filter)
+}
+
+func (service *BookingService) UpdateBooking(ctx context.Context, id string, input UpdateBookingInput) (models.Booking, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return models.Booking{}, fmt.Errorf("%w: id", ErrInvalidBooking)
+	}
+	booking, err := service.store.FindBookingByID(ctx, id)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	input = normalizeUpdateBookingInput(input, booking)
+	if err := validateBookingInput(CreateBookingInput{
+		ServiceID:    input.ServiceID,
+		CustomerName: input.CustomerName,
+		Phone:        input.Phone,
+		BookingDate:  input.BookingDate,
+		SlotTime:     input.SlotTime,
+	}); err != nil {
+		return models.Booking{}, err
+	}
+	if input.Status != "" && !isAllowedStatus(input.Status) {
+		return models.Booking{}, fmt.Errorf("%w: status", ErrInvalidBooking)
+	}
+	serviceItem, err := service.store.FindServiceByID(ctx, input.ServiceID)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	settings, err := service.loadBookingSettings(ctx)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	if err := validateBookingDateRules(settings, input.BookingDate, input.SlotTime, service.now()); err != nil {
+		return models.Booking{}, err
+	}
+	slots, err := serviceSlots(settings, serviceItem.DurationMinutes)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	if !containsSlot(slots, input.SlotTime) {
+		return models.Booking{}, ErrSlotUnavailable
+	}
+	booking.ServiceID = input.ServiceID
+	booking.Service = serviceItem
+	booking.CustomerName = input.CustomerName
+	booking.Phone = input.Phone
+	booking.BookingDate = input.BookingDate
+	booking.SlotTime = input.SlotTime
+	booking.Notes = input.Notes
+	if input.Status != "" {
+		booking.Status = input.Status
+	}
+	updated, err := service.store.UpdateBookingWithAvailability(ctx, &booking, serviceItem.DurationMinutes, settings.SlotCapacity)
+	if err != nil {
+		if errors.Is(err, repositories.ErrSlotCapacityReached) {
+			return models.Booking{}, ErrSlotUnavailable
+		}
+		return models.Booking{}, err
+	}
+	if service.notifier != nil {
+		_ = service.notifier.BookingUpdated(ctx, updated)
+	}
+	return updated, nil
+}
+
+func (service *BookingService) RescheduleBookingByLineUser(ctx context.Context, id string, input RescheduleBookingInput) (models.Booking, error) {
+	id = strings.TrimSpace(id)
+	input = normalizeRescheduleBookingInput(input)
+	if id == "" || input.LineUserID == "" {
+		return models.Booking{}, fmt.Errorf("%w: id", ErrInvalidBooking)
+	}
+	booking, err := service.store.FindBookingByID(ctx, id)
+	if err != nil {
+		return models.Booking{}, err
+	}
+	if booking.LineUserID != input.LineUserID {
+		return models.Booking{}, fmt.Errorf("%w: lineUserId", ErrInvalidBooking)
+	}
+	return service.UpdateBooking(ctx, id, UpdateBookingInput{
+		ServiceID:    booking.ServiceID,
+		CustomerName: booking.CustomerName,
+		Phone:        booking.Phone,
+		BookingDate:  input.BookingDate,
+		SlotTime:     input.SlotTime,
+		Notes:        input.Notes,
+		Status:       booking.Status,
+	})
+}
+
+func (service *BookingService) ListReminderCandidates(ctx context.Context, now time.Time, leadMinutes int) ([]models.Booking, error) {
+	if leadMinutes <= 0 {
+		settings, err := service.loadBookingSettings(ctx)
+		if err != nil {
+			return nil, err
+		}
+		leadMinutes = settings.ReminderLeadMinutes
+	}
+	bookings, err := service.store.ListBookings(ctx, models.BookingFilter{Limit: 200})
+	if err != nil {
+		return nil, err
+	}
+	now = now.In(bangkokLocation())
+	until := now.Add(time.Duration(leadMinutes) * time.Minute)
+	candidates := make([]models.Booking, 0)
+	for _, booking := range bookings {
+		if booking.Status == models.BookingStatusCancelled || booking.Status == models.BookingStatusCompleted {
+			continue
+		}
+		start, err := bookingStartTime(booking.BookingDate, booking.SlotTime)
+		if err != nil {
+			continue
+		}
+		if start.After(now) && !start.After(until) {
+			candidates = append(candidates, booking)
+		}
+	}
+	return candidates, nil
 }
 
 func (service *BookingService) UpdateBookingStatus(ctx context.Context, id string, status string) (models.Booking, error) {
@@ -385,6 +534,43 @@ func normalizeBookingInput(input CreateBookingInput) CreateBookingInput {
 	return input
 }
 
+func normalizeRescheduleBookingInput(input RescheduleBookingInput) RescheduleBookingInput {
+	input.LineUserID = strings.TrimSpace(input.LineUserID)
+	input.BookingDate = strings.TrimSpace(input.BookingDate)
+	input.SlotTime = strings.TrimSpace(input.SlotTime)
+	input.Notes = strings.TrimSpace(input.Notes)
+	return input
+}
+
+func normalizeUpdateBookingInput(input UpdateBookingInput, current models.Booking) UpdateBookingInput {
+	input.ServiceID = strings.TrimSpace(input.ServiceID)
+	input.CustomerName = strings.TrimSpace(input.CustomerName)
+	input.Phone = strings.TrimSpace(input.Phone)
+	input.BookingDate = strings.TrimSpace(input.BookingDate)
+	input.SlotTime = strings.TrimSpace(input.SlotTime)
+	input.Notes = strings.TrimSpace(input.Notes)
+	input.Status = strings.TrimSpace(input.Status)
+	if input.ServiceID == "" {
+		input.ServiceID = current.ServiceID
+	}
+	if input.CustomerName == "" {
+		input.CustomerName = current.CustomerName
+	}
+	if input.Phone == "" {
+		input.Phone = current.Phone
+	}
+	if input.BookingDate == "" {
+		input.BookingDate = current.BookingDate
+	}
+	if input.SlotTime == "" {
+		input.SlotTime = current.SlotTime
+	}
+	if input.Status == "" {
+		input.Status = current.Status
+	}
+	return input
+}
+
 func validateBookingInput(input CreateBookingInput) error {
 	if input.ServiceID == "" || input.CustomerName == "" || input.Phone == "" {
 		return ErrInvalidBooking
@@ -405,6 +591,10 @@ func normalizeBookingSettingsInput(input BookingSettingsInput, fallbackCapacity 
 		SlotIntervalMinutes: input.SlotIntervalMinutes,
 		SlotCapacity:        input.SlotCapacity,
 		ClosedWeekdays:      input.ClosedWeekdays,
+		MinAdvanceHours:     input.MinAdvanceHours,
+		MaxAdvanceDays:      input.MaxAdvanceDays,
+		ReminderLeadMinutes: input.ReminderLeadMinutes,
+		BlackoutDates:       normalizeBlackoutDates(input.BlackoutDates),
 	}, fallbackCapacity)
 }
 
@@ -427,6 +617,13 @@ func normalizeBookingSettings(settings models.BookingSettings, fallbackCapacity 
 		}
 		settings.SlotCapacity = fallbackCapacity
 	}
+	if settings.MaxAdvanceDays <= 0 {
+		settings.MaxAdvanceDays = 60
+	}
+	if settings.ReminderLeadMinutes <= 0 {
+		settings.ReminderLeadMinutes = 24 * 60
+	}
+	settings.BlackoutDates = normalizeBlackoutDates(settings.BlackoutDates)
 	return settings
 }
 
@@ -457,7 +654,59 @@ func validateBookingSettings(settings models.BookingSettings) error {
 			return fmt.Errorf("%w: closedWeekdays", ErrInvalidBooking)
 		}
 	}
+	for _, item := range settings.BlackoutDates {
+		if _, err := time.Parse("2006-01-02", item.Date); err != nil {
+			return fmt.Errorf("%w: blackoutDates", ErrInvalidBooking)
+		}
+	}
 	return nil
+}
+
+func validateBookingDateRules(settings models.BookingSettings, date string, slotTime string, now time.Time) error {
+	bookingDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return fmt.Errorf("%w: bookingDate", ErrInvalidBooking)
+	}
+	if isClosedWeekday(settings.ClosedWeekdays, bookingDate.Weekday()) || isBlackoutDate(settings.BlackoutDates, date) {
+		return ErrSlotUnavailable
+	}
+	return validateBookingWindow(settings, date, slotTime, now)
+}
+
+func validateBookingWindow(settings models.BookingSettings, date string, slotTime string, now time.Time) error {
+	start, err := bookingStartTime(date, slotTime)
+	if err != nil {
+		return fmt.Errorf("%w: bookingDate", ErrInvalidBooking)
+	}
+	now = now.In(bangkokLocation())
+	if start.Before(now.Add(time.Duration(settings.MinAdvanceHours) * time.Hour)) {
+		return ErrSlotUnavailable
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, bangkokLocation())
+	latestDate := today.AddDate(0, 0, settings.MaxAdvanceDays)
+	bookingDay := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, bangkokLocation())
+	if bookingDay.After(latestDate) {
+		return ErrSlotUnavailable
+	}
+	return nil
+}
+
+func normalizeBlackoutDates(items []models.BookingBlackoutDate) []models.BookingBlackoutDate {
+	if items == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	normalized := make([]models.BookingBlackoutDate, 0, len(items))
+	for _, item := range items {
+		item.Date = strings.TrimSpace(item.Date)
+		item.Reason = strings.TrimSpace(item.Reason)
+		if item.Date == "" || seen[item.Date] {
+			continue
+		}
+		seen[item.Date] = true
+		normalized = append(normalized, item)
+	}
+	return normalized
 }
 
 func businessSlots(settings models.BookingSettings) ([]string, error) {
@@ -492,6 +741,19 @@ func isClosedWeekday(value string, weekday time.Weekday) bool {
 		}
 	}
 	return false
+}
+
+func isBlackoutDate(items []models.BookingBlackoutDate, date string) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item.Date) == date {
+			return true
+		}
+	}
+	return false
+}
+
+func inputDate(date time.Time) string {
+	return date.Format("2006-01-02")
 }
 
 func containsSlot(slots []string, slot string) bool {
@@ -536,6 +798,18 @@ func clockMinutes(value string) (int, bool) {
 		return 0, false
 	}
 	return parsed.Hour()*60 + parsed.Minute(), true
+}
+
+func bookingStartTime(date string, slot string) (time.Time, error) {
+	return time.ParseInLocation("2006-01-02 15:04", date+" "+slot, bangkokLocation())
+}
+
+func bangkokLocation() *time.Location {
+	location, err := time.LoadLocation("Asia/Bangkok")
+	if err != nil {
+		return time.FixedZone("ICT", 7*60*60)
+	}
+	return location
 }
 
 func bookingCode(date string) string {

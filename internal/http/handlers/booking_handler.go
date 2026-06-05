@@ -3,6 +3,8 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
 	"github.com/fulltank-garage/service-booking-template-api/internal/services"
@@ -81,6 +83,15 @@ func (handler *BookingHandler) DeleteService(c *gin.Context) {
 }
 
 func (handler *BookingHandler) GetBookingSettings(c *gin.Context) {
+	settings, err := handler.service.GetBookingSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorBody("โหลดตั้งค่าการจองไม่สำเร็จ"))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": settings})
+}
+
+func (handler *BookingHandler) GetBookingRules(c *gin.Context) {
 	settings, err := handler.service.GetBookingSettings(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorBody("โหลดตั้งค่าการจองไม่สำเร็จ"))
@@ -181,13 +192,77 @@ func (handler *BookingHandler) CancelBooking(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (handler *BookingHandler) RescheduleBooking(c *gin.Context) {
+	var input services.RescheduleBookingInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, errorBody("ข้อมูลไม่ถูกต้อง"))
+		return
+	}
+	booking, err := handler.service.RescheduleBookingByLineUser(c.Request.Context(), c.Param("id"), input)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, services.ErrSlotUnavailable) {
+			status = http.StatusConflict
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, errorBody(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": booking})
+}
+
 func (handler *BookingHandler) ListBookings(c *gin.Context) {
-	items, err := handler.service.ListBookings(c.Request.Context(), models.BookingFilter{Status: c.Query("status"), Date: c.Query("date")})
+	items, err := handler.service.ListBookings(c.Request.Context(), models.BookingFilter{
+		Status: c.Query("status"),
+		Date:   c.Query("date"),
+		Query:  c.Query("query"),
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorBody("โหลดรายการจองไม่สำเร็จ"))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+func (handler *BookingHandler) ReminderCandidates(c *gin.Context) {
+	leadMinutes := 0
+	if raw := c.Query("leadMinutes"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, errorBody("leadMinutes ไม่ถูกต้อง"))
+			return
+		}
+		leadMinutes = parsed
+	}
+	items, err := handler.service.ListReminderCandidates(c.Request.Context(), time.Now(), leadMinutes)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorBody("โหลดรายการแจ้งเตือนไม่สำเร็จ"))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+func (handler *BookingHandler) UpdateBooking(c *gin.Context) {
+	var input services.UpdateBookingInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, errorBody("ข้อมูลไม่ถูกต้อง"))
+		return
+	}
+	booking, err := handler.service.UpdateBooking(c.Request.Context(), c.Param("id"), input)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, services.ErrSlotUnavailable) {
+			status = http.StatusConflict
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, errorBody(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": booking})
 }
 
 func (handler *BookingHandler) UpdateStatus(c *gin.Context) {

@@ -24,14 +24,25 @@ type Booking struct {
 type BookingFilter struct {
 	Status string
 	Date   string
+	Query  string
 	Limit  int
 }
 
 type BookingSettings struct {
 	BaseModel
-	OpenTime            string `json:"openTime" gorm:"size:5;not null;default:'09:00'"`
-	CloseTime           string `json:"closeTime" gorm:"size:5;not null;default:'17:00'"`
-	SlotIntervalMinutes int    `json:"slotIntervalMinutes" gorm:"not null;default:30"`
-	SlotCapacity        int    `json:"slotCapacity" gorm:"not null;default:1"`
-	ClosedWeekdays      string `json:"closedWeekdays" gorm:"size:32;not null;default:''"`
+	OpenTime            string                `json:"openTime" gorm:"size:5;not null;default:'09:00'"`
+	CloseTime           string                `json:"closeTime" gorm:"size:5;not null;default:'17:00'"`
+	SlotIntervalMinutes int                   `json:"slotIntervalMinutes" gorm:"not null;default:30"`
+	SlotCapacity        int                   `json:"slotCapacity" gorm:"not null;default:1"`
+	ClosedWeekdays      string                `json:"closedWeekdays" gorm:"size:32;not null;default:''"`
+	MinAdvanceHours     int                   `json:"minAdvanceHours" gorm:"not null;default:0"`
+	MaxAdvanceDays      int                   `json:"maxAdvanceDays" gorm:"not null;default:60"`
+	ReminderLeadMinutes int                   `json:"reminderLeadMinutes" gorm:"not null;default:1440"`
+	BlackoutDates       []BookingBlackoutDate `json:"blackoutDates" gorm:"-"`
+}
+
+type BookingBlackoutDate struct {
+	BaseModel
+	Date   string `json:"date" gorm:"uniqueIndex;size:10;not null"`
+	Reason string `json:"reason" gorm:"size:180"`
 }
