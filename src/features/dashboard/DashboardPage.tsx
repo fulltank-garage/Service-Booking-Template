@@ -262,18 +262,19 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
         hasPendingAppUpdate={hasPendingAppUpdate}
         onOpenNav={() => setIsNavOpen(true)}
       />
-      <MobileNavDrawer
-        activePage={activePage}
-        adminEmail={adminEmail}
-        adminName={adminName}
-        hasPendingAppUpdate={hasPendingAppUpdate}
-        latestRealtimeAt={latestRealtimeAt}
-        open={isNavOpen}
-        realtimeStatus={realtimeStatus}
-        onApplyAppUpdate={applyAppUpdate}
-        onChangePage={handleChangePage}
-        onClose={() => setIsNavOpen(false)}
-        onLogout={onLogout}
+        <MobileNavDrawer
+          activePage={activePage}
+          adminEmail={adminEmail}
+          adminName={adminName}
+          hasPendingAppUpdate={hasPendingAppUpdate}
+          latestRealtimeAt={latestRealtimeAt}
+          open={isNavOpen}
+          realtimeStatus={realtimeStatus}
+          unreadCount={summary.unread}
+          onApplyAppUpdate={applyAppUpdate}
+          onChangePage={handleChangePage}
+          onClose={() => setIsNavOpen(false)}
+          onLogout={onLogout}
       />
 
       <Stack direction={{ xs: 'column', lg: 'row' }} sx={{ minHeight: '100vh', pt: { xs: MOBILE_TOPBAR_OFFSET, lg: 0 } }}>
@@ -284,6 +285,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           hasPendingAppUpdate={hasPendingAppUpdate}
           latestRealtimeAt={latestRealtimeAt}
           realtimeStatus={realtimeStatus}
+          unreadCount={summary.unread}
           onApplyAppUpdate={applyAppUpdate}
           onChangePage={handleChangePage}
           onLogout={onLogout}
@@ -523,6 +525,7 @@ function MobileNavDrawer({
   latestRealtimeAt,
   open,
   realtimeStatus,
+  unreadCount,
   onApplyAppUpdate,
   onChangePage,
   onClose,
@@ -535,6 +538,7 @@ function MobileNavDrawer({
   latestRealtimeAt: Date | null
   open: boolean
   realtimeStatus: RealtimeStatus
+  unreadCount: number
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onClose: () => void
@@ -582,6 +586,7 @@ function MobileNavDrawer({
         }
         latestRealtimeAt={latestRealtimeAt}
         realtimeStatus={realtimeStatus}
+        unreadCount={unreadCount}
         onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
@@ -597,6 +602,7 @@ function Sidebar({
   hasPendingAppUpdate,
   latestRealtimeAt,
   realtimeStatus,
+  unreadCount,
   onApplyAppUpdate,
   onChangePage,
   onLogout,
@@ -607,6 +613,7 @@ function Sidebar({
   hasPendingAppUpdate: boolean
   latestRealtimeAt: Date | null
   realtimeStatus: RealtimeStatus
+  unreadCount: number
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
@@ -635,6 +642,7 @@ function Sidebar({
         hasPendingAppUpdate={hasPendingAppUpdate}
         latestRealtimeAt={latestRealtimeAt}
         realtimeStatus={realtimeStatus}
+        unreadCount={unreadCount}
         onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
@@ -652,6 +660,7 @@ function SidebarContent({
   headerAction,
   latestRealtimeAt,
   realtimeStatus,
+  unreadCount,
   onApplyAppUpdate,
   onChangePage,
   onLogout,
@@ -664,6 +673,7 @@ function SidebarContent({
   headerAction?: ReactNode
   latestRealtimeAt: Date | null
   realtimeStatus: RealtimeStatus
+  unreadCount: number
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
@@ -716,10 +726,12 @@ function SidebarContent({
                 aria-label={item.label}
                 onClick={() => onChangePage(item.page)}
                 sx={{
+                  position: 'relative',
                   justifyContent: compact ? 'center' : 'flex-start',
                   minHeight: compact ? 50 : 58,
                   minWidth: 0,
-                  px: compact ? 0 : 2.5,
+                  pl: compact ? 0 : 2.5,
+                  pr: compact ? 0 : item.page === 'notifications' && unreadCount > 0 ? 5 : 2.5,
                   fontSize: '1rem',
                   fontWeight: 900,
                   bgcolor: isActive ? 'primary.main' : 'background.default',
@@ -731,7 +743,34 @@ function SidebarContent({
                     },
                   },
                 }}
-              >
+                >
+                {item.page === 'notifications' && unreadCount > 0 && (
+                  <Box
+                    component="span"
+                    aria-label={`${unreadCount} รายการแจ้งเตือนที่ยังไม่อ่าน`}
+                    sx={{
+                      position: 'absolute',
+                      top: 7,
+                      right: 8,
+                      minWidth: 22,
+                      height: 22,
+                      px: 0.6,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 999,
+                      bgcolor: 'secondary.main',
+                      color: 'secondary.contrastText',
+                      border: '1px solid',
+                      borderColor: 'background.paper',
+                      fontSize: '0.72rem',
+                      fontWeight: 950,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Box>
+                )}
                 <Box
                   component="span"
                   sx={{
@@ -1585,11 +1624,6 @@ function ServiceActiveControl({
             transitionDuration: '220ms',
             '&.Mui-checked': {
               transform: 'translateX(18px)',
-              color: '#FFFFFF',
-              '& + .MuiSwitch-track': {
-                bgcolor: 'primary.main',
-                opacity: 1,
-              },
             },
             '&.Mui-disabled + .MuiSwitch-track': {
               opacity: 0.45,
@@ -1602,7 +1636,6 @@ function ServiceActiveControl({
           },
           '& .MuiSwitch-track': {
             borderRadius: 14,
-            bgcolor: '#F3F4F6',
             opacity: 1,
           },
         }}

@@ -1,4 +1,5 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
@@ -19,6 +20,7 @@ vi.mock('../../api/adminApi', () => ({
     updateBookingSettings: vi.fn(),
     deleteBooking: vi.fn(),
     markNotificationRead: vi.fn(),
+    updateService: vi.fn(),
   },
 }))
 
@@ -53,6 +55,7 @@ describe('DashboardPage', () => {
     mockedAdminApi.updateBookingSettings.mockReset()
     mockedAdminApi.deleteBooking.mockReset()
     mockedAdminApi.markNotificationRead.mockReset()
+    mockedAdminApi.updateService.mockReset()
     mockedAdminApi.getBookingSettings.mockResolvedValue({
       openTime: '09:00',
       closeTime: '17:00',
@@ -120,5 +123,68 @@ describe('DashboardPage', () => {
     renderPage()
     expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeInTheDocument()
+  })
+
+  it('shows unread notification count on the notifications menu', async () => {
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([
+      {
+        id: 'notification-unread',
+        type: 'booking.created',
+        title: 'มีคิวจองใหม่',
+        body: 'รายการใหม่',
+        url: '/bookings',
+        isRead: false,
+        bookingId: 'booking-new',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+    ])
+
+    renderPage()
+    expect(await screen.findAllByLabelText('1 รายการแจ้งเตือนที่ยังไม่อ่าน')).not.toHaveLength(0)
+  })
+
+  it('lets an inactive shop service switch back on', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([
+      {
+        id: 'service-inactive',
+        nameTh: 'ทำเล็บเจล',
+        nameEn: 'Gel nail',
+        descriptionTh: 'ทำเล็บเจลสีพื้น',
+        durationMinutes: 45,
+        priceCents: 35000,
+        accentColor: '#FF008C',
+        isActive: false,
+      },
+    ])
+    mockedAdminApi.updateService.mockResolvedValue({
+      id: 'service-inactive',
+      nameTh: 'ทำเล็บเจล',
+      nameEn: 'Gel nail',
+      descriptionTh: 'ทำเล็บเจลสีพื้น',
+      durationMinutes: 45,
+      priceCents: 35000,
+      accentColor: '#FF008C',
+      isActive: true,
+    })
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'บริการของร้าน' }))
+    expect(await screen.findAllByText('ทำเล็บเจล')).not.toHaveLength(0)
+    const [serviceSwitch] = await screen.findAllByRole('switch')
+    await user.click(serviceSwitch)
+
+    await waitFor(() => {
+      expect(mockedAdminApi.updateService).toHaveBeenCalledWith(
+        'service-inactive',
+        expect.objectContaining({ isActive: true }),
+      )
+    })
+    expect(await screen.findAllByText('เปิดใช้งาน')).not.toHaveLength(0)
   })
 })
