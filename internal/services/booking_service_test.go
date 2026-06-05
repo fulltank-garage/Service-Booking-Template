@@ -25,6 +25,7 @@ func TestCreateBookingRejectsFullSlot(t *testing.T) {
 		ServiceID:    "svc-1",
 		CustomerName: "Somchai",
 		Phone:        "0890000000",
+		LineUserID:   "line-user-1",
 		BookingDate:  "2026-06-10",
 		SlotTime:     "10:00",
 	})
@@ -42,6 +43,7 @@ func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 		ServiceID:    " svc-1 ",
 		CustomerName: " Anong ",
 		Phone:        " 0812345678 ",
+		LineUserID:   " line-user-1 ",
 		BookingDate:  "2026-06-10",
 		SlotTime:     "10:00",
 	})
@@ -60,6 +62,26 @@ func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 	}
 	if store.created == nil {
 		t.Fatal("expected booking to be persisted")
+	}
+}
+
+func TestCreateBookingRejectsMissingLineUserID(t *testing.T) {
+	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
+	service := NewBookingService(store, nil, nil, 3)
+
+	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
+		ServiceID:    "svc-1",
+		CustomerName: "Anong",
+		Phone:        "0812345678",
+		BookingDate:  "2026-06-10",
+		SlotTime:     "10:00",
+	})
+
+	if !errors.Is(err, ErrInvalidBooking) {
+		t.Fatalf("expected missing line user id to be invalid, got %v", err)
+	}
+	if store.created != nil {
+		t.Fatal("expected booking to not be persisted")
 	}
 }
 
@@ -289,6 +311,7 @@ func TestCreateBookingAllowsOverlappingSlotWhenCapacityAvailable(t *testing.T) {
 		ServiceID:    "svc-1",
 		CustomerName: "Somchai",
 		Phone:        "0890000000",
+		LineUserID:   "line-user-1",
 		BookingDate:  "2026-06-10",
 		SlotTime:     "09:45",
 	})
@@ -320,6 +343,7 @@ func TestCreateBookingRejectsBlackoutDate(t *testing.T) {
 		ServiceID:    "svc-1",
 		CustomerName: "Somchai",
 		Phone:        "0890000000",
+		LineUserID:   "line-user-1",
 		BookingDate:  "2026-06-10",
 		SlotTime:     "10:00",
 	})
@@ -350,6 +374,7 @@ func TestCreateBookingRejectsDateOutsideBookingWindow(t *testing.T) {
 		ServiceID:    "svc-1",
 		CustomerName: "Somchai",
 		Phone:        "0890000000",
+		LineUserID:   "line-user-1",
 		BookingDate:  "2026-06-05",
 		SlotTime:     "13:00",
 	})

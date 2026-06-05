@@ -279,6 +279,9 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	if err := validateBookingInput(input); err != nil {
 		return models.Booking{}, err
 	}
+	if input.LineUserID == "" {
+		return models.Booking{}, fmt.Errorf("%w: lineUserId", ErrInvalidBooking)
+	}
 
 	settings, err := service.loadBookingSettings(ctx)
 	if err != nil {
