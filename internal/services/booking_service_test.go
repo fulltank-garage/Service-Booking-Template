@@ -483,6 +483,27 @@ func TestUpdateBookingStatusSendsLineMessage(t *testing.T) {
 	}
 }
 
+func TestUpdateBookingStatusCompletedSwitchesRichMenuToBooking(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:   models.BaseModel{ID: "booking-1"},
+			BookingCode: "Q-TEST",
+			LineUserID:  "line-user-1",
+			Status:      models.BookingStatusConfirmed,
+		},
+	}
+	switcher := &recordingRichMenuSwitcher{}
+	service := NewBookingService(store, nil, switcher, 1)
+
+	if _, err := service.UpdateBookingStatus(context.Background(), "booking-1", models.BookingStatusCompleted); err != nil {
+		t.Fatalf("update status: %v", err)
+	}
+
+	if switcher.bookingMenuUserID != "line-user-1" {
+		t.Fatalf("expected booking rich menu switch, got %q", switcher.bookingMenuUserID)
+	}
+}
+
 func TestCancelBookingByLineUserDeletesBookingAndSwitchesRichMenu(t *testing.T) {
 	store := &fakeStore{
 		created: &models.Booking{

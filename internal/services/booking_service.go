@@ -493,6 +493,9 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 		_ = service.notifier.BookingUpdated(ctx, booking)
 	}
 	service.sendCustomerMessage(ctx, booking, bookingStatusMessage(booking))
+	if status == models.BookingStatusCompleted {
+		service.switchToBookingMenu(ctx, booking.LineUserID)
+	}
 	return booking, nil
 }
 

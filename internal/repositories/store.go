@@ -162,6 +162,7 @@ func (store *GormStore) LatestBookingByLineUser(ctx context.Context, lineUserID 
 	err := store.db.WithContext(ctx).
 		Preload("Service").
 		Where("line_user_id = ?", lineUserID).
+		Where("status IN ?", []string{models.BookingStatusPending, models.BookingStatusConfirmed}).
 		Order("created_at DESC").
 		First(&booking).Error
 	return booking, err
