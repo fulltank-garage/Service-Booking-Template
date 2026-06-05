@@ -141,6 +141,37 @@ func (handler *BookingHandler) LatestBooking(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": booking})
 }
 
+func (handler *BookingHandler) DeleteBooking(c *gin.Context) {
+	if err := handler.service.DeleteBooking(c.Request.Context(), c.Param("id")); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, errorBody(err.Error()))
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (handler *BookingHandler) CancelBooking(c *gin.Context) {
+	var payload struct {
+		LineUserID string `json:"lineUserId"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, errorBody("ข้อมูลไม่ถูกต้อง"))
+		return
+	}
+	if err := handler.service.CancelBookingByLineUser(c.Request.Context(), c.Param("id"), payload.LineUserID); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, errorBody(err.Error()))
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (handler *BookingHandler) ListBookings(c *gin.Context) {
 	items, err := handler.service.ListBookings(c.Request.Context(), models.BookingFilter{Status: c.Query("status"), Date: c.Query("date")})
 	if err != nil {

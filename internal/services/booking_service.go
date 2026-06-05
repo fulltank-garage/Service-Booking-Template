@@ -281,6 +281,9 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 	if !isAllowedStatus(status) {
 		return models.Booking{}, fmt.Errorf("%w: status", ErrInvalidBooking)
 	}
+	if status == models.BookingStatusCancelled {
+		return models.Booking{}, service.DeleteBooking(ctx, id)
+	}
 	booking, err := service.store.UpdateBookingStatus(ctx, id, status)
 	if err != nil {
 		return models.Booking{}, err
@@ -289,6 +292,30 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 		_ = service.notifier.BookingUpdated(ctx, booking)
 	}
 	return booking, nil
+}
+
+func (service *BookingService) DeleteBooking(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("%w: id", ErrInvalidBooking)
+	}
+	return service.store.DeleteBooking(ctx, id)
+}
+
+func (service *BookingService) CancelBookingByLineUser(ctx context.Context, id string, lineUserID string) error {
+	id = strings.TrimSpace(id)
+	lineUserID = strings.TrimSpace(lineUserID)
+	if id == "" || lineUserID == "" {
+		return fmt.Errorf("%w: id", ErrInvalidBooking)
+	}
+	booking, err := service.store.FindBookingByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if booking.LineUserID != lineUserID {
+		return fmt.Errorf("%w: lineUserId", ErrInvalidBooking)
+	}
+	return service.store.DeleteBooking(ctx, id)
 }
 
 func normalizeServiceInput(input ServiceInput) ServiceInput {
@@ -441,7 +468,11 @@ func containsSlot(slots []string, slot string) bool {
 }
 
 func bookingCode(date string) string {
-	return fmt.Sprintf("SB-%s-%04d", strings.ReplaceAll(date, "-", ""), rand.Intn(10000))
+	parts := strings.Split(date, "-")
+	if len(parts) == 3 {
+		return fmt.Sprintf("Q-%s%s-%04d", parts[2], parts[1], rand.Intn(10000))
+	}
+	return fmt.Sprintf("Q-%04d", rand.Intn(10000))
 }
 
 func isAllowedStatus(status string) bool {

@@ -33,6 +33,7 @@ func New(deps Dependencies) *gin.Engine {
 	api.GET("/availability", bookingHandler.Availability)
 	api.GET("/bookings/latest", bookingHandler.LatestBooking)
 	api.POST("/bookings", bookingHandler.CreateBooking)
+	api.POST("/bookings/:id/cancel", bookingHandler.CancelBooking)
 
 	admin := api.Group("/admin")
 	admin.POST("/auth/login", authHandler.Login)
@@ -40,6 +41,7 @@ func New(deps Dependencies) *gin.Engine {
 	admin.POST("/auth/logout", authHandler.Logout)
 	admin.GET("/bookings", bookingHandler.ListBookings)
 	admin.PUT("/bookings/:id/status", bookingHandler.UpdateStatus)
+	admin.DELETE("/bookings/:id", bookingHandler.DeleteBooking)
 	admin.GET("/booking-settings", bookingHandler.GetBookingSettings)
 	admin.PUT("/booking-settings", bookingHandler.SaveBookingSettings)
 	admin.GET("/services", bookingHandler.ListServices)

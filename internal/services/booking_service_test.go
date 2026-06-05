@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,9 @@ func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 	}
 	if booking.CustomerName != "Anong" {
 		t.Fatalf("expected trimmed customer name, got %q", booking.CustomerName)
+	}
+	if !strings.HasPrefix(booking.BookingCode, "Q-1006-") {
+		t.Fatalf("expected readable booking code, got %q", booking.BookingCode)
 	}
 	if store.created == nil {
 		t.Fatal("expected booking to be persisted")
@@ -150,6 +154,12 @@ func (store *fakeStore) CreateBooking(_ context.Context, booking *models.Booking
 	store.created = booking
 	return nil
 }
+func (store *fakeStore) FindBookingByID(context.Context, string) (models.Booking, error) {
+	if store.created == nil {
+		return models.Booking{}, errors.New("not found")
+	}
+	return *store.created, nil
+}
 func (store *fakeStore) LatestBookingByLineUser(context.Context, string) (models.Booking, error) {
 	return models.Booking{}, nil
 }
@@ -158,6 +168,10 @@ func (store *fakeStore) ListBookings(context.Context, models.BookingFilter) ([]m
 }
 func (store *fakeStore) UpdateBookingStatus(context.Context, string, string) (models.Booking, error) {
 	return models.Booking{}, nil
+}
+func (store *fakeStore) DeleteBooking(context.Context, string) error {
+	store.created = nil
+	return nil
 }
 func (store *fakeStore) CreateNotification(context.Context, *models.Notification) error { return nil }
 func (store *fakeStore) ListNotifications(context.Context, bool, int) ([]models.Notification, error) {

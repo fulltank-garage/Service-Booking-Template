@@ -21,9 +21,11 @@ type Store interface {
 	RevokeAdminSession(ctx context.Context, tokenHash string) error
 	CountBookingsForSlot(ctx context.Context, serviceID string, date string, slotTime string) (int64, error)
 	CreateBooking(ctx context.Context, booking *models.Booking) error
+	FindBookingByID(ctx context.Context, id string) (models.Booking, error)
 	LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error)
 	ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, id string, status string) (models.Booking, error)
+	DeleteBooking(ctx context.Context, id string) error
 	GetBookingSettings(ctx context.Context) (models.BookingSettings, error)
 	SaveBookingSettings(ctx context.Context, settings *models.BookingSettings) error
 	CreateNotification(ctx context.Context, notification *models.Notification) error
@@ -112,6 +114,12 @@ func (store *GormStore) CreateBooking(ctx context.Context, booking *models.Booki
 	return store.db.WithContext(ctx).Create(booking).Error
 }
 
+func (store *GormStore) FindBookingByID(ctx context.Context, id string) (models.Booking, error) {
+	var booking models.Booking
+	err := store.db.WithContext(ctx).Preload("Service").First(&booking, "id = ?", id).Error
+	return booking, err
+}
+
 func (store *GormStore) LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error) {
 	var booking models.Booking
 	err := store.db.WithContext(ctx).
@@ -151,6 +159,17 @@ func (store *GormStore) UpdateBookingStatus(ctx context.Context, id string, stat
 		return tx.Preload("Service").First(&booking, "id = ?", id).Error
 	})
 	return booking, err
+}
+
+func (store *GormStore) DeleteBooking(ctx context.Context, id string) error {
+	result := store.db.WithContext(ctx).Unscoped().Delete(&models.Booking{}, "id = ?", id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (store *GormStore) GetBookingSettings(ctx context.Context) (models.BookingSettings, error) {

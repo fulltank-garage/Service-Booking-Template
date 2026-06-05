@@ -39,6 +39,9 @@ func TestBookingCreatedSendsWebPushToSavedSubscriptions(t *testing.T) {
 	if pushSender.sent[0].Title != "มีคิวจองใหม่" {
 		t.Fatalf("expected booking push title, got %q", pushSender.sent[0].Title)
 	}
+	if pushSender.sent[0].Body != "ลูกค้าทดสอบ จองเวลา 10:00 วันที่ 5 มิ.ย. 2569" {
+		t.Fatalf("expected Thai date in push body, got %q", pushSender.sent[0].Body)
+	}
 }
 
 func TestBookingCreatedDeletesExpiredWebPushSubscriptions(t *testing.T) {
@@ -129,6 +132,9 @@ func (store *notificationStore) CountBookingsForSlot(context.Context, string, st
 	return 0, nil
 }
 func (store *notificationStore) CreateBooking(context.Context, *models.Booking) error { return nil }
+func (store *notificationStore) FindBookingByID(context.Context, string) (models.Booking, error) {
+	return models.Booking{}, nil
+}
 func (store *notificationStore) LatestBookingByLineUser(context.Context, string) (models.Booking, error) {
 	return models.Booking{}, nil
 }
@@ -138,6 +144,7 @@ func (store *notificationStore) ListBookings(context.Context, models.BookingFilt
 func (store *notificationStore) UpdateBookingStatus(context.Context, string, string) (models.Booking, error) {
 	return models.Booking{}, nil
 }
+func (store *notificationStore) DeleteBooking(context.Context, string) error { return nil }
 func (store *notificationStore) CreateNotification(_ context.Context, notification *models.Notification) error {
 	store.created = notification
 	return nil

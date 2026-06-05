@@ -21,6 +21,8 @@ const (
 	allNotificationRetention  = 30 * 24 * time.Hour
 )
 
+var thaiShortMonths = [...]string{"ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."}
+
 type RealtimeEvent struct {
 	Type         string               `json:"type"`
 	Notification *models.Notification `json:"notification,omitempty"`
@@ -46,7 +48,7 @@ func (service *NotificationService) BookingCreated(ctx context.Context, booking 
 	return service.createAndPublish(ctx, &models.Notification{
 		Type:      models.NotificationTypeBookingCreated,
 		Title:     "มีคิวจองใหม่",
-		Body:      fmt.Sprintf("%s จองเวลา %s วันที่ %s", booking.CustomerName, booking.SlotTime, booking.BookingDate),
+		Body:      fmt.Sprintf("%s จองเวลา %s %s", booking.CustomerName, booking.SlotTime, formatThaiDateLabel(booking.BookingDate)),
 		URL:       "/bookings",
 		BookingID: booking.ID,
 	}, &booking)
@@ -156,4 +158,12 @@ func (service *NotificationService) sendPush(ctx context.Context, notification m
 			}
 		}
 	}
+}
+
+func formatThaiDateLabel(value string) string {
+	date, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return fmt.Sprintf("วันที่ %s", value)
+	}
+	return fmt.Sprintf("วันที่ %d %s %d", date.Day(), thaiShortMonths[date.Month()-1], date.Year()+543)
 }
