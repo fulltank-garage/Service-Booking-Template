@@ -56,7 +56,22 @@ export function ServicesCatalogPage() {
       {isLoading ? (
         <Stack spacing={1.5}>
           {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} variant="rectangular" height={132} sx={{ borderRadius: 3, bgcolor: 'divider' }} />
+            <Card key={index} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+              <CardContent sx={{ p: 2 }}>
+                <Stack spacing={1.3}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Skeleton variant="text" width="54%" height={30} sx={{ bgcolor: 'divider' }} />
+                    <Skeleton variant="text" width="92%" height={24} sx={{ mt: 0.45, bgcolor: 'divider' }} />
+                    <Skeleton variant="text" width="72%" height={24} sx={{ bgcolor: 'divider' }} />
+                  </Box>
+                  <Divider />
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Skeleton variant="rounded" width={86} height={32} sx={{ borderRadius: 4, bgcolor: 'divider' }} />
+                    <Skeleton variant="text" width={78} height={28} sx={{ bgcolor: 'divider' }} />
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
           ))}
         </Stack>
       ) : services.length === 0 ? (

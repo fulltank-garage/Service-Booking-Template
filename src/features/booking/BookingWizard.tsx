@@ -594,8 +594,9 @@ function BookingWizardSkeleton() {
           <Stack spacing={1.5}>
             <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
             <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+            <Skeleton variant="rectangular" height={104} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
           </Stack>
-          <Skeleton variant="rectangular" height={46} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+          <Skeleton variant="rectangular" height={48} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
         </Stack>
       </CardContent>
     </Card>

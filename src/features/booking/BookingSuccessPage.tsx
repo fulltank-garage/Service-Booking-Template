@@ -18,6 +18,7 @@ import {
   Typography,
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import axios from 'axios'
 import { bookingApi } from '../../api/bookingApi'
 import type { AvailabilitySlot, Booking } from '../../types/booking'
 import { closeLiffWindow, type LineProfile } from '../../integrations/liff'
@@ -34,11 +35,9 @@ type BookingSuccessPageProps = {
 const latestBookingCache = new Map<string, Booking>()
 const latestBookingRequests = new Map<string, Promise<Booking>>()
 
+const isNotFoundError = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 404
+
 const loadLatestBookingOnce = (lineUserId: string) => {
-  const cached = latestBookingCache.get(lineUserId)
-  if (cached) {
-    return Promise.resolve(cached)
-  }
   const existingRequest = latestBookingRequests.get(lineUserId)
   if (existingRequest) {
     return existingRequest
@@ -51,6 +50,9 @@ const loadLatestBookingOnce = (lineUserId: string) => {
     .catch((error) => {
       latestBookingRequests.delete(lineUserId)
       throw error
+    })
+    .finally(() => {
+      latestBookingRequests.delete(lineUserId)
     })
   latestBookingRequests.set(lineUserId, request)
   return request
@@ -73,10 +75,15 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
   const fallbackBookingId = fallbackBooking?.id ?? ''
   const todayKey = new Date().toISOString().slice(0, 10)
   const rescheduleSlotSelectValue = slots.some((slot) => slot.time === rescheduleSlot) ? rescheduleSlot : ''
+  const onBookingCancelledRef = useRef(onBookingCancelled)
 
   useEffect(() => {
     fallbackBookingRef.current = fallbackBooking
   }, [fallbackBooking])
+
+  useEffect(() => {
+    onBookingCancelledRef.current = onBookingCancelled
+  }, [onBookingCancelled])
 
   useEffect(() => {
     if (!lineProfile?.userId) {
@@ -89,10 +96,17 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
       try {
         const latestBooking = await loadLatestBookingOnce(lineProfile.userId)
         if (active) setBooking(latestBooking)
-      } catch {
+      } catch (error) {
         if (active) {
-          setBooking(fallbackBookingRef.current)
-          setError('โหลดข้อมูลการจองล่าสุดไม่สำเร็จ')
+          if (isNotFoundError(error)) {
+            latestBookingCache.delete(lineProfile.userId)
+            latestBookingRequests.delete(lineProfile.userId)
+            setBooking(null)
+            onBookingCancelledRef.current()
+          } else {
+            setBooking(fallbackBookingRef.current)
+            setError('โหลดข้อมูลการจองล่าสุดไม่สำเร็จ')
+          }
         }
       } finally {
         if (active) setIsLoading(false)
@@ -198,10 +212,30 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
     return (
       <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <CardContent sx={{ p: 2.25 }}>
-          <Stack spacing={2}>
-            <Skeleton variant="text" width={190} height={44} sx={{ bgcolor: 'divider' }} />
-            <Skeleton variant="rectangular" height={96} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
-            <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
+          <Stack spacing={2.4}>
+            <Stack direction="row" spacing={1.4} sx={{ alignItems: 'center' }}>
+              <Skeleton variant="rounded" width={54} height={54} sx={{ borderRadius: 2.4, bgcolor: 'divider', flexShrink: 0 }} />
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Skeleton variant="text" width="72%" height={40} sx={{ bgcolor: 'divider' }} />
+                <Skeleton variant="text" width="42%" height={26} sx={{ bgcolor: 'divider' }} />
+              </Box>
+            </Stack>
+            <Skeleton variant="rectangular" height={74} sx={{ borderRadius: 3, bgcolor: 'divider' }} />
+            <Grid container spacing={1.4}>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Grid size={{ xs: 12, sm: 6 }} key={`booking-info-skeleton-${index}`}>
+                  <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, p: 1.4 }}>
+                    <Skeleton variant="text" width={78} height={18} sx={{ bgcolor: 'divider' }} />
+                    <Skeleton variant="text" width="68%" height={28} sx={{ mt: 0.35, bgcolor: 'divider' }} />
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+            <Divider />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Skeleton variant="rectangular" height={38} sx={{ flex: 1, borderRadius: 2, bgcolor: 'divider' }} />
+              <Skeleton variant="rectangular" height={38} sx={{ flex: 1, borderRadius: 2, bgcolor: 'divider' }} />
+            </Stack>
           </Stack>
         </CardContent>
       </Card>
@@ -369,10 +403,8 @@ function BottomEditorSheet({
         }}
       >
         <Box
-          component="button"
-          aria-label="ปิดฟอร์ม"
-          type="button"
-          onClick={onClose}
+          aria-hidden="true"
+          data-testid="bottom-editor-backdrop"
           sx={{
             position: 'absolute',
             top: 0,
