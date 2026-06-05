@@ -89,12 +89,17 @@ type BookingSuccessRichMenuSwitcher interface {
 	SwitchToBookingMenu(ctx context.Context, lineUserID string) error
 }
 
+type BookingCustomerMessenger interface {
+	SendBookingMessage(ctx context.Context, lineUserID string, message string) error
+}
+
 type BookingService struct {
-	store            repositories.Store
-	notifier         BookingNotifier
-	richMenuSwitcher BookingSuccessRichMenuSwitcher
-	capacity         int
-	now              func() time.Time
+	store             repositories.Store
+	notifier          BookingNotifier
+	richMenuSwitcher  BookingSuccessRichMenuSwitcher
+	customerMessenger BookingCustomerMessenger
+	capacity          int
+	now               func() time.Time
 }
 
 func NewBookingService(store repositories.Store, notifier BookingNotifier, richMenuSwitcher BookingSuccessRichMenuSwitcher, capacity int) *BookingService {
@@ -108,6 +113,12 @@ func NewBookingService(store repositories.Store, notifier BookingNotifier, richM
 		capacity:         capacity,
 		now:              time.Now,
 	}
+}
+
+func NewBookingServiceWithCustomerMessenger(store repositories.Store, notifier BookingNotifier, richMenuSwitcher BookingSuccessRichMenuSwitcher, customerMessenger BookingCustomerMessenger, capacity int) *BookingService {
+	service := NewBookingService(store, notifier, richMenuSwitcher, capacity)
+	service.customerMessenger = customerMessenger
+	return service
 }
 
 func (service *BookingService) ListServices(ctx context.Context) ([]models.Service, error) {
@@ -318,6 +329,7 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 	if service.notifier != nil {
 		_ = service.notifier.BookingCreated(ctx, booking)
 	}
+	service.sendCustomerMessage(ctx, booking, bookingCreatedMessage(booking))
 	if service.richMenuSwitcher != nil && booking.LineUserID != "" {
 		if err := service.richMenuSwitcher.SwitchToBookingSuccess(ctx, booking.LineUserID); err != nil {
 			log.Printf("switch line rich menu to booking success: %v", err)
@@ -417,7 +429,7 @@ func (service *BookingService) RescheduleBookingByLineUser(ctx context.Context, 
 	if booking.LineUserID != input.LineUserID {
 		return models.Booking{}, fmt.Errorf("%w: lineUserId", ErrInvalidBooking)
 	}
-	return service.UpdateBooking(ctx, id, UpdateBookingInput{
+	updated, err := service.UpdateBooking(ctx, id, UpdateBookingInput{
 		ServiceID:    booking.ServiceID,
 		CustomerName: booking.CustomerName,
 		Phone:        booking.Phone,
@@ -426,6 +438,11 @@ func (service *BookingService) RescheduleBookingByLineUser(ctx context.Context, 
 		Notes:        input.Notes,
 		Status:       booking.Status,
 	})
+	if err != nil {
+		return models.Booking{}, err
+	}
+	service.sendCustomerMessage(ctx, updated, bookingRescheduledMessage(updated))
+	return updated, nil
 }
 
 func (service *BookingService) ListReminderCandidates(ctx context.Context, now time.Time, leadMinutes int) ([]models.Booking, error) {
@@ -472,6 +489,7 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 	if service.notifier != nil {
 		_ = service.notifier.BookingUpdated(ctx, booking)
 	}
+	service.sendCustomerMessage(ctx, booking, bookingStatusMessage(booking))
 	return booking, nil
 }
 
@@ -494,6 +512,7 @@ func (service *BookingService) deleteBooking(ctx context.Context, id string, rea
 	if service.notifier != nil {
 		_ = service.notifier.BookingDeleted(ctx, booking, reason)
 	}
+	service.sendCustomerMessage(ctx, booking, bookingCancelledMessage(booking))
 	service.switchToBookingMenu(ctx, booking.LineUserID)
 	return nil
 }
@@ -517,6 +536,7 @@ func (service *BookingService) CancelBookingByLineUser(ctx context.Context, id s
 	if service.notifier != nil {
 		_ = service.notifier.BookingDeleted(ctx, booking, "cancelled")
 	}
+	service.sendCustomerMessage(ctx, booking, bookingCancelledMessage(booking))
 	service.switchToBookingMenu(ctx, booking.LineUserID)
 	return nil
 }
@@ -527,6 +547,69 @@ func (service *BookingService) switchToBookingMenu(ctx context.Context, lineUser
 	}
 	if err := service.richMenuSwitcher.SwitchToBookingMenu(ctx, lineUserID); err != nil {
 		log.Printf("switch line rich menu to booking menu: %v", err)
+	}
+}
+
+func (service *BookingService) sendCustomerMessage(ctx context.Context, booking models.Booking, message string) {
+	if service.customerMessenger == nil || strings.TrimSpace(booking.LineUserID) == "" || strings.TrimSpace(message) == "" {
+		return
+	}
+	if err := service.customerMessenger.SendBookingMessage(ctx, booking.LineUserID, message); err != nil {
+		log.Printf("send line booking message: %v", err)
+	}
+}
+
+func bookingCreatedMessage(booking models.Booking) string {
+	return fmt.Sprintf(
+		"จองคิวสำเร็จ\nเลขที่จอง: %s\nบริการ: %s\nวันที่: %s\nเวลา: %s",
+		booking.BookingCode,
+		bookingServiceName(booking),
+		formatThaiDateLabel(booking.BookingDate),
+		booking.SlotTime,
+	)
+}
+
+func bookingRescheduledMessage(booking models.Booking) string {
+	return fmt.Sprintf(
+		"เลื่อนนัดสำเร็จ\nเลขที่จอง: %s\nวันที่: %s\nเวลา: %s",
+		booking.BookingCode,
+		formatThaiDateLabel(booking.BookingDate),
+		booking.SlotTime,
+	)
+}
+
+func bookingStatusMessage(booking models.Booking) string {
+	return fmt.Sprintf(
+		"อัปเดตสถานะการจอง\nเลขที่จอง: %s\nสถานะ: %s",
+		booking.BookingCode,
+		bookingStatusLabel(booking.Status),
+	)
+}
+
+func bookingCancelledMessage(booking models.Booking) string {
+	return fmt.Sprintf("ยกเลิกการจองแล้ว\nเลขที่จอง: %s", booking.BookingCode)
+}
+
+func bookingServiceName(booking models.Booking) string {
+	if strings.TrimSpace(booking.Service.NameTH) != "" {
+		return booking.Service.NameTH
+	}
+	if strings.TrimSpace(booking.Service.NameEN) != "" {
+		return booking.Service.NameEN
+	}
+	return "-"
+}
+
+func bookingStatusLabel(status string) string {
+	switch status {
+	case models.BookingStatusConfirmed:
+		return "ยืนยันแล้ว"
+	case models.BookingStatusCompleted:
+		return "เสร็จสิ้น"
+	case models.BookingStatusCancelled:
+		return "ยกเลิก"
+	default:
+		return "รอจัดการ"
 	}
 }
 

@@ -63,6 +63,31 @@ func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 	}
 }
 
+func TestCreateBookingSendsLineMessage(t *testing.T) {
+	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, NameTH: "ทำเล็บเจล", IsActive: true}}
+	messenger := &recordingCustomerMessenger{}
+	service := NewBookingServiceWithCustomerMessenger(store, nil, nil, messenger, 3)
+
+	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
+		ServiceID:    "svc-1",
+		CustomerName: "Anong",
+		Phone:        "0812345678",
+		LineUserID:   "line-user-1",
+		BookingDate:  "2026-06-10",
+		SlotTime:     "10:00",
+	})
+
+	if err != nil {
+		t.Fatalf("create booking: %v", err)
+	}
+	if messenger.lineUserID != "line-user-1" {
+		t.Fatalf("expected line message to booking user, got %q", messenger.lineUserID)
+	}
+	if !strings.Contains(messenger.message, "จองคิวสำเร็จ") || !strings.Contains(messenger.message, "10:00") {
+		t.Fatalf("expected booking confirmation message, got %q", messenger.message)
+	}
+}
+
 func TestUpdateServiceCanReactivateInactiveService(t *testing.T) {
 	store := &fakeStore{
 		service: models.Service{
@@ -406,6 +431,33 @@ func TestListReminderCandidatesReturnsUpcomingActiveBookings(t *testing.T) {
 	}
 }
 
+func TestUpdateBookingStatusSendsLineMessage(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:    models.BaseModel{ID: "booking-1"},
+			BookingCode:  "Q-TEST",
+			LineUserID:   "line-user-1",
+			BookingDate:  "2026-06-10",
+			SlotTime:     "10:00",
+			Status:       models.BookingStatusPending,
+			CustomerName: "Anong",
+		},
+	}
+	messenger := &recordingCustomerMessenger{}
+	service := NewBookingServiceWithCustomerMessenger(store, nil, nil, messenger, 1)
+
+	if _, err := service.UpdateBookingStatus(context.Background(), "booking-1", models.BookingStatusConfirmed); err != nil {
+		t.Fatalf("update status: %v", err)
+	}
+
+	if messenger.lineUserID != "line-user-1" {
+		t.Fatalf("expected line message to booking user, got %q", messenger.lineUserID)
+	}
+	if !strings.Contains(messenger.message, "อัปเดตสถานะการจอง") || !strings.Contains(messenger.message, "ยืนยันแล้ว") {
+		t.Fatalf("expected status update message, got %q", messenger.message)
+	}
+}
+
 func TestCancelBookingByLineUserDeletesBookingAndSwitchesRichMenu(t *testing.T) {
 	store := &fakeStore{
 		created: &models.Booking{
@@ -480,6 +532,29 @@ func TestCancelBookingByLineUserNotifiesRealtime(t *testing.T) {
 	}
 	if notifier.deletedBooking.ID != "booking-1" || notifier.deletedReason != "cancelled" {
 		t.Fatalf("expected cancelled booking event, got %#v reason=%q", notifier.deletedBooking, notifier.deletedReason)
+	}
+}
+
+func TestCancelBookingByLineUserSendsLineMessage(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:   models.BaseModel{ID: "booking-1"},
+			BookingCode: "Q-TEST",
+			LineUserID:  "line-user-1",
+		},
+	}
+	messenger := &recordingCustomerMessenger{}
+	service := NewBookingServiceWithCustomerMessenger(store, nil, nil, messenger, 1)
+
+	if err := service.CancelBookingByLineUser(context.Background(), "booking-1", "line-user-1"); err != nil {
+		t.Fatalf("cancel booking: %v", err)
+	}
+
+	if messenger.lineUserID != "line-user-1" {
+		t.Fatalf("expected line message to booking user, got %q", messenger.lineUserID)
+	}
+	if !strings.Contains(messenger.message, "ยกเลิกการจองแล้ว") {
+		t.Fatalf("expected cancellation message, got %q", messenger.message)
 	}
 }
 
@@ -592,8 +667,12 @@ func (store *fakeStore) UpdateBookingWithAvailability(_ context.Context, booking
 	store.created = booking
 	return *booking, nil
 }
-func (store *fakeStore) UpdateBookingStatus(context.Context, string, string) (models.Booking, error) {
-	return models.Booking{}, nil
+func (store *fakeStore) UpdateBookingStatus(_ context.Context, _ string, status string) (models.Booking, error) {
+	if store.created == nil {
+		return models.Booking{}, errors.New("not found")
+	}
+	store.created.Status = status
+	return *store.created, nil
 }
 func (store *fakeStore) DeleteBooking(context.Context, string) error {
 	store.created = nil
@@ -631,6 +710,17 @@ func (store *fakeStore) SaveBookingSettings(_ context.Context, settings *models.
 type recordingRichMenuSwitcher struct {
 	bookingMenuUserID    string
 	bookingSuccessUserID string
+}
+
+type recordingCustomerMessenger struct {
+	lineUserID string
+	message    string
+}
+
+func (messenger *recordingCustomerMessenger) SendBookingMessage(_ context.Context, lineUserID string, message string) error {
+	messenger.lineUserID = lineUserID
+	messenger.message = message
+	return nil
 }
 
 type recordingBookingNotifier struct {

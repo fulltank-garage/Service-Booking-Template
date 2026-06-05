@@ -41,7 +41,7 @@ func main() {
 	pushSender := services.NewWebPushSender(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.AdminEmail)
 	notifier := services.NewNotificationServiceWithPush(store, hub, redisClient, pushSender)
 	lineRichMenuService := services.NewLineRichMenuService(cfg.LineChannelToken, cfg.LineBookingRichMenuID, cfg.LineBookingSuccessRichMenuID)
-	bookingService := services.NewBookingService(store, notifier, lineRichMenuService, cfg.BookingSlotCapacity)
+	bookingService := services.NewBookingServiceWithCustomerMessenger(store, notifier, lineRichMenuService, lineRichMenuService, cfg.BookingSlotCapacity)
 	authService := services.NewAuthServiceWithStore(store, cfg.AdminDisplayName, cfg.AdminEmail, cfg.AdminPassword, cfg.AdminSessionSecret)
 	if err := authService.Bootstrap(context.Background()); err != nil {
 		log.Fatalf("bootstrap admin auth: %v", err)
