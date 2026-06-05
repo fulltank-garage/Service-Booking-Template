@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BookingWizard } from './BookingWizard'
 import { appTheme } from '../../theme/theme'
 import { bookingApi } from '../../api/bookingApi'
+import { resetBookingBootstrapForTests } from './bookingBootstrap'
 
 vi.mock('../../api/bookingApi', () => ({
   bookingApi: {
@@ -34,9 +35,17 @@ const renderWizardStrict = () =>
     </StrictMode>,
   )
 
+const renderWizardWithLineProfile = () =>
+  render(
+    <ThemeProvider theme={appTheme}>
+      <BookingWizard lineProfile={{ userId: 'line-user-1', displayName: 'สมชาย' }} />
+    </ThemeProvider>,
+  )
+
 describe('BookingWizard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetBookingBootstrapForTests()
   })
 
   it('creates a booking from API data', async () => {
@@ -131,5 +140,26 @@ describe('BookingWizard', () => {
     expect(await screen.findByText('เลือกบริการของคุณ')).toBeInTheDocument()
     expect(mockedBookingApi.listServices.mock.calls.length - serviceCallsBeforeRender).toBeLessThanOrEqual(1)
     expect(mockedBookingApi.getBookingRules.mock.calls.length - rulesCallsBeforeRender).toBeLessThanOrEqual(1)
+  })
+
+  it('uses the LINE profile name in the form without showing it above the calendar', async () => {
+    mockedBookingApi.listServices.mockResolvedValue([])
+    mockedBookingApi.getBookingRules.mockResolvedValue({
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: '',
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      blackoutDates: [],
+    })
+
+    renderWizardWithLineProfile()
+
+    expect(await screen.findByRole('heading', { name: 'จองคิว' })).toBeInTheDocument()
+    expect(screen.queryByText('สมชาย')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('ชื่อผู้จองจาก LINE')).toHaveValue('สมชาย')
   })
 })

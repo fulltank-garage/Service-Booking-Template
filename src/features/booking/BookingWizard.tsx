@@ -22,6 +22,7 @@ import { bookingApi } from '../../api/bookingApi'
 import type { AvailabilitySlot, Booking, BookingRules, CreateBookingPayload, ServiceItem } from '../../types/booking'
 import type { LineProfile } from '../../integrations/liff'
 import { formatThaiDateLabel } from '../../utils/dateFormat'
+import { getBookingBootstrapCache, preloadBookingBootstrap } from './bookingBootstrap'
 
 type BookingWizardProps = {
   lineProfile: LineProfile | null
@@ -69,22 +70,6 @@ const addDays = (date: Date, count: number) => {
 
 const addMonths = (date: Date, count: number) => new Date(date.getFullYear(), date.getMonth() + count, 1)
 
-let bookingBootstrapCache: { services: ServiceItem[]; rules: BookingRules } | null = null
-let bookingBootstrapRequest: Promise<{ services: ServiceItem[]; rules: BookingRules }> | null = null
-
-const loadBookingBootstrapOnce = () => {
-  bookingBootstrapRequest ??= Promise.all([bookingApi.listServices(), bookingApi.getBookingRules()])
-    .then(([services, rules]) => {
-      bookingBootstrapCache = { services, rules }
-      return bookingBootstrapCache
-    })
-    .catch((error) => {
-      bookingBootstrapRequest = null
-      throw error
-    })
-  return bookingBootstrapRequest
-}
-
 const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
   const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
   const start = addDays(firstDay, -firstDay.getDay())
@@ -100,8 +85,8 @@ const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
 }
 
 export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizardProps) {
-  const [services, setServices] = useState<ServiceItem[]>(() => bookingBootstrapCache?.services ?? [])
-  const [bookingRules, setBookingRules] = useState<BookingRules | null>(() => bookingBootstrapCache?.rules ?? null)
+  const [services, setServices] = useState<ServiceItem[]>(() => getBookingBootstrapCache()?.services ?? [])
+  const [bookingRules, setBookingRules] = useState<BookingRules | null>(() => getBookingBootstrapCache()?.rules ?? null)
   const [selectedServiceId, setSelectedServiceId] = useState('')
   const [bookingDate, setBookingDate] = useState(todayISO)
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -114,18 +99,22 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null)
-  const [isLoadingServices, setIsLoadingServices] = useState(() => !bookingBootstrapCache)
+  const [isLoadingServices, setIsLoadingServices] = useState(() => !getBookingBootstrapCache())
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (getBookingBootstrapCache()) {
+      return undefined
+    }
+
     let active = true
     const load = async () => {
       setIsLoadingServices(true)
       setError('')
       try {
-        const { services: items, rules } = await loadBookingBootstrapOnce()
+        const { services: items, rules } = await preloadBookingBootstrap()
         if (!active) return
         setServices(items)
         setBookingRules(rules)
@@ -248,11 +237,6 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               จองคิว
             </Typography>
             <Typography sx={{ mt: 0.75, color: 'text.secondary' }}>เลือกวัน เวลา และกรอกข้อมูลติดต่อ</Typography>
-            {lineProfile && (
-              <Typography variant="body2" sx={{ mt: 0.75, fontWeight: 750 }}>
-                {lineProfile.displayName}
-              </Typography>
-            )}
           </Box>
 
           {error && (

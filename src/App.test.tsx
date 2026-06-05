@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +7,7 @@ import { appTheme } from './theme/theme'
 import { initializeLiff } from './integrations/liff'
 import { bookingApi } from './api/bookingApi'
 import { resetCustomerSessionForTests } from './appLiffSession'
+import { resetBookingBootstrapForTests } from './features/booking/bookingBootstrap'
 
 vi.mock('./integrations/liff', () => ({
   closeLiffWindow: vi.fn(),
@@ -86,6 +87,7 @@ const renderAppStrict = () =>
 describe('App routing', () => {
   beforeEach(() => {
     resetCustomerSessionForTests()
+    resetBookingBootstrapForTests()
     mockedInitializeLiff.mockReset()
     mockedInitializeLiff.mockResolvedValue(null)
     mockedBookingApi.listServices.mockClear()
@@ -170,6 +172,59 @@ describe('App routing', () => {
     expect(mockedInitializeLiff.mock.calls.length).toBeLessThanOrEqual(1)
     expect(mockedBookingApi.listServices.mock.calls.length).toBeLessThanOrEqual(1)
     expect(mockedBookingApi.getBookingRules.mock.calls.length).toBeLessThanOrEqual(1)
+  })
+
+  it('keeps rich menu booking entry on one loading surface until booking data is ready', async () => {
+    window.history.replaceState({}, '', '/?liff.state=%2Fbooking')
+    const liffProfile = createDeferred<{ userId: string; displayName: string } | null>()
+    const services = createDeferred<Awaited<ReturnType<typeof bookingApi.listServices>>>()
+    const rules = createDeferred<Awaited<ReturnType<typeof bookingApi.getBookingRules>>>()
+    mockedInitializeLiff.mockReturnValue(liffProfile.promise)
+    mockedBookingApi.listServices.mockReturnValue(services.promise)
+    mockedBookingApi.getBookingRules.mockReturnValue(rules.promise)
+
+    renderAppStrict()
+    expect(screen.getByTestId('customer-page-skeleton')).toBeInTheDocument()
+
+    await act(async () => {
+      liffProfile.resolve({ userId: 'line-user-1', displayName: 'สมชาย' })
+      await liffProfile.promise
+    })
+
+    await waitFor(() => expect(mockedBookingApi.listServices).toHaveBeenCalledTimes(1))
+    expect(screen.getByTestId('customer-page-skeleton')).toBeInTheDocument()
+    expect(screen.queryByTestId('booking-wizard-skeleton')).not.toBeInTheDocument()
+
+    await act(async () => {
+      services.resolve([
+        {
+          id: 'service-1',
+          nameTh: 'ทำเล็บเจลสีพื้น',
+          nameEn: 'Gel Color',
+          descriptionTh: 'ทาเล็บเจลสีพื้น',
+          durationMinutes: 45,
+          priceCents: 35000,
+          accentColor: '#FF008C',
+          isActive: true,
+        },
+      ])
+      rules.resolve({
+        openTime: '09:00',
+        closeTime: '17:00',
+        slotIntervalMinutes: 30,
+        slotCapacity: 1,
+        closedWeekdays: '',
+        minAdvanceHours: 0,
+        maxAdvanceDays: 60,
+        reminderLeadMinutes: 1440,
+        blackoutDates: [],
+      })
+      await Promise.all([services.promise, rules.promise])
+    })
+
+    expect(await screen.findByRole('heading', { name: 'จองคิว' })).toBeInTheDocument()
+    expect(screen.queryByTestId('customer-page-skeleton')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('booking-wizard-skeleton')).not.toBeInTheDocument()
   })
 
   it('deduplicates LIFF bootstrap on rich menu booking detail entry under StrictMode', async () => {

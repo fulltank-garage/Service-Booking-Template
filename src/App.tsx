@@ -4,8 +4,11 @@ import { BrandMark } from './components/BrandMark'
 import type { LineProfile } from './integrations/liff'
 import type { Booking } from './types/booking'
 import { initializeLiffOnce } from './appLiffSession'
+import { preloadBookingBootstrap } from './features/booking/bookingBootstrap'
 
-const BookingWizard = lazy(() => import('./features/booking/BookingWizard').then((module) => ({ default: module.BookingWizard })))
+const loadBookingWizardModule = () => import('./features/booking/BookingWizard')
+
+const BookingWizard = lazy(() => loadBookingWizardModule().then((module) => ({ default: module.BookingWizard })))
 const BookingSuccessPage = lazy(() =>
   import('./features/booking/BookingSuccessPage').then((module) => ({ default: module.BookingSuccessPage })),
 )
@@ -52,7 +55,10 @@ function App() {
   const [autoCloseSuccess, setAutoCloseSuccess] = useState(false)
   const [isLiffReady, setIsLiffReady] = useState(false)
   const [lineAppRequired, setLineAppRequired] = useState(false)
-  const canRenderCustomerPage = activePage === 'services' || Boolean(lineProfile) || isLiffReady
+  const [readyBookingEntryUserId, setReadyBookingEntryUserId] = useState('')
+  const isWaitingForBookingEntry =
+    activePage === 'booking' && Boolean(lineProfile?.userId) && readyBookingEntryUserId !== lineProfile?.userId
+  const canRenderCustomerPage = activePage === 'services' || ((Boolean(lineProfile) || isLiffReady) && !isWaitingForBookingEntry)
 
   useEffect(() => {
     if (activePage === 'services' || lineProfile) {
@@ -84,6 +90,24 @@ function App() {
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEffect(() => {
+    if (activePage !== 'booking' || !lineProfile?.userId) {
+      return undefined
+    }
+
+    let active = true
+
+    Promise.all([loadBookingWizardModule(), preloadBookingBootstrap()])
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setReadyBookingEntryUserId(lineProfile.userId)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [activePage, lineProfile?.userId])
 
   const navigate = (path: string) => {
     window.history.pushState({}, '', path)
@@ -202,7 +226,7 @@ function LineAppRequiredPage() {
 
 function CustomerPageSkeleton() {
   return (
-    <Stack spacing={2}>
+    <Stack data-testid="customer-page-skeleton" spacing={2}>
       <Skeleton variant="rounded" height={72} sx={{ borderRadius: 3 }} />
       <Skeleton variant="rounded" height={160} sx={{ borderRadius: 3 }} />
       <Skeleton variant="rounded" height={240} sx={{ borderRadius: 3 }} />
