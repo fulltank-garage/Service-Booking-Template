@@ -70,6 +70,40 @@ const addDays = (date: Date, count: number) => {
 
 const addMonths = (date: Date, count: number) => new Date(date.getFullYear(), date.getMonth() + count, 1)
 
+const parseClosedWeekdays = (value?: string) =>
+  new Set(
+    (value ?? '')
+      .split(',')
+      .map((item) => Number(item.trim()))
+      .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6),
+  )
+
+const isClosedBookingDate = (dateKey: string, closedWeekdays: Set<number>, blackoutDates: Set<string>) =>
+  closedWeekdays.has(parseISODate(dateKey).getDay()) || blackoutDates.has(dateKey)
+
+const findFirstAvailableDate = (startKey: string, maxDateKey: string, closedWeekdays: Set<number>, blackoutDates: Set<string>) => {
+  let current = parseISODate(startKey)
+  const maxDate = parseISODate(maxDateKey)
+
+  while (current <= maxDate) {
+    const currentKey = toISODate(current)
+    if (!isClosedBookingDate(currentKey, closedWeekdays, blackoutDates)) {
+      return currentKey
+    }
+    current = addDays(current, 1)
+  }
+
+  return startKey
+}
+
+const getDefaultBookingDate = (rules?: BookingRules | null) => {
+  const startKey = todayISO()
+  const maxDateKey = toISODate(addDays(parseISODate(startKey), rules?.maxAdvanceDays ?? 60))
+  const closedWeekdays = parseClosedWeekdays(rules?.closedWeekdays)
+  const blackoutDates = new Set((rules?.blackoutDates ?? []).map((item) => item.date))
+  return findFirstAvailableDate(startKey, maxDateKey, closedWeekdays, blackoutDates)
+}
+
 const buildCalendarDays = (monthDate: Date): CalendarDay[] => {
   const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
   const start = addDays(firstDay, -firstDay.getDay())
@@ -88,7 +122,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   const [services, setServices] = useState<ServiceItem[]>(() => getBookingBootstrapCache()?.services ?? [])
   const [bookingRules, setBookingRules] = useState<BookingRules | null>(() => getBookingBootstrapCache()?.rules ?? null)
   const [selectedServiceId, setSelectedServiceId] = useState('')
-  const [bookingDate, setBookingDate] = useState(todayISO)
+  const [bookingDate, setBookingDate] = useState(() => getDefaultBookingDate(getBookingBootstrapCache()?.rules))
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = parseISODate(todayISO())
     return new Date(today.getFullYear(), today.getMonth(), 1)
@@ -118,6 +152,15 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
         if (!active) return
         setServices(items)
         setBookingRules(rules)
+        setBookingDate((current) => {
+          const closedWeekdays = parseClosedWeekdays(rules.closedWeekdays)
+          const blackoutDates = new Set((rules.blackoutDates ?? []).map((item) => item.date))
+          if (!isClosedBookingDate(current, closedWeekdays, blackoutDates)) {
+            return current
+          }
+          const maxDateKey = toISODate(addDays(parseISODate(todayISO()), rules.maxAdvanceDays ?? 60))
+          return findFirstAvailableDate(todayISO(), maxDateKey, closedWeekdays, blackoutDates)
+        })
       } catch {
         if (active) setError('โหลดข้อมูลไม่สำเร็จ')
       } finally {
@@ -161,7 +204,8 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   const showInitialSkeleton = isLoadingServices && services.length === 0
   const todayKey = todayISO()
   const maxDateKey = toISODate(addDays(parseISODate(todayKey), bookingRules?.maxAdvanceDays ?? 60))
-  const blackoutDates = new Set((bookingRules?.blackoutDates ?? []).map((item) => item.date))
+  const blackoutDates = useMemo(() => new Set((bookingRules?.blackoutDates ?? []).map((item) => item.date)), [bookingRules?.blackoutDates])
+  const closedWeekdays = useMemo(() => parseClosedWeekdays(bookingRules?.closedWeekdays), [bookingRules?.closedWeekdays])
 
   const handleSubmit = async () => {
     if (!canSubmit) return
@@ -248,6 +292,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
           <BookingCalendar
             blackoutDates={blackoutDates}
             bookingDate={bookingDate}
+            closedWeekdays={closedWeekdays}
             maxDateKey={maxDateKey}
             todayKey={todayKey}
             visibleMonth={visibleMonth}
@@ -392,6 +437,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
 function BookingCalendar({
   blackoutDates,
   bookingDate,
+  closedWeekdays,
   maxDateKey,
   todayKey,
   visibleMonth,
@@ -400,6 +446,7 @@ function BookingCalendar({
 }: {
   blackoutDates: Set<string>
   bookingDate: string
+  closedWeekdays: Set<number>
   maxDateKey: string
   todayKey: string
   visibleMonth: Date
@@ -430,7 +477,11 @@ function BookingCalendar({
 
         {days.map((day) => {
           const isSelected = day.key === bookingDate
-          const isDisabled = !day.inMonth || day.key < todayKey || day.key > maxDateKey || blackoutDates.has(day.key)
+          const isDisabled =
+            !day.inMonth ||
+            day.key < todayKey ||
+            day.key > maxDateKey ||
+            isClosedBookingDate(day.key, closedWeekdays, blackoutDates)
 
           return (
             <Button
