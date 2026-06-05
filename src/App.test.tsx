@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
+import { StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { appTheme } from './theme/theme'
@@ -24,10 +25,32 @@ vi.mock('./api/bookingApi', () => ({
         isActive: true,
       },
     ]),
+    getBookingRules: vi.fn().mockResolvedValue({
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: '',
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      blackoutDates: [],
+    }),
     listAvailability: vi.fn().mockResolvedValue([]),
     createBooking: vi.fn(),
     cancelBooking: vi.fn(),
-    latestBookingByLineUser: vi.fn(),
+    latestBookingByLineUser: vi.fn().mockResolvedValue({
+      id: 'booking-1',
+      bookingCode: 'SB-TEST-0001',
+      serviceId: 'service-1',
+      customerName: 'สมชาย',
+      phone: '0890000000',
+      lineUserId: 'line-user-1',
+      bookingDate: '2026-06-10',
+      slotTime: '10:00',
+      status: 'pending',
+      createdAt: '2026-06-10T03:00:00.000Z',
+    }),
   },
 }))
 
@@ -38,6 +61,15 @@ const renderApp = () =>
     <ThemeProvider theme={appTheme}>
       <App />
     </ThemeProvider>,
+  )
+
+const renderAppStrict = () =>
+  render(
+    <StrictMode>
+      <ThemeProvider theme={appTheme}>
+        <App />
+      </ThemeProvider>
+    </StrictMode>,
   )
 
 describe('App routing', () => {
@@ -80,6 +112,26 @@ describe('App routing', () => {
     renderApp()
 
     await screen.findByRole('heading', { name: 'จองคิว' })
+    expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
+  })
+
+  it('deduplicates LIFF bootstrap on rich menu booking entry under StrictMode', async () => {
+    window.history.replaceState({}, '', '/?liff.state=%2Fbooking')
+    mockedInitializeLiff.mockResolvedValue({ userId: 'line-user-1', displayName: 'สมชาย' })
+
+    renderAppStrict()
+
+    await screen.findByRole('heading', { name: 'จองคิว' })
+    expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
+  })
+
+  it('deduplicates LIFF bootstrap on rich menu booking detail entry under StrictMode', async () => {
+    window.history.replaceState({}, '', '/?liff.state=%2Fbooking%2Fsuccess')
+    mockedInitializeLiff.mockResolvedValue({ userId: 'line-user-1', displayName: 'สมชาย' })
+
+    renderAppStrict()
+
+    expect(await screen.findByText('SB-TEST-0001')).toBeInTheDocument()
     expect(mockedInitializeLiff).toHaveBeenCalledTimes(1)
   })
 })

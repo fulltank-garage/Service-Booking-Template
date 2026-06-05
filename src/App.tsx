@@ -13,6 +13,7 @@ const ServicesCatalogPage = lazy(() =>
 )
 
 const latestBookingStorageKey = 'bookingQueue.latestBooking'
+let liffBootstrapRequest: Promise<LineProfile | null> | null = null
 
 const getLiffStatePath = () => {
   const liffState = new URLSearchParams(window.location.search).get('liff.state')
@@ -44,6 +45,13 @@ const readLatestBooking = () => {
   }
 }
 
+const initializeLiffOnce = () => {
+  liffBootstrapRequest ??= initializeLiff().finally(() => {
+    liffBootstrapRequest = null
+  })
+  return liffBootstrapRequest
+}
+
 function App() {
   const [lineProfile, setLineProfile] = useState<LineProfile | null>(null)
   const [activePage, setActivePage] = useState(getCurrentPath)
@@ -56,7 +64,7 @@ function App() {
     }
 
     let active = true
-    initializeLiff()
+    initializeLiffOnce()
       .then((profile) => {
         if (active) setLineProfile(profile)
       })
