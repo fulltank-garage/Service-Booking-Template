@@ -1254,7 +1254,7 @@ function ServicesPage({
         query={query}
       />
 
-      <Box component="section" sx={{ pt: { xs: 9.5, lg: 10 } }}>
+      <Box component="section" sx={{ pt: { xs: 8, lg: 10 } }}>
         <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
           <CardContent sx={{ p: 2.5 }}>
             <Stack direction="row" spacing={1.5} sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between', minWidth: 0 }}>
@@ -1852,7 +1852,7 @@ function ServicesSkeleton() {
           <Skeleton variant="rectangular" width={124} height={44} sx={{ borderRadius: 2, bgcolor: 'divider' }} />
         </Stack>
       </Box>
-      <Box sx={{ pt: { xs: 9.5, lg: 10 } }}>
+      <Box sx={{ pt: { xs: 8, lg: 10 } }}>
         <TableSkeleton titleWidth={180} columns={4} rows={5} />
       </Box>
     </Stack>
