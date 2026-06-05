@@ -96,6 +96,65 @@ func TestUpdateServiceCanReactivateInactiveService(t *testing.T) {
 	}
 }
 
+func TestServiceChangesNotifyRealtime(t *testing.T) {
+	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
+
+	created, err := service.CreateService(context.Background(), ServiceInput{
+		NameTH:          "บริการใหม่",
+		DurationMinutes: 30,
+		PriceCents:      0,
+		IsActive:        true,
+	})
+	if err != nil {
+		t.Fatalf("create service: %v", err)
+	}
+	if notifier.serviceEventType != "service.created" || notifier.service.ID != created.ID {
+		t.Fatalf("expected service.created event, got %q %#v", notifier.serviceEventType, notifier.service)
+	}
+
+	_, err = service.UpdateService(context.Background(), "svc-1", ServiceInput{
+		NameTH:          "บริการแก้ไข",
+		DurationMinutes: 45,
+		PriceCents:      1000,
+		IsActive:        true,
+	})
+	if err != nil {
+		t.Fatalf("update service: %v", err)
+	}
+	if notifier.serviceEventType != "service.updated" {
+		t.Fatalf("expected service.updated event, got %q", notifier.serviceEventType)
+	}
+
+	if err := service.DeleteService(context.Background(), "svc-1"); err != nil {
+		t.Fatalf("delete service: %v", err)
+	}
+	if notifier.serviceEventType != "service.deleted" {
+		t.Fatalf("expected service.deleted event, got %q", notifier.serviceEventType)
+	}
+}
+
+func TestSaveBookingSettingsNotifiesRealtime(t *testing.T) {
+	store := &fakeStore{}
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
+
+	settings, err := service.SaveBookingSettings(context.Background(), BookingSettingsInput{
+		OpenTime:            "09:00",
+		CloseTime:           "17:00",
+		SlotIntervalMinutes: 30,
+		SlotCapacity:        2,
+	})
+
+	if err != nil {
+		t.Fatalf("save booking settings: %v", err)
+	}
+	if notifier.settings.ID != settings.ID || notifier.settings.OpenTime != "09:00" {
+		t.Fatalf("expected booking settings event, got %#v", notifier.settings)
+	}
+}
+
 func TestListAvailabilityReturnsSixteenBusinessSlots(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
 	service := NewBookingService(store, nil, nil, 3)
@@ -370,6 +429,60 @@ func TestCancelBookingByLineUserDeletesBookingAndSwitchesRichMenu(t *testing.T) 
 	}
 }
 
+func TestDeleteBookingNotifiesRealtime(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:   models.BaseModel{ID: "booking-1"},
+			BookingCode: "Q-TEST",
+		},
+	}
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
+
+	if err := service.DeleteBooking(context.Background(), "booking-1"); err != nil {
+		t.Fatalf("delete booking: %v", err)
+	}
+	if notifier.deletedBooking.ID != "booking-1" || notifier.deletedReason != "deleted" {
+		t.Fatalf("expected deleted booking event, got %#v reason=%q", notifier.deletedBooking, notifier.deletedReason)
+	}
+}
+
+func TestUpdateBookingStatusCancelledNotifiesRealtime(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:   models.BaseModel{ID: "booking-1"},
+			BookingCode: "Q-TEST",
+		},
+	}
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
+
+	if _, err := service.UpdateBookingStatus(context.Background(), "booking-1", models.BookingStatusCancelled); err != nil {
+		t.Fatalf("cancel booking status: %v", err)
+	}
+	if notifier.deletedBooking.ID != "booking-1" || notifier.deletedReason != "cancelled" {
+		t.Fatalf("expected cancelled booking event, got %#v reason=%q", notifier.deletedBooking, notifier.deletedReason)
+	}
+}
+
+func TestCancelBookingByLineUserNotifiesRealtime(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:  models.BaseModel{ID: "booking-1"},
+			LineUserID: "line-user-1",
+		},
+	}
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
+
+	if err := service.CancelBookingByLineUser(context.Background(), "booking-1", "line-user-1"); err != nil {
+		t.Fatalf("cancel booking: %v", err)
+	}
+	if notifier.deletedBooking.ID != "booking-1" || notifier.deletedReason != "cancelled" {
+		t.Fatalf("expected cancelled booking event, got %#v reason=%q", notifier.deletedBooking, notifier.deletedReason)
+	}
+}
+
 func TestCancelBookingByLineUserRejectsDifferentLineUser(t *testing.T) {
 	store := &fakeStore{
 		created: &models.Booking{
@@ -421,6 +534,9 @@ func (store *fakeStore) FindAnyServiceByID(_ context.Context, id string) (models
 	return store.service, nil
 }
 func (store *fakeStore) CreateService(_ context.Context, service *models.Service) error {
+	if service.ID == "" {
+		service.ID = "svc-1"
+	}
 	store.service = *service
 	return nil
 }
@@ -515,6 +631,43 @@ func (store *fakeStore) SaveBookingSettings(_ context.Context, settings *models.
 type recordingRichMenuSwitcher struct {
 	bookingMenuUserID    string
 	bookingSuccessUserID string
+}
+
+type recordingBookingNotifier struct {
+	createdBooking   models.Booking
+	updatedBooking   models.Booking
+	deletedBooking   models.Booking
+	deletedReason    string
+	serviceEventType string
+	service          models.Service
+	settings         models.BookingSettings
+}
+
+func (notifier *recordingBookingNotifier) BookingCreated(_ context.Context, booking models.Booking) error {
+	notifier.createdBooking = booking
+	return nil
+}
+
+func (notifier *recordingBookingNotifier) BookingUpdated(_ context.Context, booking models.Booking) error {
+	notifier.updatedBooking = booking
+	return nil
+}
+
+func (notifier *recordingBookingNotifier) BookingDeleted(_ context.Context, booking models.Booking, reason string) error {
+	notifier.deletedBooking = booking
+	notifier.deletedReason = reason
+	return nil
+}
+
+func (notifier *recordingBookingNotifier) ServiceChanged(_ context.Context, eventType string, service models.Service) error {
+	notifier.serviceEventType = eventType
+	notifier.service = service
+	return nil
+}
+
+func (notifier *recordingBookingNotifier) BookingSettingsUpdated(_ context.Context, settings models.BookingSettings) error {
+	notifier.settings = settings
+	return nil
 }
 
 func (switcher *recordingRichMenuSwitcher) SwitchToBookingSuccess(_ context.Context, lineUserID string) error {

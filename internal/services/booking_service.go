@@ -79,6 +79,9 @@ type BookingSettingsInput struct {
 type BookingNotifier interface {
 	BookingCreated(ctx context.Context, booking models.Booking) error
 	BookingUpdated(ctx context.Context, booking models.Booking) error
+	BookingDeleted(ctx context.Context, booking models.Booking, reason string) error
+	ServiceChanged(ctx context.Context, eventType string, service models.Service) error
+	BookingSettingsUpdated(ctx context.Context, settings models.BookingSettings) error
 }
 
 type BookingSuccessRichMenuSwitcher interface {
@@ -140,6 +143,9 @@ func (service *BookingService) CreateService(ctx context.Context, input ServiceI
 	if err := service.store.CreateService(ctx, &item); err != nil {
 		return models.Service{}, err
 	}
+	if service.notifier != nil {
+		_ = service.notifier.ServiceChanged(ctx, models.NotificationTypeServiceCreated, item)
+	}
 	return item, nil
 }
 
@@ -165,6 +171,9 @@ func (service *BookingService) UpdateService(ctx context.Context, id string, inp
 	if err := service.store.UpdateService(ctx, &item); err != nil {
 		return models.Service{}, err
 	}
+	if service.notifier != nil {
+		_ = service.notifier.ServiceChanged(ctx, models.NotificationTypeServiceUpdated, item)
+	}
 	return item, nil
 }
 
@@ -172,7 +181,19 @@ func (service *BookingService) DeleteService(ctx context.Context, id string) err
 	if strings.TrimSpace(id) == "" {
 		return ErrServiceRequired
 	}
-	return service.store.DeleteService(ctx, strings.TrimSpace(id))
+	id = strings.TrimSpace(id)
+	item, err := service.store.FindAnyServiceByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := service.store.DeleteService(ctx, id); err != nil {
+		return err
+	}
+	item.IsActive = false
+	if service.notifier != nil {
+		_ = service.notifier.ServiceChanged(ctx, models.NotificationTypeServiceDeleted, item)
+	}
+	return nil
 }
 
 func (service *BookingService) GetBookingSettings(ctx context.Context) (models.BookingSettings, error) {
@@ -190,6 +211,9 @@ func (service *BookingService) SaveBookingSettings(ctx context.Context, input Bo
 	}
 	if err := service.store.SaveBookingSettings(ctx, &settings); err != nil {
 		return models.BookingSettings{}, err
+	}
+	if service.notifier != nil {
+		_ = service.notifier.BookingSettingsUpdated(ctx, settings)
 	}
 	return settings, nil
 }
@@ -439,7 +463,7 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 		return models.Booking{}, fmt.Errorf("%w: status", ErrInvalidBooking)
 	}
 	if status == models.BookingStatusCancelled {
-		return models.Booking{}, service.DeleteBooking(ctx, id)
+		return models.Booking{}, service.deleteBooking(ctx, id, "cancelled")
 	}
 	booking, err := service.store.UpdateBookingStatus(ctx, id, status)
 	if err != nil {
@@ -452,6 +476,10 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 }
 
 func (service *BookingService) DeleteBooking(ctx context.Context, id string) error {
+	return service.deleteBooking(ctx, id, "deleted")
+}
+
+func (service *BookingService) deleteBooking(ctx context.Context, id string, reason string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return fmt.Errorf("%w: id", ErrInvalidBooking)
@@ -462,6 +490,9 @@ func (service *BookingService) DeleteBooking(ctx context.Context, id string) err
 	}
 	if err := service.store.DeleteBooking(ctx, id); err != nil {
 		return err
+	}
+	if service.notifier != nil {
+		_ = service.notifier.BookingDeleted(ctx, booking, reason)
 	}
 	service.switchToBookingMenu(ctx, booking.LineUserID)
 	return nil
@@ -482,6 +513,9 @@ func (service *BookingService) CancelBookingByLineUser(ctx context.Context, id s
 	}
 	if err := service.store.DeleteBooking(ctx, id); err != nil {
 		return err
+	}
+	if service.notifier != nil {
+		_ = service.notifier.BookingDeleted(ctx, booking, "cancelled")
 	}
 	service.switchToBookingMenu(ctx, booking.LineUserID)
 	return nil

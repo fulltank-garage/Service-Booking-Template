@@ -19,20 +19,31 @@ const realtimeChannel = "service-booking:notifications"
 const (
 	readNotificationRetention = 7 * 24 * time.Hour
 	allNotificationRetention  = 30 * 24 * time.Hour
+	reminderLockKey           = "service-booking:reminder-job-lock"
 )
 
 var thaiShortMonths = [...]string{"ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."}
 
 type RealtimeEvent struct {
-	Type         string               `json:"type"`
-	Notification *models.Notification `json:"notification,omitempty"`
-	Booking      *models.Booking      `json:"booking,omitempty"`
+	Type         string                  `json:"type"`
+	Notification *models.Notification    `json:"notification,omitempty"`
+	Booking      *models.Booking         `json:"booking,omitempty"`
+	BookingID    string                  `json:"bookingId,omitempty"`
+	Service      *models.Service         `json:"service,omitempty"`
+	Settings     *models.BookingSettings `json:"settings,omitempty"`
+}
+
+type realtimeRedisClient interface {
+	Publish(ctx context.Context, channel string, message interface{}) *redis.IntCmd
+	Subscribe(ctx context.Context, channels ...string) *redis.PubSub
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
 }
 
 type NotificationService struct {
 	store repositories.Store
 	hub   *ws.Hub
-	redis *redis.Client
+	redis realtimeRedisClient
 	push  PushSender
 }
 
@@ -41,7 +52,11 @@ func NewNotificationService(store repositories.Store, hub *ws.Hub, redisClient *
 }
 
 func NewNotificationServiceWithPush(store repositories.Store, hub *ws.Hub, redisClient *redis.Client, pushSender PushSender) *NotificationService {
-	return &NotificationService{store: store, hub: hub, redis: redisClient, push: pushSender}
+	service := &NotificationService{store: store, hub: hub, push: pushSender}
+	if redisClient != nil {
+		service.redis = redisClient
+	}
+	return service
 }
 
 func (service *NotificationService) BookingCreated(ctx context.Context, booking models.Booking) error {
@@ -62,6 +77,46 @@ func (service *NotificationService) BookingUpdated(ctx context.Context, booking 
 		URL:       "/bookings",
 		BookingID: booking.ID,
 	}, &booking)
+}
+
+func (service *NotificationService) BookingDeleted(ctx context.Context, booking models.Booking, reason string) error {
+	eventType := models.NotificationTypeBookingDeleted
+	if reason == "cancelled" {
+		eventType = models.NotificationTypeBookingCancelled
+	}
+	return service.publish(ctx, RealtimeEvent{Type: eventType, Booking: &booking, BookingID: booking.ID})
+}
+
+func (service *NotificationService) ServiceChanged(ctx context.Context, eventType string, item models.Service) error {
+	return service.publish(ctx, RealtimeEvent{Type: eventType, Service: &item})
+}
+
+func (service *NotificationService) BookingSettingsUpdated(ctx context.Context, settings models.BookingSettings) error {
+	return service.publish(ctx, RealtimeEvent{Type: models.NotificationTypeBookingSettingsUpdated, Settings: &settings})
+}
+
+func (service *NotificationService) WithReminderLock(ctx context.Context, ttl time.Duration, run func(context.Context) error) (bool, error) {
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	if service.redis == nil {
+		return true, run(ctx)
+	}
+
+	locked, err := service.redis.SetNX(ctx, reminderLockKey, time.Now().UTC().Format(time.RFC3339Nano), ttl).Result()
+	if err != nil {
+		return false, err
+	}
+	if !locked {
+		return false, nil
+	}
+	defer func() {
+		if err := service.redis.Del(ctx, reminderLockKey).Err(); err != nil {
+			log.Printf("release reminder lock: %v", err)
+		}
+	}()
+
+	return true, run(ctx)
 }
 
 func (service *NotificationService) List(ctx context.Context, unreadOnly bool, limit int) ([]models.Notification, error) {

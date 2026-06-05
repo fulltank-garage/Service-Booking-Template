@@ -1,8 +1,14 @@
 package models
 
 const (
-	NotificationTypeBookingCreated = "booking.created"
-	NotificationTypeBookingUpdated = "booking.updated"
+	NotificationTypeBookingCreated         = "booking.created"
+	NotificationTypeBookingUpdated         = "booking.updated"
+	NotificationTypeBookingDeleted         = "booking.deleted"
+	NotificationTypeBookingCancelled       = "booking.cancelled"
+	NotificationTypeServiceCreated         = "service.created"
+	NotificationTypeServiceUpdated         = "service.updated"
+	NotificationTypeServiceDeleted         = "service.deleted"
+	NotificationTypeBookingSettingsUpdated = "booking_settings.updated"
 )
 
 type Notification struct {
