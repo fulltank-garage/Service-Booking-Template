@@ -87,32 +87,6 @@ const reminderLeadOptions = [
   { value: 2880, label: '2 วันก่อนนัด' },
 ]
 
-const compactSelectMenuProps = {
-  slotProps: {
-    paper: {
-      sx: {
-        maxHeight: 280,
-        borderRadius: 2,
-        boxShadow: 'none',
-        border: '1px solid',
-        borderColor: 'divider',
-      },
-    },
-  },
-}
-
-const compactSettingSelectSx = {
-  borderRadius: 2,
-  minHeight: 44,
-  '& .MuiSelect-select': {
-    minHeight: '44px !important',
-    py: 0,
-    display: 'flex',
-    alignItems: 'center',
-    fontWeight: 850,
-  },
-}
-
 const formatNotificationTimestamp = (createdAt?: string) => {
   if (!createdAt) {
     return 'ไม่พบเวลาการแจ้งเตือน'
@@ -1389,14 +1363,11 @@ function BookingSettingsPage({
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth>
-                <Typography sx={{ mb: 0.5, fontSize: '0.82rem', fontWeight: 900 }}>เวลาเปิดร้าน</Typography>
+                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาเปิดร้าน</Typography>
                 <Select
                   aria-label="เวลาเปิดร้าน"
-                  MenuProps={compactSelectMenuProps}
-                  size="small"
                   value={openTime}
                   onChange={(event) => setOpenTime(event.target.value)}
-                  sx={compactSettingSelectSx}
                 >
                   {shopTimeOptions.map((option) => (
                     <MenuItem key={`open-${option.value}`} value={option.value}>
@@ -1408,14 +1379,11 @@ function BookingSettingsPage({
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth>
-                <Typography sx={{ mb: 0.5, fontSize: '0.82rem', fontWeight: 900 }}>เวลาปิดร้าน</Typography>
+                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาปิดร้าน</Typography>
                 <Select
                   aria-label="เวลาปิดร้าน"
-                  MenuProps={compactSelectMenuProps}
-                  size="small"
                   value={closeTime}
                   onChange={(event) => setCloseTime(event.target.value)}
-                  sx={compactSettingSelectSx}
                 >
                   {shopTimeOptions.map((option) => (
                     <MenuItem key={`close-${option.value}`} value={option.value}>
@@ -1487,7 +1455,6 @@ function BookingSettingsPage({
                 if (days.length === 0) return 'เลือกวันที่ร้านหยุด'
                 return days.map((day) => weekdayLabelMap.get(day) ?? day).join(', ')
               }}
-              sx={{ borderRadius: 2.5 }}
             >
               {weekdayOptions.map(([value, label]) => (
                 <MenuItem key={value} value={value}>

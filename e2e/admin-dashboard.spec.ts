@@ -148,12 +148,33 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   const closeTimeSelect = page.getByLabel('เวลาปิดร้าน')
   await expect(openTimeSelect).toBeVisible()
   await expect(closeTimeSelect).toBeVisible()
-  await expect(async () => {
-    const openBox = await openTimeSelect.boundingBox()
-    const closeBox = await closeTimeSelect.boundingBox()
-    expect(openBox?.height).toBeLessThanOrEqual(48)
-    expect(closeBox?.height).toBeLessThanOrEqual(48)
-  }).toPass()
+  await expect(page.getByLabel('ช่างกี่คน')).toBeVisible()
+  const settingControlMetrics = await page.evaluate(() => {
+    const getSelectRoot = (label: string) => document.querySelector(`[aria-label="${label}"]`)?.closest('.MuiOutlinedInput-root')
+    const getTextFieldRoot = (label: string) => {
+      const input = [...document.querySelectorAll('input')].find(
+        (element) => element.getAttribute('aria-label') === label || Boolean(element.labels?.[0]?.textContent?.includes(label)),
+      )
+      return input?.closest('.MuiOutlinedInput-root')
+    }
+    const toMetrics = (element?: Element | null) => {
+      const rect = element?.getBoundingClientRect()
+      const style = element ? window.getComputedStyle(element) : null
+      return {
+        height: rect?.height ?? 0,
+        borderRadius: style?.borderRadius ?? '',
+      }
+    }
+    return {
+      open: toMetrics(getSelectRoot('เวลาเปิดร้าน')),
+      close: toMetrics(getSelectRoot('เวลาปิดร้าน')),
+      capacity: toMetrics(getTextFieldRoot('ช่างกี่คน')),
+    }
+  })
+  expect(settingControlMetrics.open.height).toBe(settingControlMetrics.capacity.height)
+  expect(settingControlMetrics.close.height).toBe(settingControlMetrics.capacity.height)
+  expect(settingControlMetrics.open.borderRadius).toBe(settingControlMetrics.capacity.borderRadius)
+  expect(settingControlMetrics.close.borderRadius).toBe(settingControlMetrics.capacity.borderRadius)
 
   if (testInfo.project.name === 'mobile-chromium') {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()

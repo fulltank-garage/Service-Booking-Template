@@ -75,6 +75,25 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
+          minHeight: 56,
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          maxHeight: 320,
+          marginTop: 6,
+          border: `1px solid ${colors.border}`,
+          borderRadius: 12,
+          boxShadow: 'none',
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          minHeight: 44,
         },
       },
     },
