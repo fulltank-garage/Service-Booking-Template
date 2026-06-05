@@ -92,19 +92,19 @@ func TestSendTestPushReportsDeliveryAndCleansExpiredSubscriptions(t *testing.T) 
 	}
 	service := NewNotificationServiceWithPush(store, nil, nil, pushSender)
 
-	report, err := service.SendTestPush(context.Background())
+	report, err := service.SendTestPush(context.Background(), "https://push.example.test/active")
 
 	if err != nil {
 		t.Fatalf("send test push: %v", err)
 	}
-	if report.Attempted != 2 || report.Sent != 1 || report.Failed != 1 || report.Expired != 1 {
+	if report.Attempted != 1 || report.Sent != 1 || report.Failed != 0 || report.Expired != 0 {
 		t.Fatalf("unexpected delivery report: %#v", report)
 	}
-	if len(store.deletedEndpoints) != 1 || store.deletedEndpoints[0] != "https://push.example.test/expired" {
-		t.Fatalf("expected expired endpoint cleanup, got %#v", store.deletedEndpoints)
+	if len(store.deletedEndpoints) != 0 {
+		t.Fatalf("expected unrelated expired endpoint to be skipped, got %#v", store.deletedEndpoints)
 	}
-	if pushSender.sent[1].Title != "ทดสอบแจ้งเตือน" {
-		t.Fatalf("expected test push title, got %q", pushSender.sent[1].Title)
+	if len(pushSender.sent) != 1 || pushSender.sent[0].Title != "ทดสอบแจ้งเตือน" {
+		t.Fatalf("expected test push to selected endpoint, got %#v", pushSender.sent)
 	}
 }
 

@@ -71,7 +71,11 @@ func (handler *NotificationHandler) Subscribe(c *gin.Context) {
 }
 
 func (handler *NotificationHandler) TestPush(c *gin.Context) {
-	report, err := handler.service.SendTestPush(c.Request.Context())
+	var payload struct {
+		Endpoint string `json:"endpoint"`
+	}
+	_ = c.ShouldBindJSON(&payload)
+	report, err := handler.service.SendTestPush(c.Request.Context(), payload.Endpoint)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorBody("ส่งทดสอบแจ้งเตือนไม่สำเร็จ"))
 		return

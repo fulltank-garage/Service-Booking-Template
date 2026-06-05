@@ -148,12 +148,12 @@ func (service *NotificationService) SavePushSubscription(ctx context.Context, su
 	return service.store.SavePushSubscription(ctx, subscription)
 }
 
-func (service *NotificationService) SendTestPush(ctx context.Context) (PushDeliveryReport, error) {
+func (service *NotificationService) SendTestPush(ctx context.Context, endpoint string) (PushDeliveryReport, error) {
 	return service.sendPushMessage(ctx, PushMessage{
 		Title: "ทดสอบแจ้งเตือน",
 		Body:  "ระบบแจ้งเตือนพร้อมใช้งาน",
 		URL:   "/",
-	})
+	}, endpoint)
 }
 
 func (service *NotificationService) Subscribe(ctx context.Context) {
@@ -212,13 +212,13 @@ func (service *NotificationService) sendPush(ctx context.Context, notification m
 		Title: notification.Title,
 		Body:  notification.Body,
 		URL:   notification.URL,
-	})
+	}, "")
 	if err != nil {
 		log.Printf("send push notifications: %v", err)
 	}
 }
 
-func (service *NotificationService) sendPushMessage(ctx context.Context, message PushMessage) (PushDeliveryReport, error) {
+func (service *NotificationService) sendPushMessage(ctx context.Context, message PushMessage, endpoint string) (PushDeliveryReport, error) {
 	report := PushDeliveryReport{}
 	if service.push == nil {
 		return report, nil
@@ -229,6 +229,9 @@ func (service *NotificationService) sendPushMessage(ctx context.Context, message
 		return report, err
 	}
 	for _, subscription := range subscriptions {
+		if endpoint != "" && subscription.Endpoint != endpoint {
+			continue
+		}
 		report.Attempted++
 		if err := service.push.Send(ctx, subscription, message); err != nil {
 			report.Failed++
