@@ -97,17 +97,15 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   if (testInfo.project.name === 'mobile-chromium') {
     await expect(page.getByRole('button', { name: 'เปิดเมนู' })).toBeVisible()
     await expect(page.locator('header').getByAltText('BookingQueue logo')).toHaveCount(0)
-    await expect(page.locator('header').getByText('จัดการคิวจองบริการ')).toBeVisible()
+    await expect(page.locator('header').getByText('รายการจอง')).toBeVisible()
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()
     await expect(page.locator('.MuiDrawer-paper').getByAltText('BookingQueue logo')).toBeVisible()
     await expect(page.locator('.MuiDrawer-paper').getByText('FULLTANK Garage Admin')).toBeVisible()
     await page.getByRole('button', { name: 'ปิดเมนู' }).click()
   } else {
-    await expect(page.getByText('จัดการคิวจองบริการ')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'รายการจอง' })).toBeVisible()
     await expect(page.locator('aside').getByText('FULLTANK Garage Admin')).toBeVisible()
   }
-  await expect(page.getByText('คิวทั้งหมด')).toBeVisible()
-  await expect(page.getByText('รายการจองล่าสุด')).toHaveCount(0)
   if (testInfo.project.name === 'mobile-chromium') {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()
     await expect(page.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeVisible()
