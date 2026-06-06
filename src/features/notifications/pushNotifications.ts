@@ -7,6 +7,8 @@ type PushDeliveryReport = {
   sent: number
   expired: number
   failed: number
+  lastStatusCode?: number
+  lastError?: string
 }
 
 const urlBase64ToUint8Array = (base64String: string) => {
@@ -73,8 +75,21 @@ const ensurePushSubscription = async (registration: ServiceWorkerRegistration, p
 
 const isPushDelivered = (report: PushDeliveryReport) => report.attempted > 0 && report.sent > 0
 
-const formatPushReport = (report: PushDeliveryReport) =>
-  `attempted=${report.attempted}, sent=${report.sent}, failed=${report.failed}, expired=${report.expired}`
+const formatPushReport = (report: PushDeliveryReport) => {
+  const parts = [
+    `attempted=${report.attempted}`,
+    `sent=${report.sent}`,
+    `failed=${report.failed}`,
+    `expired=${report.expired}`,
+  ]
+  if (report.lastStatusCode) {
+    parts.push(`status=${report.lastStatusCode}`)
+  }
+  if (report.lastError) {
+    parts.push(`error=${report.lastError}`)
+  }
+  return parts.join(', ')
+}
 
 const testPushSubscription = async (subscription: PushSubscription) => adminApi.testPush(subscription.toJSON())
 
