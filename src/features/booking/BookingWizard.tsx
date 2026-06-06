@@ -305,7 +305,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Alert>
           )}
 
-          <BookingStepProgress />
+          <BookingSectionHeading title="บริการ" />
 
           <FormControl fullWidth>
             <Select
@@ -353,6 +353,8 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               ))}
             </Select>
           </FormControl>
+
+          <BookingSectionHeading title="วันเวลา" />
 
           <BookingCalendar
             blackoutDates={blackoutDates}
@@ -405,6 +407,8 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               </Grid>
             )}
           </Box>
+
+          <BookingSectionHeading title="ข้อมูลติดต่อ" />
 
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 12 }}>
@@ -467,27 +471,23 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   )
 }
 
-function BookingStepProgress() {
-  const steps = ['1 บริการ', '2 วันเวลา', '3 ข้อมูลติดต่อ']
-
+function BookingSectionHeading({ title }: { title: string }) {
   return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-      {steps.map((step) => (
-        <Box
-          key={step}
-          sx={{
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'background.default',
-            px: 1.4,
-            py: 1,
-            flex: 1,
-          }}
-        >
-          <Typography sx={{ fontSize: '0.9rem', fontWeight: 950 }}>{step}</Typography>
-        </Box>
-      ))}
+    <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
+      <Box sx={{ height: 1, flex: 1, bgcolor: 'divider' }} />
+      <Typography
+        variant="h3"
+        sx={{
+          flexShrink: 0,
+          color: 'text.primary',
+          fontSize: '1rem',
+          fontWeight: 950,
+          textAlign: 'center',
+        }}
+      >
+        {title}
+      </Typography>
+      <Box sx={{ height: 1, flex: 1, bgcolor: 'divider' }} />
     </Stack>
   )
 }
