@@ -72,4 +72,28 @@ describe('App startup', () => {
 
     expect(screen.getByText('หน้าเข้าสู่ระบบ')).toBeInTheDocument()
   })
+
+  it('leaves the update splash after an app update reload finishes', () => {
+    const clearApplyingAppUpdate = vi.fn()
+
+    mockedUseAppUpdate.mockReturnValue({
+      applyAppUpdate: vi.fn(),
+      checkForUpdate: vi.fn(),
+      clearApplyingAppUpdate,
+      hasPendingAppUpdate: false,
+      isApplyingAppUpdate: true,
+      isInitialUpdateCheckDone: true,
+    })
+
+    render(<App />)
+
+    expect(screen.getByText('มีเวอร์ชันใหม่ กำลังอัปเดตแอป')).toBeInTheDocument()
+
+    act(() => {
+      vi.advanceTimersByTime(900)
+    })
+
+    expect(clearApplyingAppUpdate).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('หน้าเข้าสู่ระบบ')).toBeInTheDocument()
+  })
 })

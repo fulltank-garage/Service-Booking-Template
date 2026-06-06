@@ -36,6 +36,20 @@ function App() {
   }, [applyAppUpdate, hasPendingAppUpdate, isApplyingAppUpdate, isBooting])
 
   useEffect(() => {
+    if (!isBooting || !isInitialUpdateCheckDone || !isApplyingAppUpdate) return undefined
+
+    const progressTimer = window.setTimeout(() => setBootProgress(100), 0)
+    const timer = window.setTimeout(() => {
+      clearApplyingAppUpdate()
+      setIsBooting(false)
+    }, 900)
+    return () => {
+      window.clearTimeout(progressTimer)
+      window.clearTimeout(timer)
+    }
+  }, [clearApplyingAppUpdate, isApplyingAppUpdate, isBooting, isInitialUpdateCheckDone])
+
+  useEffect(() => {
     if (!isInitialUpdateCheckDone) return undefined
     if (shouldShowUpdateSplash) return undefined
 
