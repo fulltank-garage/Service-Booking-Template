@@ -14,6 +14,7 @@ const mockedAdminApi = vi.mocked(adminApi)
 
 describe('pushNotifications', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     vi.stubGlobal('PushManager', class PushManager {})
     vi.stubGlobal('Notification', {
       permission: 'default',
@@ -130,6 +131,73 @@ describe('pushNotifications', () => {
       endpoint: 'https://push.example.test/new',
       keys: { auth: 'auth', p256dh: 'p256dh' },
     })
+  })
+
+  it('verifies an existing granted subscription when no recent verification exists', async () => {
+    const subscription = {
+      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
+      toJSON: () => ({ endpoint: 'https://push.example.test/existing', keys: { auth: 'auth', p256dh: 'p256dh' } }),
+    } as unknown as PushSubscription
+    const registration = {
+      pushManager: {
+        getSubscription: vi.fn().mockResolvedValue(subscription),
+        subscribe: vi.fn(),
+      },
+      update: vi.fn().mockResolvedValue(undefined),
+    }
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        ready: Promise.resolve(registration),
+        register: vi.fn().mockResolvedValue(registration),
+      },
+    })
+    Object.defineProperty(Notification, 'permission', {
+      configurable: true,
+      value: 'granted',
+    })
+    mockedAdminApi.getPushPublicKey.mockResolvedValue({ configured: true, publicKey: 'AQID' })
+
+    await refreshPushSubscription()
+
+    expect(mockedAdminApi.testPush).toHaveBeenCalledWith({
+      endpoint: 'https://push.example.test/existing',
+      keys: { auth: 'auth', p256dh: 'p256dh' },
+    })
+  })
+
+  it('skips testing an existing subscription after a recent successful verification', async () => {
+    const subscription = {
+      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
+      toJSON: () => ({ endpoint: 'https://push.example.test/existing', keys: { auth: 'auth', p256dh: 'p256dh' } }),
+    } as unknown as PushSubscription
+    const registration = {
+      pushManager: {
+        getSubscription: vi.fn().mockResolvedValue(subscription),
+        subscribe: vi.fn(),
+      },
+      update: vi.fn().mockResolvedValue(undefined),
+    }
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        ready: Promise.resolve(registration),
+        register: vi.fn().mockResolvedValue(registration),
+      },
+    })
+    Object.defineProperty(Notification, 'permission', {
+      configurable: true,
+      value: 'granted',
+    })
+    window.localStorage.setItem(
+      'service-booking-admin-push-verified',
+      JSON.stringify({ endpoint: 'https://push.example.test/existing', verifiedAt: Date.now() }),
+    )
+    mockedAdminApi.getPushPublicKey.mockResolvedValue({ configured: true, publicKey: 'AQID' })
+
+    await refreshPushSubscription()
+
+    expect(mockedAdminApi.testPush).not.toHaveBeenCalled()
   })
 
   it('repairs the push subscription when the first notification test fails', async () => {

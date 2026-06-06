@@ -1,6 +1,8 @@
 import { adminApi } from '../../api/adminApi'
 
 const serviceWorkerPath = '/admin-sw.js'
+const pushVerificationStorageKey = 'service-booking-admin-push-verified'
+const pushVerificationTtlMs = 24 * 60 * 60 * 1000
 
 type PushDeliveryReport = {
   attempted: number
@@ -41,8 +43,37 @@ const hasUsableSubscriptionKeys = (subscription: PushSubscription) => {
   return Boolean(value.endpoint && value.keys?.auth && value.keys?.p256dh)
 }
 
+const getSubscriptionEndpoint = (subscription: PushSubscription) => subscription.toJSON().endpoint ?? ''
+
 const usesPublicKey = (subscription: PushSubscription, publicKey: string) =>
   arrayBufferToBase64Url(subscription.options.applicationServerKey ?? null) === normalizePublicKey(publicKey)
+
+const readPushVerification = () => {
+  try {
+    return JSON.parse(window.localStorage.getItem(pushVerificationStorageKey) ?? '{}') as {
+      endpoint?: string
+      verifiedAt?: number
+    }
+  } catch {
+    return {}
+  }
+}
+
+const hasRecentPushVerification = (subscription: PushSubscription) => {
+  const verification = readPushVerification()
+  return (
+    verification.endpoint === getSubscriptionEndpoint(subscription) &&
+    typeof verification.verifiedAt === 'number' &&
+    Date.now() - verification.verifiedAt < pushVerificationTtlMs
+  )
+}
+
+const rememberPushVerification = (subscription: PushSubscription) => {
+  window.localStorage.setItem(
+    pushVerificationStorageKey,
+    JSON.stringify({ endpoint: getSubscriptionEndpoint(subscription), verifiedAt: Date.now() }),
+  )
+}
 
 const saveSubscription = async (subscription: PushSubscription) => {
   if (!hasUsableSubscriptionKeys(subscription)) {
@@ -109,11 +140,13 @@ const verifyPushSubscription = async (
 ) => {
   const firstReport = await testPushSubscription(subscription)
   if (isPushDelivered(firstReport)) {
+    rememberPushVerification(subscription)
     return subscription
   }
 
   const repaired = await repairAndTestPushSubscription(registration, publicKey)
   if (isPushDelivered(repaired.report)) {
+    rememberPushVerification(repaired.subscription)
     return repaired.subscription
   }
 
@@ -182,7 +215,7 @@ export const refreshPushSubscription = async () => {
   const registration = await registerServiceWorker()
   const publicKey = await getConfiguredPublicKey()
   const result = await ensurePushSubscription(registration, publicKey)
-  if (result.isNewOrRepaired) {
+  if (result.isNewOrRepaired || !hasRecentPushVerification(result.subscription)) {
     return verifyPushSubscription(
       registration,
       publicKey,
