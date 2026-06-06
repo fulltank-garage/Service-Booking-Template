@@ -305,7 +305,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Alert>
           )}
 
-          <BookingSectionHeading title="บริการ" />
+          <BookingSectionHeading step={1} title="บริการ" />
 
           <FormControl fullWidth>
             <Select
@@ -354,7 +354,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Select>
           </FormControl>
 
-          <BookingSectionHeading title="วันเวลา" />
+          <BookingSectionHeading step={2} title="วันเวลา" />
 
           <BookingCalendar
             blackoutDates={blackoutDates}
@@ -408,7 +408,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             )}
           </Box>
 
-          <BookingSectionHeading title="ข้อมูลติดต่อ" />
+          <BookingSectionHeading step={3} title="ข้อมูลติดต่อ" />
 
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 12 }}>
@@ -471,13 +471,17 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   )
 }
 
-function BookingSectionHeading({ title }: { title: string }) {
+function BookingSectionHeading({ step, title }: { step: number; title: string }) {
   return (
     <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
       <Box sx={{ height: 1, flex: 1, bgcolor: 'divider' }} />
       <Typography
+        component="h3"
         variant="h3"
         sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.8,
           flexShrink: 0,
           color: 'text.primary',
           fontSize: '1rem',
@@ -485,7 +489,25 @@ function BookingSectionHeading({ title }: { title: string }) {
           textAlign: 'center',
         }}
       >
-        {title}
+        <Box
+          component="span"
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.88rem',
+            fontWeight: 950,
+            lineHeight: 1,
+          }}
+        >
+          {step}
+        </Box>
+        <Box component="span">{title}</Box>
       </Typography>
       <Box sx={{ height: 1, flex: 1, bgcolor: 'divider' }} />
     </Stack>
