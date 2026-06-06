@@ -104,6 +104,11 @@ describe('BookingWizard', () => {
     await user.type(screen.getByLabelText('เบอร์โทร'), '0890000000')
     await user.type(screen.getByLabelText(/หมายเหตุ/), 'ขอที่นั่งริมหน้าต่าง')
 
+    expect(screen.getByText('ตรวจสอบก่อนจอง')).toBeInTheDocument()
+    expect(screen.getAllByText(/บริการทดสอบ/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/10:00/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/0890000000/)).toBeInTheDocument()
+
     const submitButton = screen.getByRole('button', { name: 'จองคิว' })
     await waitFor(() => expect(submitButton).toBeEnabled())
     await user.click(submitButton)

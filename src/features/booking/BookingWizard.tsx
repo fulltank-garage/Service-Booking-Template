@@ -214,6 +214,10 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
   const maxDateKey = toISODate(addDays(parseISODate(todayKey), bookingRules?.maxAdvanceDays ?? 60))
   const blackoutDates = useMemo(() => new Set((bookingRules?.blackoutDates ?? []).map((item) => item.date)), [bookingRules?.blackoutDates])
   const closedWeekdays = useMemo(() => parseClosedWeekdays(bookingRules?.closedWeekdays), [bookingRules?.closedWeekdays])
+  const selectedService = useMemo(
+    () => services.find((service) => service.id === selectedServiceId) ?? null,
+    [selectedServiceId, services],
+  )
 
   const handleSubmit = async () => {
     if (!canSubmit) return
@@ -439,6 +443,13 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Grid>
           </Grid>
 
+          <BookingSummaryPreview
+            phone={phone}
+            selectedService={selectedService}
+            bookingDate={bookingDate}
+            selectedSlot={selectedSlot}
+          />
+
           <Stack spacing={1.5}>
             <Button
               variant="contained"
@@ -478,6 +489,32 @@ function BookingStepProgress() {
         </Box>
       ))}
     </Stack>
+  )
+}
+
+function BookingSummaryPreview({
+  bookingDate,
+  phone,
+  selectedService,
+  selectedSlot,
+}: {
+  bookingDate: string
+  phone: string
+  selectedService: ServiceItem | null
+  selectedSlot: string
+}) {
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.5 }}>
+      <Typography variant="h3" sx={{ mb: 1 }}>
+        ตรวจสอบก่อนจอง
+      </Typography>
+      <Grid container spacing={1}>
+        <SummaryItem label="บริการ" value={selectedService?.nameTh ?? 'ยังไม่ได้เลือกบริการ'} />
+        <SummaryItem label="วันที่" value={bookingDate ? formatThaiDateLabel(bookingDate) : 'ยังไม่ได้เลือกวันที่'} />
+        <SummaryItem label="เวลา" value={selectedSlot || 'ยังไม่ได้เลือกเวลา'} />
+        <SummaryItem label="เบอร์โทร" value={phone.trim() || 'ยังไม่ได้กรอกเบอร์โทร'} />
+      </Grid>
+    </Box>
   )
 }
 
