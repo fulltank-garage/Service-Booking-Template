@@ -438,6 +438,9 @@ func (store *notificationStore) LatestBookingByLineUser(context.Context, string)
 func (store *notificationStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
 	return nil, nil
 }
+func (store *notificationStore) CountNoShowBookingsByLineUser(context.Context, string) (int64, error) {
+	return 0, nil
+}
 func (store *notificationStore) UpdateBookingWithAvailability(context.Context, *models.Booking, int, int, int) (models.Booking, error) {
 	return models.Booking{}, nil
 }

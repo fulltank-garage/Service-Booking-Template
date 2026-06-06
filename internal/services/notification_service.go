@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
@@ -61,6 +62,16 @@ type PushDeliveryReport struct {
 	Recommendation        string `json:"recommendation,omitempty"`
 }
 
+type PushHealthReport struct {
+	Configured        bool   `json:"configured"`
+	ValidKeys         bool   `json:"validKeys"`
+	SenderReady       bool   `json:"senderReady"`
+	SubscriptionCount int    `json:"subscriptionCount"`
+	LastStatusCode    int    `json:"lastStatusCode,omitempty"`
+	LastError         string `json:"lastError,omitempty"`
+	Recommendation    string `json:"recommendation"`
+}
+
 func NewNotificationService(store repositories.Store, hub *ws.Hub, redisClient *redis.Client) *NotificationService {
 	return NewNotificationServiceWithPush(store, hub, redisClient, nil)
 }
@@ -74,43 +85,47 @@ func NewNotificationServiceWithPush(store repositories.Store, hub *ws.Hub, redis
 }
 
 func (service *NotificationService) BookingCreated(ctx context.Context, booking models.Booking) error {
+	actor := adminActorSuffix(ctx)
 	return service.createAndPublish(ctx, &models.Notification{
 		Type:      models.NotificationTypeBookingCreated,
 		Title:     "มีคิวจองใหม่",
-		Body:      fmt.Sprintf("%s จองเวลา %s %s", booking.CustomerName, booking.SlotTime, formatThaiDateLabel(booking.BookingDate)),
+		Body:      fmt.Sprintf("%s จองเวลา %s %s%s", booking.CustomerName, booking.SlotTime, formatThaiDateLabel(booking.BookingDate), actor),
 		URL:       "/bookings",
 		BookingID: booking.ID,
 	}, &booking)
 }
 
 func (service *NotificationService) BookingUpdated(ctx context.Context, booking models.Booking) error {
+	actor := adminActorSuffix(ctx)
 	return service.createAndPublish(ctx, &models.Notification{
 		Type:      models.NotificationTypeBookingUpdated,
 		Title:     "อัปเดตสถานะคิว",
-		Body:      fmt.Sprintf("%s เปลี่ยนเป็น %s", booking.BookingCode, bookingStatusLabel(booking.Status)),
+		Body:      fmt.Sprintf("%s เปลี่ยนเป็น %s%s", booking.BookingCode, bookingStatusLabel(booking.Status), actor),
 		URL:       "/bookings",
 		BookingID: booking.ID,
 	}, &booking)
 }
 
 func (service *NotificationService) BookingRescheduled(ctx context.Context, booking models.Booking) error {
+	actor := adminActorSuffix(ctx)
 	return service.createAndPublish(ctx, &models.Notification{
 		Type:      models.NotificationTypeBookingUpdated,
 		Title:     "มีการเลื่อนนัด",
-		Body:      fmt.Sprintf("%s เลื่อนเป็นเวลา %s %s", booking.CustomerName, booking.SlotTime, formatThaiDateLabel(booking.BookingDate)),
+		Body:      fmt.Sprintf("%s เลื่อนเป็นเวลา %s %s%s", booking.CustomerName, booking.SlotTime, formatThaiDateLabel(booking.BookingDate), actor),
 		URL:       "/bookings",
 		BookingID: booking.ID,
 	}, &booking)
 }
 
 func (service *NotificationService) BookingDeleted(ctx context.Context, booking models.Booking, reason string) error {
+	actor := adminActorSuffix(ctx)
 	eventType := models.NotificationTypeBookingDeleted
 	title := "ลบรายการจองแล้ว"
-	body := fmt.Sprintf("%s %s ถูกลบออกจากระบบ", booking.BookingCode, booking.CustomerName)
+	body := fmt.Sprintf("%s %s ถูกลบออกจากระบบ%s", booking.BookingCode, booking.CustomerName, actor)
 	if reason == "cancelled" {
 		eventType = models.NotificationTypeBookingCancelled
 		title = "มีการยกเลิกการจอง"
-		body = fmt.Sprintf("%s ยกเลิกคิว %s", booking.CustomerName, booking.BookingCode)
+		body = fmt.Sprintf("%s ยกเลิกคิว %s%s", booking.CustomerName, booking.BookingCode, actor)
 	}
 	return service.createAndPublish(ctx, &models.Notification{
 		Type:      eventType,
@@ -119,6 +134,21 @@ func (service *NotificationService) BookingDeleted(ctx context.Context, booking 
 		URL:       "/bookings",
 		BookingID: booking.ID,
 	}, &booking)
+}
+
+func adminActorSuffix(ctx context.Context) string {
+	actor, ok := AdminActorFromContext(ctx)
+	if !ok {
+		return ""
+	}
+	name := strings.TrimSpace(actor.Name)
+	if name == "" {
+		name = strings.TrimSpace(actor.Email)
+	}
+	if name == "" {
+		return ""
+	}
+	return " โดย " + name
 }
 
 func (service *NotificationService) ServiceChanged(ctx context.Context, eventType string, item models.Service) error {
@@ -173,6 +203,18 @@ func (service *NotificationService) MarkRead(ctx context.Context, id string) (mo
 
 func (service *NotificationService) SavePushSubscription(ctx context.Context, subscription *models.PushSubscription) error {
 	return service.store.SavePushSubscription(ctx, subscription)
+}
+
+func (service *NotificationService) HasPushSender() bool {
+	return service.push != nil
+}
+
+func (service *NotificationService) PushSubscriptionCount(ctx context.Context) (int, error) {
+	subscriptions, err := service.store.ListPushSubscriptions(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return len(subscriptions), nil
 }
 
 func (service *NotificationService) SendTestPush(ctx context.Context, endpoint string) (PushDeliveryReport, error) {

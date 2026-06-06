@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"errors"
 	"net/http"
 	"strconv"
@@ -136,7 +137,28 @@ func (handler *BookingHandler) CreateBooking(c *gin.Context) {
 	booking, err := handler.service.CreateBooking(c.Request.Context(), input)
 	if err != nil {
 		status := http.StatusBadRequest
-		if errors.Is(err, services.ErrSlotUnavailable) {
+		if errors.Is(err, services.ErrSlotUnavailable) || errors.Is(err, services.ErrActiveBookingExists) {
+			status = http.StatusConflict
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, errorBody(err.Error()))
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"data": booking})
+}
+
+func (handler *BookingHandler) CreateAdminBooking(c *gin.Context) {
+	var input services.CreateBookingInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, errorBody("ข้อมูลไม่ถูกต้อง"))
+		return
+	}
+	booking, err := handler.service.CreateAdminBooking(c.Request.Context(), input)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, services.ErrSlotUnavailable) || errors.Is(err, services.ErrActiveBookingExists) {
 			status = http.StatusConflict
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -224,6 +246,49 @@ func (handler *BookingHandler) ListBookings(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+func (handler *BookingHandler) DailySummary(c *gin.Context) {
+	summary, err := handler.service.DailySummary(c.Request.Context(), c.Query("date"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorBody(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": summary})
+}
+
+func (handler *BookingHandler) ExportBookings(c *gin.Context) {
+	items, err := handler.service.ListBookingsForExport(c.Request.Context(), models.BookingFilter{
+		Status: c.Query("status"),
+		Date:   c.Query("date"),
+		From:   c.Query("from"),
+		To:     c.Query("to"),
+		Query:  c.Query("query"),
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorBody("export รายการจองไม่สำเร็จ"))
+		return
+	}
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", "attachment; filename=bookings.csv")
+	writer := csv.NewWriter(c.Writer)
+	_ = writer.Write([]string{"booking_code", "customer_name", "phone", "service", "booking_date", "slot_time", "status", "no_show_count", "notes", "created_at"})
+	for _, booking := range items {
+		_ = writer.Write([]string{
+			booking.BookingCode,
+			booking.CustomerName,
+			booking.Phone,
+			booking.Service.NameTH,
+			booking.BookingDate,
+			booking.SlotTime,
+			booking.Status,
+			strconv.Itoa(booking.NoShowCount),
+			booking.Notes,
+			booking.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	writer.Flush()
 }
 
 func (handler *BookingHandler) ReminderCandidates(c *gin.Context) {

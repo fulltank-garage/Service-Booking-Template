@@ -9,6 +9,7 @@ import (
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
 	"github.com/fulltank-garage/service-booking-template-api/internal/repositories"
+	"gorm.io/gorm"
 )
 
 func TestCreateBookingRejectsFullSlot(t *testing.T) {
@@ -803,10 +804,19 @@ func (store *fakeStore) FindBookingByID(context.Context, string) (models.Booking
 	return *store.created, nil
 }
 func (store *fakeStore) LatestBookingByLineUser(context.Context, string) (models.Booking, error) {
-	return models.Booking{}, nil
+	return models.Booking{}, gorm.ErrRecordNotFound
 }
 func (store *fakeStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
 	return store.bookings, nil
+}
+func (store *fakeStore) CountNoShowBookingsByLineUser(_ context.Context, lineUserID string) (int64, error) {
+	var count int64
+	for _, booking := range store.bookings {
+		if booking.LineUserID == lineUserID && booking.Status == models.BookingStatusNoShow {
+			count++
+		}
+	}
+	return count, nil
 }
 func (store *fakeStore) UpdateBookingWithAvailability(_ context.Context, booking *models.Booking, durationMinutes int, capacity int, bufferMinutes int) (models.Booking, error) {
 	if countOverlappingBookings(store.bookings, booking.SlotTime, durationMinutes, bufferMinutes) >= int64(capacity) {

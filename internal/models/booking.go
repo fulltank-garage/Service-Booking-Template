@@ -20,11 +20,14 @@ type Booking struct {
 	BookingDate  string  `json:"bookingDate" gorm:"index;size:10;not null"`
 	SlotTime     string  `json:"slotTime" gorm:"index;size:5;not null"`
 	Status       string  `json:"status" gorm:"index;size:32;not null"`
+	NoShowCount  int     `json:"noShowCount,omitempty" gorm:"-"`
 }
 
 type BookingFilter struct {
 	Status string
 	Date   string
+	From   string
+	To     string
 	Query  string
 	Limit  int
 }

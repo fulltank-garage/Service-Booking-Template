@@ -29,6 +29,7 @@ type Store interface {
 	FindBookingByID(ctx context.Context, id string) (models.Booking, error)
 	LatestBookingByLineUser(ctx context.Context, lineUserID string) (models.Booking, error)
 	ListBookings(ctx context.Context, filter models.BookingFilter) ([]models.Booking, error)
+	CountNoShowBookingsByLineUser(ctx context.Context, lineUserID string) (int64, error)
 	UpdateBookingWithAvailability(ctx context.Context, booking *models.Booking, durationMinutes int, capacity int, bufferMinutes int) (models.Booking, error)
 	UpdateBookingStatus(ctx context.Context, id string, status string) (models.Booking, error)
 	DeleteBooking(ctx context.Context, id string) error
@@ -177,6 +178,12 @@ func (store *GormStore) ListBookings(ctx context.Context, filter models.BookingF
 	if filter.Date != "" {
 		query = query.Where("booking_date = ?", filter.Date)
 	}
+	if filter.From != "" {
+		query = query.Where("booking_date >= ?", filter.From)
+	}
+	if filter.To != "" {
+		query = query.Where("booking_date <= ?", filter.To)
+	}
 	if strings.TrimSpace(filter.Query) != "" {
 		term := "%" + strings.ToLower(strings.TrimSpace(filter.Query)) + "%"
 		query = query.Where(
@@ -191,6 +198,15 @@ func (store *GormStore) ListBookings(ctx context.Context, filter models.BookingF
 	}
 	err := query.Find(&bookings).Error
 	return bookings, err
+}
+
+func (store *GormStore) CountNoShowBookingsByLineUser(ctx context.Context, lineUserID string) (int64, error) {
+	var count int64
+	err := store.db.WithContext(ctx).
+		Model(&models.Booking{}).
+		Where("line_user_id = ? AND status = ?", strings.TrimSpace(lineUserID), models.BookingStatusNoShow).
+		Count(&count).Error
+	return count, err
 }
 
 func (store *GormStore) UpdateBookingWithAvailability(ctx context.Context, booking *models.Booking, durationMinutes int, capacity int, bufferMinutes int) (models.Booking, error) {

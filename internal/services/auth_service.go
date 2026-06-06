@@ -38,6 +38,22 @@ type AdminSession struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
+type adminActorContextKey struct{}
+
+type AdminActor struct {
+	Name  string
+	Email string
+}
+
+func WithAdminActor(ctx context.Context, actor AdminActor) context.Context {
+	return context.WithValue(ctx, adminActorContextKey{}, actor)
+}
+
+func AdminActorFromContext(ctx context.Context) (AdminActor, bool) {
+	actor, ok := ctx.Value(adminActorContextKey{}).(AdminActor)
+	return actor, ok
+}
+
 func NewAuthService(name string, email string, password string, sessionSecret string) *AuthService {
 	return &AuthService{
 		name:     strings.TrimSpace(name),
@@ -88,35 +104,44 @@ func (service *AuthService) Login(email string, password string) (AdminSession, 
 }
 
 func (service *AuthService) Validate(token string) bool {
-	if service.store != nil && service.validateStoredSession(context.Background(), token) {
-		return true
-	}
+	_, ok := service.SessionFromToken(context.Background(), token)
+	return ok
+}
 
+func (service *AuthService) SessionFromToken(ctx context.Context, token string) (AdminSession, bool) {
+	if service.store != nil {
+		if session, ok := service.storedSessionFromToken(ctx, token); ok {
+			return session, true
+		}
+	}
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return false
+		return AdminSession{}, false
 	}
 
 	emailBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
 	if err != nil {
-		return false
+		return AdminSession{}, false
 	}
 	expiresUnix, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return false
+		return AdminSession{}, false
 	}
 	expiresAt := time.Unix(expiresUnix, 0)
 	if !service.now().Before(expiresAt) {
-		return false
+		return AdminSession{}, false
 	}
 
 	email := string(emailBytes)
 	if !constantTimeEqual(email, service.email) {
-		return false
+		return AdminSession{}, false
 	}
 
 	expected := service.signature(email, expiresAt)
-	return constantTimeEqual(parts[2], expected)
+	if !constantTimeEqual(parts[2], expected) {
+		return AdminSession{}, false
+	}
+	return AdminSession{Name: service.name, Email: service.email, Token: token, ExpiresAt: expiresAt}, true
 }
 
 func (service *AuthService) Logout(token string) error {
@@ -152,19 +177,27 @@ func (service *AuthService) loginWithStore(ctx context.Context, email string, pa
 	return AdminSession{Name: user.Name, Email: user.Email, Token: token, ExpiresAt: expiresAt}, nil
 }
 
-func (service *AuthService) validateStoredSession(ctx context.Context, token string) bool {
+func (service *AuthService) storedSessionFromToken(ctx context.Context, token string) (AdminSession, bool) {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return false
+		return AdminSession{}, false
 	}
 	session, err := service.store.FindAdminSessionByTokenHash(ctx, service.tokenHash(token))
 	if err != nil {
-		return false
+		return AdminSession{}, false
 	}
 	if session.RevokedAt != nil || !session.AdminUser.IsActive {
-		return false
+		return AdminSession{}, false
 	}
-	return service.now().Before(session.ExpiresAt)
+	if !service.now().Before(session.ExpiresAt) {
+		return AdminSession{}, false
+	}
+	return AdminSession{
+		Name:      session.AdminUser.Name,
+		Email:     session.AdminUser.Email,
+		Token:     token,
+		ExpiresAt: session.ExpiresAt,
+	}, true
 }
 
 func (service *AuthService) sign(email string, expiresAt time.Time) string {

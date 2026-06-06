@@ -42,6 +42,9 @@ func New(deps Dependencies) *gin.Engine {
 	admin.Use(middleware.AdminAuth(deps.AuthService))
 	admin.POST("/auth/logout", authHandler.Logout)
 	admin.GET("/bookings", bookingHandler.ListBookings)
+	admin.POST("/bookings", bookingHandler.CreateAdminBooking)
+	admin.GET("/bookings/summary", bookingHandler.DailySummary)
+	admin.GET("/bookings/export", bookingHandler.ExportBookings)
 	admin.GET("/bookings/reminders", bookingHandler.ReminderCandidates)
 	admin.PUT("/bookings/:id", bookingHandler.UpdateBooking)
 	admin.PUT("/bookings/:id/status", bookingHandler.UpdateStatus)
@@ -55,6 +58,7 @@ func New(deps Dependencies) *gin.Engine {
 	admin.GET("/notifications", notificationHandler.List)
 	admin.PUT("/notifications/:id/read", notificationHandler.MarkRead)
 	admin.GET("/push/public-key", notificationHandler.PublicKey)
+	admin.GET("/push/health", notificationHandler.PushHealth)
 	admin.POST("/push/subscribe", notificationHandler.Subscribe)
 	admin.POST("/push/test", notificationHandler.TestPush)
 

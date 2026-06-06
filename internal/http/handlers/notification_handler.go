@@ -52,6 +52,42 @@ func (handler *NotificationHandler) PublicKey(c *gin.Context) {
 	})
 }
 
+func (handler *NotificationHandler) PushHealth(c *gin.Context) {
+	configured := handler.cfg.VAPIDPublicKey != "" && handler.cfg.VAPIDPrivateKey != ""
+	validKeys := false
+	configError := ""
+	if configured {
+		if err := services.ValidateVAPIDKeyPair(handler.cfg.VAPIDPublicKey, handler.cfg.VAPIDPrivateKey); err != nil {
+			configError = "VAPID_PUBLIC_KEY และ VAPID_PRIVATE_KEY ไม่ใช่คู่เดียวกัน"
+		} else {
+			validKeys = true
+		}
+	}
+	subscriptionCount, err := handler.service.PushSubscriptionCount(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, errorBody("โหลดสถานะแจ้งเตือนไม่สำเร็จ"))
+		return
+	}
+	recommendation := "push_ready"
+	if !configured {
+		recommendation = "vapid_not_configured"
+	} else if !validKeys {
+		recommendation = "vapid_key_mismatch"
+	} else if !handler.service.HasPushSender() {
+		recommendation = "push_sender_not_ready"
+	} else if subscriptionCount == 0 {
+		recommendation = "no_subscription"
+	}
+	c.JSON(http.StatusOK, gin.H{"data": services.PushHealthReport{
+		Configured:        configured,
+		ValidKeys:         validKeys,
+		SenderReady:       handler.service.HasPushSender(),
+		SubscriptionCount: subscriptionCount,
+		LastError:         configError,
+		Recommendation:    recommendation,
+	}})
+}
+
 func (handler *NotificationHandler) Subscribe(c *gin.Context) {
 	var payload struct {
 		Endpoint string `json:"endpoint"`

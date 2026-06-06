@@ -14,10 +14,15 @@ func AdminAuth(authService *services.AuthService) gin.HandlerFunc {
 		if token == "" {
 			token = strings.TrimSpace(c.Query("token"))
 		}
-		if token == "" || !authService.Validate(token) {
+		session, ok := authService.SessionFromToken(c.Request.Context(), token)
+		if token == "" || !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
+		c.Request = c.Request.WithContext(services.WithAdminActor(c.Request.Context(), services.AdminActor{
+			Name:  session.Name,
+			Email: session.Email,
+		}))
 		c.Next()
 	}
 }
