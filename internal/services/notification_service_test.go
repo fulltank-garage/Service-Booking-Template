@@ -417,12 +417,32 @@ func TestWebPushSenderNormalizesMailtoSubjectForLibrary(t *testing.T) {
 	}
 }
 
-func TestWebPushSenderUsesPlainDefaultSubject(t *testing.T) {
+func TestWebPushSenderUsesHTTPSSubject(t *testing.T) {
+	sender := NewWebPushSender("public-key", "private-key", "https://service-booking-template-admin-production.up.railway.app")
+	if sender == nil {
+		t.Fatal("expected sender")
+	}
+	if sender.subject != "https://service-booking-template-admin-production.up.railway.app" {
+		t.Fatalf("expected HTTPS subject to be used directly, got %q", sender.subject)
+	}
+}
+
+func TestWebPushSenderRejectsLocalEmailSubject(t *testing.T) {
+	sender := NewWebPushSender("public-key", "private-key", "admin@service-booking.local")
+	if sender == nil {
+		t.Fatal("expected sender")
+	}
+	if sender.subject != defaultVAPIDSubject {
+		t.Fatalf("expected .local subject to fall back to default HTTPS subject, got %q", sender.subject)
+	}
+}
+
+func TestWebPushSenderUsesHTTPSDefaultSubject(t *testing.T) {
 	sender := NewWebPushSender("public-key", "private-key", "")
 	if sender == nil {
 		t.Fatal("expected sender")
 	}
-	if sender.subject != "admin@example.com" {
+	if sender.subject != defaultVAPIDSubject {
 		t.Fatalf("expected default subject without mailto prefix, got %q", sender.subject)
 	}
 }

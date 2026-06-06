@@ -27,6 +27,7 @@ type Config struct {
 	BookingSlotCapacity          int
 	VAPIDPublicKey               string
 	VAPIDPrivateKey              string
+	VAPIDSubject                 string
 	LineChannelToken             string
 	LineBookingRichMenuID        string
 	LineBookingSuccessRichMenuID string
@@ -61,6 +62,7 @@ func Load() Config {
 		BookingSlotCapacity:          getEnvInt("BOOKING_SLOT_CAPACITY", 3),
 		VAPIDPublicKey:               os.Getenv("VAPID_PUBLIC_KEY"),
 		VAPIDPrivateKey:              os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:                 getEnv("VAPID_SUBJECT", adminURL),
 		LineChannelToken:             os.Getenv("LINE_CHANNEL_ACCESS_TOKEN"),
 		LineBookingRichMenuID:        os.Getenv("LINE_RICH_MENU_BOOKING_ID"),
 		LineBookingSuccessRichMenuID: os.Getenv("LINE_RICH_MENU_BOOKING_SUCCESS_ID"),

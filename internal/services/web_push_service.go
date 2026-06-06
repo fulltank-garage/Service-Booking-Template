@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/mail"
+	"net/url"
 	"strings"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -50,6 +52,7 @@ type WebPushSender struct {
 }
 
 const webPushTTLSeconds = 24 * 60 * 60
+const defaultVAPIDSubject = "https://example.com"
 
 func DecodeVAPIDKey(key string) ([]byte, error) {
 	key = strings.TrimSpace(key)
@@ -87,6 +90,26 @@ func ValidateVAPIDKeyPair(publicKey string, privateKey string) error {
 	return nil
 }
 
+func normalizeVAPIDSubject(subject string) string {
+	subject = strings.TrimSpace(subject)
+	if subject == "" {
+		return defaultVAPIDSubject
+	}
+	if strings.HasPrefix(subject, "mailto:") {
+		subject = strings.TrimSpace(strings.TrimPrefix(subject, "mailto:"))
+	}
+	if parsedURL, err := url.Parse(subject); err == nil && parsedURL.Scheme == "https" && parsedURL.Host != "" {
+		return subject
+	}
+	if address, err := mail.ParseAddress(subject); err == nil {
+		domain := strings.ToLower(address.Address[strings.LastIndex(address.Address, "@")+1:])
+		if domain != "" && !strings.HasSuffix(domain, ".local") && strings.Contains(domain, ".") {
+			return address.Address
+		}
+	}
+	return defaultVAPIDSubject
+}
+
 func NewWebPushSender(publicKey string, privateKey string, subject string) *WebPushSender {
 	publicKey = strings.TrimSpace(publicKey)
 	privateKey = strings.TrimSpace(privateKey)
@@ -94,12 +117,7 @@ func NewWebPushSender(publicKey string, privateKey string, subject string) *WebP
 		return nil
 	}
 
-	subject = strings.TrimSpace(subject)
-	if subject == "" {
-		subject = "admin@example.com"
-	} else if strings.HasPrefix(subject, "mailto:") {
-		subject = strings.TrimPrefix(subject, "mailto:")
-	}
+	subject = normalizeVAPIDSubject(subject)
 
 	return &WebPushSender{publicKey: publicKey, privateKey: privateKey, subject: subject}
 }
