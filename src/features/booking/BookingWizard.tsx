@@ -301,6 +301,8 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Alert>
           )}
 
+          <BookingStepProgress />
+
           <FormControl fullWidth>
             <Select
               aria-label="บริการ"
@@ -451,6 +453,31 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
         </Stack>
       </CardContent>
     </Card>
+  )
+}
+
+function BookingStepProgress() {
+  const steps = ['1 บริการ', '2 วันเวลา', '3 ข้อมูลติดต่อ']
+
+  return (
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+      {steps.map((step) => (
+        <Box
+          key={step}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: 'background.default',
+            px: 1.4,
+            py: 1,
+            flex: 1,
+          }}
+        >
+          <Typography sx={{ fontSize: '0.9rem', fontWeight: 950 }}>{step}</Typography>
+        </Box>
+      ))}
+    </Stack>
   )
 }
 
