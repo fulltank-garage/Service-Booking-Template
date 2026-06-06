@@ -406,3 +406,23 @@ func TestWebPushTTLIsLongEnoughForClosedMobileApps(t *testing.T) {
 		t.Fatalf("expected at least one day TTL for closed mobile apps, got %d", webPushTTLSeconds)
 	}
 }
+
+func TestWebPushSenderNormalizesMailtoSubjectForLibrary(t *testing.T) {
+	sender := NewWebPushSender("public-key", "private-key", "mailto:admin@example.com")
+	if sender == nil {
+		t.Fatal("expected sender")
+	}
+	if sender.subject != "admin@example.com" {
+		t.Fatalf("expected mailto prefix to be stripped before webpush library adds it, got %q", sender.subject)
+	}
+}
+
+func TestWebPushSenderUsesPlainDefaultSubject(t *testing.T) {
+	sender := NewWebPushSender("public-key", "private-key", "")
+	if sender == nil {
+		t.Fatal("expected sender")
+	}
+	if sender.subject != "admin@example.com" {
+		t.Fatalf("expected default subject without mailto prefix, got %q", sender.subject)
+	}
+}

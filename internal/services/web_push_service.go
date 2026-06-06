@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"crypto/elliptic"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,6 +51,42 @@ type WebPushSender struct {
 
 const webPushTTLSeconds = 24 * 60 * 60
 
+func DecodeVAPIDKey(key string) ([]byte, error) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil, errors.New("empty VAPID key")
+	}
+	if bytes, err := base64.RawURLEncoding.DecodeString(key); err == nil {
+		return bytes, nil
+	}
+	return base64.URLEncoding.DecodeString(key)
+}
+
+func ValidateVAPIDKeyPair(publicKey string, privateKey string) error {
+	publicBytes, err := DecodeVAPIDKey(publicKey)
+	if err != nil {
+		return fmt.Errorf("invalid VAPID public key: %w", err)
+	}
+	privateBytes, err := DecodeVAPIDKey(privateKey)
+	if err != nil {
+		return fmt.Errorf("invalid VAPID private key: %w", err)
+	}
+	if len(privateBytes) != 32 {
+		return fmt.Errorf("invalid VAPID private key length: got %d", len(privateBytes))
+	}
+
+	curve := elliptic.P256()
+	x, y := curve.ScalarBaseMult(privateBytes)
+	if x == nil || y == nil {
+		return errors.New("invalid VAPID private key")
+	}
+	derivedPublicKey := elliptic.Marshal(curve, x, y)
+	if string(publicBytes) != string(derivedPublicKey) {
+		return errors.New("VAPID public key does not match private key")
+	}
+	return nil
+}
+
 func NewWebPushSender(publicKey string, privateKey string, subject string) *WebPushSender {
 	publicKey = strings.TrimSpace(publicKey)
 	privateKey = strings.TrimSpace(privateKey)
@@ -58,9 +96,9 @@ func NewWebPushSender(publicKey string, privateKey string, subject string) *WebP
 
 	subject = strings.TrimSpace(subject)
 	if subject == "" {
-		subject = "mailto:admin@example.com"
-	} else if !strings.Contains(subject, ":") {
-		subject = "mailto:" + subject
+		subject = "admin@example.com"
+	} else if strings.HasPrefix(subject, "mailto:") {
+		subject = strings.TrimPrefix(subject, "mailto:")
 	}
 
 	return &WebPushSender{publicKey: publicKey, privateKey: privateKey, subject: subject}

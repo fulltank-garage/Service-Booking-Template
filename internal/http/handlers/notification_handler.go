@@ -37,8 +37,17 @@ func (handler *NotificationHandler) MarkRead(c *gin.Context) {
 }
 
 func (handler *NotificationHandler) PublicKey(c *gin.Context) {
+	configured := handler.cfg.VAPIDPublicKey != "" && handler.cfg.VAPIDPrivateKey != ""
+	configError := ""
+	if configured {
+		if err := services.ValidateVAPIDKeyPair(handler.cfg.VAPIDPublicKey, handler.cfg.VAPIDPrivateKey); err != nil {
+			configured = false
+			configError = "VAPID_PUBLIC_KEY และ VAPID_PRIVATE_KEY ไม่ใช่คู่เดียวกัน"
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"configured": handler.cfg.VAPIDPublicKey != "" && handler.cfg.VAPIDPrivateKey != "",
+		"configured": configured,
+		"error":      configError,
 		"publicKey":  handler.cfg.VAPIDPublicKey,
 	})
 }
