@@ -37,6 +37,7 @@ vi.mock('./api/bookingApi', () => ({
       minAdvanceHours: 0,
       maxAdvanceDays: 60,
       reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
       blackoutDates: [],
     }),
     listAvailability: vi.fn().mockResolvedValue([]),
@@ -217,6 +218,7 @@ describe('App routing', () => {
         minAdvanceHours: 0,
         maxAdvanceDays: 60,
         reminderLeadMinutes: 1440,
+        bufferMinutes: 0,
         blackoutDates: [],
       })
       await Promise.all([services.promise, rules.promise])

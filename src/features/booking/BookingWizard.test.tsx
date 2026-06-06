@@ -70,6 +70,7 @@ describe('BookingWizard', () => {
       minAdvanceHours: 0,
       maxAdvanceDays: 60,
       reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
       blackoutDates: [],
     })
     mockedBookingApi.listAvailability.mockResolvedValue([
@@ -130,6 +131,7 @@ describe('BookingWizard', () => {
       minAdvanceHours: 0,
       maxAdvanceDays: 60,
       reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
       blackoutDates: [],
     })
 
@@ -153,6 +155,7 @@ describe('BookingWizard', () => {
       minAdvanceHours: 0,
       maxAdvanceDays: 60,
       reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
       blackoutDates: [],
     })
 
@@ -174,6 +177,7 @@ describe('BookingWizard', () => {
       minAdvanceHours: 0,
       maxAdvanceDays: 60,
       reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
       blackoutDates: [],
     })
 

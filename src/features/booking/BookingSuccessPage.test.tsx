@@ -102,4 +102,45 @@ describe('BookingSuccessPage', () => {
 
     await waitFor(() => expect(onBookingCancelled).toHaveBeenCalledTimes(1))
   })
+
+  it('leaves the booking details page when the booking becomes no-show while open', async () => {
+    const onBookingCancelled = vi.fn()
+
+    mockedBookingApi.latestBookingByLineUser
+      .mockResolvedValueOnce({
+        id: 'booking-3',
+        bookingCode: 'SB-TEST-0003',
+        serviceId: 'service-1',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        lineUserId: 'line-user-no-show',
+        bookingDate: '2026-06-10',
+        slotTime: '10:00',
+        status: 'pending',
+        createdAt: '2026-06-10T03:00:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        id: 'booking-3',
+        bookingCode: 'SB-TEST-0003',
+        serviceId: 'service-1',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        lineUserId: 'line-user-no-show',
+        bookingDate: '2026-06-10',
+        slotTime: '10:00',
+        status: 'no_show',
+        createdAt: '2026-06-10T03:00:00.000Z',
+      })
+
+    renderBookingSuccessPage({
+      lineProfile: { userId: 'line-user-no-show', displayName: 'สมชาย' },
+      onBookingCancelled,
+    })
+
+    expect(await screen.findByText('SB-TEST-0003')).toBeInTheDocument()
+
+    window.dispatchEvent(new Event('focus'))
+
+    await waitFor(() => expect(onBookingCancelled).toHaveBeenCalledTimes(1))
+  })
 })

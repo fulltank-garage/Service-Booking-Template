@@ -37,10 +37,18 @@ const latestBookingRequests = new Map<string, Promise<Booking>>()
 const bookingRefreshIntervalMs = 5_000
 
 const isNotFoundError = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 404
+const isClosedBookingStatus = (status: Booking['status']) =>
+  status === 'cancelled' || status === 'completed' || status === 'no_show'
 
 const forgetLatestBooking = (lineUserId: string) => {
   latestBookingCache.delete(lineUserId)
   latestBookingRequests.delete(lineUserId)
+}
+
+const closeStaleBookingDetails = (lineUserId: string, setBooking: (booking: Booking | null) => void, onBookingCancelled: () => void) => {
+  forgetLatestBooking(lineUserId)
+  setBooking(null)
+  onBookingCancelled()
 }
 
 const loadLatestBooking = (lineUserId: string, options?: { force?: boolean }) => {
@@ -104,13 +112,17 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
       setError('')
       try {
         const latestBooking = await loadLatestBooking(lineProfile.userId)
-        if (active) setBooking(latestBooking)
+        if (active) {
+          if (isClosedBookingStatus(latestBooking.status)) {
+            closeStaleBookingDetails(lineProfile.userId, setBooking, onBookingCancelledRef.current)
+          } else {
+            setBooking(latestBooking)
+          }
+        }
       } catch (error) {
         if (active) {
           if (isNotFoundError(error)) {
-            forgetLatestBooking(lineProfile.userId)
-            setBooking(null)
-            onBookingCancelledRef.current()
+            closeStaleBookingDetails(lineProfile.userId, setBooking, onBookingCancelledRef.current)
           } else {
             setBooking(fallbackBookingRef.current)
             setError('โหลดข้อมูลการจองล่าสุดไม่สำเร็จ')
@@ -135,13 +147,17 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
     const refreshBooking = async () => {
       try {
         const latestBooking = await loadLatestBooking(lineProfile.userId, { force: true })
-        if (active) setBooking(latestBooking)
+        if (active) {
+          if (isClosedBookingStatus(latestBooking.status)) {
+            closeStaleBookingDetails(lineProfile.userId, setBooking, onBookingCancelledRef.current)
+          } else {
+            setBooking(latestBooking)
+          }
+        }
       } catch (error) {
         if (!active) return
         if (isNotFoundError(error)) {
-          forgetLatestBooking(lineProfile.userId)
-          setBooking(null)
-          onBookingCancelledRef.current()
+          closeStaleBookingDetails(lineProfile.userId, setBooking, onBookingCancelledRef.current)
         }
       }
     }

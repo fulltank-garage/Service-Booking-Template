@@ -27,7 +27,7 @@ export type Booking = {
   notes?: string
   bookingDate: string
   slotTime: string
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
   createdAt: string
 }
 
@@ -46,6 +46,7 @@ export type BookingRules = {
   minAdvanceHours: number
   maxAdvanceDays: number
   reminderLeadMinutes: number
+  bufferMinutes: number
   blackoutDates: BookingBlackoutDate[]
 }
 
