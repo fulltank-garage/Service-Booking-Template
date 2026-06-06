@@ -57,6 +57,7 @@ const renderPage = () =>
 
 describe('DashboardPage', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     realtimeState.options = null
     mockedAdminApi.listBookings.mockReset()
     mockedAdminApi.listNotifications.mockReset()
@@ -139,6 +140,33 @@ describe('DashboardPage', () => {
     expect(await screen.findAllByText('FULLTANK Garage Admin')).not.toHaveLength(0)
     expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
     expect(screen.queryByText('รายการจองล่าสุด')).not.toBeInTheDocument()
+  })
+
+  it('explains booking statuses and shows the next actionable booking', async () => {
+    const bookingDate = todayISO()
+    mockedAdminApi.listBookings.mockResolvedValue([
+      {
+        id: 'booking-next',
+        serviceId: 'service-1',
+        bookingCode: 'Q-NEXT',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        bookingDate,
+        slotTime: '10:00',
+        status: 'pending',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+    ])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+
+    renderPage()
+
+    expect(await screen.findByText('คิวถัดไป')).toBeInTheDocument()
+    expect(screen.getAllByText(/สมชาย/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/รอจัดการ = ลูกค้าจองเข้ามาแล้ว/)).toBeInTheDocument()
+    expect(screen.getByText(/ยืนยันแล้ว = ร้านรับคิวนี้แล้ว/)).toBeInTheDocument()
+    expect(screen.getByText(/เสร็จสิ้น = ร้านทำคิวนี้เสร็จแล้ว/)).toBeInTheDocument()
   })
 
   it('keeps the newest created booking at the top of the booking list', async () => {
@@ -323,6 +351,20 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('แก้ไขตั้งค่าร้านแล้ว')).toBeInTheDocument()
   })
 
+  it('shows shop-friendly notification diagnostics', async () => {
+    window.localStorage.setItem('service-booking-admin-simple-mode', 'false')
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'รายการแจ้งเตือน' }))
+
+    expect(await screen.findByRole('button', { name: 'ตรวจแจ้งเตือนเครื่องนี้' })).toBeInTheDocument()
+    expect(screen.getByText(/เครื่องนี้พร้อมรับแจ้งเตือน/)).toBeInTheDocument()
+  })
+
   it('saves shop times and reminder lead from dropdown controls', async () => {
     const user = userEvent.setup()
     mockedAdminApi.listBookings.mockResolvedValue([])
@@ -334,6 +376,10 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'การตั้งค่าร้าน' }))
+    expect(await screen.findByText('เวลาร้าน')).toBeInTheDocument()
+    expect(screen.getByText('จำนวนคิว')).toBeInTheDocument()
+    expect(screen.getByText('แจ้งเตือน')).toBeInTheDocument()
+    expect(screen.getByText('วันหยุด')).toBeInTheDocument()
     await user.click(await screen.findByLabelText('เวลาเปิดร้าน'))
     await user.click(await screen.findByRole('option', { name: '10:30' }))
     await user.click(screen.getByLabelText('เวลาปิดร้าน'))
@@ -419,6 +465,7 @@ describe('DashboardPage', () => {
     })
 
     await user.click(screen.getAllByRole('button', { name: 'ยืนยัน' })[0])
+    await user.click(await screen.findByRole('button', { name: 'ยืนยันรับคิว' }))
 
     await waitFor(() => {
       expect(screen.queryAllByText('สมชาย')).toHaveLength(0)
@@ -462,11 +509,36 @@ describe('DashboardPage', () => {
 
     await user.click(screen.getAllByRole('button', { name: 'เพิ่มเติม' })[0])
     await user.click(await screen.findByRole('button', { name: 'ไม่มาตามนัด' }))
+    await user.click(await screen.findByRole('button', { name: 'บันทึกไม่มาตามนัด' }))
 
     await waitFor(() => {
       expect(mockedAdminApi.updateBookingStatus).toHaveBeenCalledWith('booking-1', 'no_show')
     })
     expect(await screen.findAllByText('ไม่มาตามนัด')).not.toHaveLength(0)
+  })
+
+  it('guides staff to add only required walk-in booking fields first', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([
+      {
+        id: 'service-1',
+        nameTh: 'ทำเล็บเจล',
+        nameEn: 'Gel nail',
+        descriptionTh: 'ทำเล็บเจลสีพื้น',
+        durationMinutes: 45,
+        priceCents: 35000,
+        accentColor: '#FF008C',
+        isActive: true,
+      },
+    ])
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'เพิ่มคิวโทร/หน้าร้าน' })[0])
+
+    expect(await screen.findByText('กรอกเฉพาะข้อมูลจำเป็นก่อน')).toBeInTheDocument()
   })
 
   it('adds a service when a realtime service event arrives', async () => {

@@ -97,6 +97,39 @@ const getBookingStatusAction = (status: BookingStatus) => {
   return { label: status === 'completed' ? 'เสร็จสิ้น' : 'ยืนยัน', nextStatus: status, disabled: true }
 }
 
+const getBookingStatusConfirmation = (status: BookingStatus) => {
+  if (status === 'confirmed') {
+    return {
+      title: 'ยืนยันรับคิวนี้?',
+      description: 'เมื่อตกลงแล้วคิวนี้จะเปลี่ยนเป็นยืนยันแล้ว และลูกค้าจะเห็นว่าร้านรับคิวนี้แล้ว',
+      confirmLabel: 'ยืนยันรับคิว',
+      danger: false,
+    }
+  }
+  if (status === 'completed') {
+    return {
+      title: 'ทำคิวนี้เสร็จแล้ว?',
+      description: 'หลังบันทึกเสร็จสิ้น คิวนี้จะปิดงานและไม่ควรแก้ไขต่อ',
+      confirmLabel: 'บันทึกเสร็จสิ้น',
+      danger: false,
+    }
+  }
+  if (status === 'no_show') {
+    return {
+      title: 'ลูกค้าไม่มาตามนัด?',
+      description: 'ใช้เมื่อเลยเวลานัดแล้วลูกค้าไม่มา ระบบจะแยกออกจากคิวยกเลิกและคิวเสร็จสิ้น',
+      confirmLabel: 'บันทึกไม่มาตามนัด',
+      danger: true,
+    }
+  }
+  return {
+    title: 'ยืนยันการเปลี่ยนสถานะ?',
+    description: 'ตรวจสอบให้แน่ใจก่อนบันทึกการเปลี่ยนสถานะคิวนี้',
+    confirmLabel: 'ยืนยัน',
+    danger: false,
+  }
+}
+
 const isClosedBookingStatus = (status: BookingStatus) =>
   status === 'completed' || status === 'cancelled' || status === 'no_show'
 
@@ -1813,9 +1846,14 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
             <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
               {recommendationMessages[health.recommendation] ?? 'ตรวจสอบสถานะแจ้งเตือนก่อนใช้งานจริง'}
             </Typography>
-            <Button variant="outlined" onClick={() => setShowDetails((current) => !current)}>
-              {showDetails ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียดผู้ดูแล'}
-            </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: 'stretch' }}>
+              <Button variant="contained" onClick={() => setShowDetails(true)}>
+                ตรวจแจ้งเตือนเครื่องนี้
+              </Button>
+              <Button variant="outlined" onClick={() => setShowDetails((current) => !current)}>
+                {showDetails ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียดผู้ดูแล'}
+              </Button>
+            </Stack>
           </Stack>
           {showDetails && (
             <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
@@ -1828,6 +1866,17 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
         </Stack>
       </CardContent>
     </Card>
+  )
+}
+
+function SettingsSection({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.5 }}>
+      <Typography variant="h3" sx={{ mb: 1.2 }}>
+        {title}
+      </Typography>
+      {children}
+    </Box>
   )
 }
 
@@ -1895,183 +1944,199 @@ function BookingSettingsPage({
           การตั้งค่าร้าน
         </Typography>
         <Stack spacing={2}>
-          <Grid container spacing={1.5}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth>
-                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาเปิดร้าน</Typography>
-                <Select
-                  aria-label="เวลาเปิดร้าน"
-                  value={openTime}
-                  onChange={(event) => setOpenTime(event.target.value)}
-                >
-                  {shopTimeOptions.map((option) => (
-                    <MenuItem key={`open-${option.value}`} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+          <SettingsSection title="เวลาร้าน">
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth>
+                  <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาเปิดร้าน</Typography>
+                  <Select
+                    aria-label="เวลาเปิดร้าน"
+                    value={openTime}
+                    onChange={(event) => setOpenTime(event.target.value)}
+                  >
+                    {shopTimeOptions.map((option) => (
+                      <MenuItem key={`open-${option.value}`} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth>
+                  <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาปิดร้าน</Typography>
+                  <Select
+                    aria-label="เวลาปิดร้าน"
+                    value={closeTime}
+                    onChange={(event) => setCloseTime(event.target.value)}
+                  >
+                    {shopTimeOptions.map((option) => (
+                      <MenuItem key={`close-${option.value}`} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth>
-                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาปิดร้าน</Typography>
-                <Select
-                  aria-label="เวลาปิดร้าน"
-                  value={closeTime}
-                  onChange={(event) => setCloseTime(event.target.value)}
-                >
-                  {shopTimeOptions.map((option) => (
-                    <MenuItem key={`close-${option.value}`} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="รับลูกค้าพร้อมกันได้กี่คิว"
-                value={slotCapacity}
-                onChange={(event) => setSlotCapacity(digitsOnly(event.target.value))}
-                helperText="เช่น มีช่าง 2 คน รับพร้อมกันได้ 2 คิว"
-                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="ต้องจองล่วงหน้าอย่างน้อยกี่ชั่วโมง"
-                value={minAdvanceHours}
-                onChange={(event) => setMinAdvanceHours(digitsOnly(event.target.value))}
-                helperText="ใส่ 0 ถ้ารับจองเวลาที่ใกล้ที่สุดได้"
-                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="ลูกค้าจองล่วงหน้าได้ไกลสุดกี่วัน"
-                value={maxAdvanceDays}
-                onChange={(event) => setMaxAdvanceDays(digitsOnly(event.target.value))}
-                helperText="เช่น 30 คือเปิดรับคิวล่วงหน้าได้ 30 วัน"
-                slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth>
-                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เตือนก่อนนัด</Typography>
-                <Select
-                  aria-label="เตือนก่อนนัด"
-                  value={reminderLeadMinutes}
-                  onChange={(event) => setReminderLeadMinutes(event.target.value)}
-                >
-                  {reminderLeadOptions.map((option) => (
-                    <MenuItem key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth>
-                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาพักระหว่างคิว</Typography>
-                <Select
-                  aria-label="เวลาพักระหว่างคิว"
-                  value={bufferMinutes}
-                  onChange={(event) => setBufferMinutes(event.target.value)}
-                >
-                  {bufferMinuteOptions.map((option) => (
-                    <MenuItem key={option.value} value={String(option.value)}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+          </SettingsSection>
 
-          <Box>
-            <Typography sx={{ mb: 1, fontSize: '0.9rem', fontWeight: 900 }}>วันปิดร้าน</Typography>
-            <Select
-              fullWidth
-              multiple
-              displayEmpty
-              value={selectedDays}
-              onChange={(event) => {
-                const value = event.target.value
-                const days = Array.isArray(value) ? value : value.split(',')
-                setClosedWeekdays(days.map((day) => String(day)).sort().join(','))
-              }}
-              renderValue={(selected) => {
-                const days = selected as string[]
-                if (days.length === 0) return 'เลือกวันที่ร้านหยุด'
-                return days.map((day) => weekdayLabelMap.get(day) ?? day).join(', ')
-              }}
-            >
-              {weekdayOptions.map(([value, label]) => (
-                <MenuItem key={value} value={value}>
-                  {label}
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
+          <SettingsSection title="จำนวนคิว">
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="รับลูกค้าพร้อมกันได้กี่คิว"
+                  value={slotCapacity}
+                  onChange={(event) => setSlotCapacity(digitsOnly(event.target.value))}
+                  helperText="เช่น มีช่าง 2 คน รับพร้อมกันได้ 2 คิว"
+                  slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="ต้องจองล่วงหน้าอย่างน้อยกี่ชั่วโมง"
+                  value={minAdvanceHours}
+                  onChange={(event) => setMinAdvanceHours(digitsOnly(event.target.value))}
+                  helperText="ใส่ 0 ถ้ารับจองเวลาที่ใกล้ที่สุดได้"
+                  slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  label="ลูกค้าจองล่วงหน้าได้ไกลสุดกี่วัน"
+                  value={maxAdvanceDays}
+                  onChange={(event) => setMaxAdvanceDays(digitsOnly(event.target.value))}
+                  helperText="เช่น 30 คือเปิดรับคิวล่วงหน้าได้ 30 วัน"
+                  slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth>
+                  <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาพักระหว่างคิว</Typography>
+                  <Select
+                    aria-label="เวลาพักระหว่างคิว"
+                    value={bufferMinutes}
+                    onChange={(event) => setBufferMinutes(event.target.value)}
+                  >
+                    {bufferMinuteOptions.map((option) => (
+                      <MenuItem key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </SettingsSection>
 
-          <Box>
-            <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography sx={{ fontSize: '0.9rem', fontWeight: 900 }}>วันหยุดเฉพาะวันที่</Typography>
-              <Button
-                variant="outlined"
-                onClick={() => setBlackoutDates((current) => [...current, { date: '', reason: '' }])}
-              >
-                เพิ่มวันหยุด
-              </Button>
+          <SettingsSection title="แจ้งเตือน">
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth>
+                  <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เตือนก่อนนัด</Typography>
+                  <Select
+                    aria-label="เตือนก่อนนัด"
+                    value={reminderLeadMinutes}
+                    onChange={(event) => setReminderLeadMinutes(event.target.value)}
+                  >
+                    {reminderLeadOptions.map((option) => (
+                      <MenuItem key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </SettingsSection>
+
+          <SettingsSection title="วันหยุด">
+            <Stack spacing={2}>
+              <Box>
+                <Typography sx={{ mb: 1, fontSize: '0.9rem', fontWeight: 900 }}>วันปิดร้าน</Typography>
+                <Select
+                  fullWidth
+                  multiple
+                  displayEmpty
+                  value={selectedDays}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    const days = Array.isArray(value) ? value : value.split(',')
+                    setClosedWeekdays(days.map((day) => String(day)).sort().join(','))
+                  }}
+                  renderValue={(selected) => {
+                    const days = selected as string[]
+                    if (days.length === 0) return 'เลือกวันที่ร้านหยุด'
+                    return days.map((day) => weekdayLabelMap.get(day) ?? day).join(', ')
+                  }}
+                >
+                  {weekdayOptions.map(([value, label]) => (
+                    <MenuItem key={value} value={value}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Box>
+
+              <Box>
+                <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 900 }}>วันหยุดเฉพาะวันที่</Typography>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setBlackoutDates((current) => [...current, { date: '', reason: '' }])}
+                  >
+                    เพิ่มวันหยุด
+                  </Button>
+                </Stack>
+                <Stack spacing={1}>
+                  {blackoutDates.length === 0 && (
+                    <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>ยังไม่มีวันหยุดเฉพาะวันที่</Typography>
+                  )}
+                  {blackoutDates.map((item, index) => (
+                    <Grid container spacing={1} key={`${item.id ?? 'new'}-${index}`}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          fullWidth
+                          type="date"
+                          value={item.date}
+                          onChange={(event) =>
+                            setBlackoutDates((current) =>
+                              current.map((dateItem, itemIndex) => (itemIndex === index ? { ...dateItem, date: event.target.value } : dateItem)),
+                            )
+                          }
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          placeholder="เหตุผล เช่น ร้านหยุดพิเศษ"
+                          value={item.reason ?? ''}
+                          onChange={(event) =>
+                            setBlackoutDates((current) =>
+                              current.map((dateItem, itemIndex) => (itemIndex === index ? { ...dateItem, reason: event.target.value } : dateItem)),
+                            )
+                          }
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 2 }}>
+                        <Button
+                          fullWidth
+                          variant="contained"
+                          onClick={() => setBlackoutDates((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                          sx={{ minHeight: 56, bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+                        >
+                          ลบ
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  ))}
+                </Stack>
+              </Box>
             </Stack>
-            <Stack spacing={1}>
-              {blackoutDates.length === 0 && (
-                <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>ยังไม่มีวันหยุดเฉพาะวันที่</Typography>
-              )}
-              {blackoutDates.map((item, index) => (
-                <Grid container spacing={1} key={`${item.id ?? 'new'}-${index}`}>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField
-                      fullWidth
-                      type="date"
-                      value={item.date}
-                      onChange={(event) =>
-                        setBlackoutDates((current) =>
-                          current.map((dateItem, itemIndex) => (itemIndex === index ? { ...dateItem, date: event.target.value } : dateItem)),
-                        )
-                      }
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth
-                      placeholder="เหตุผล เช่น ร้านหยุดพิเศษ"
-                      value={item.reason ?? ''}
-                      onChange={(event) =>
-                        setBlackoutDates((current) =>
-                          current.map((dateItem, itemIndex) => (itemIndex === index ? { ...dateItem, reason: event.target.value } : dateItem)),
-                        )
-                      }
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      onClick={() => setBlackoutDates((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                      sx={{ minHeight: 56, bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
-                    >
-                      ลบ
-                    </Button>
-                  </Grid>
-                </Grid>
-              ))}
-            </Stack>
-          </Box>
+          </SettingsSection>
 
           <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>
             <Button variant="contained" disabled={isSaving} onClick={handleSave}>
@@ -2635,6 +2700,46 @@ function BottomEditorSheet({
   )
 }
 
+function NextBookingPanel({ booking }: { booking: Booking }) {
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.5 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}>
+        <Box>
+          <Typography sx={{ color: 'primary.main', fontWeight: 950 }}>คิวถัดไป</Typography>
+          <Typography sx={{ mt: 0.25, fontWeight: 950 }}>
+            {booking.customerName} เวลา {booking.slotTime}
+          </Typography>
+          <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+            {booking.service?.nameTh ?? 'ยังไม่ได้ระบุบริการ'} · {booking.bookingCode}
+          </Typography>
+        </Box>
+        <Chip label={statusLabels[booking.status]} color="primary" sx={statusChipTextSx(booking.status)} />
+      </Stack>
+    </Box>
+  )
+}
+
+function BookingStatusGuide() {
+  const items = [
+    'รอจัดการ = ลูกค้าจองเข้ามาแล้ว ร้านยังไม่ได้รับคิวนี้',
+    'ยืนยันแล้ว = ร้านรับคิวนี้แล้ว ลูกค้ารอมาใช้บริการ',
+    'เสร็จสิ้น = ร้านทำคิวนี้เสร็จแล้ว ไม่ต้องแก้ต่อ',
+  ]
+
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, p: 1.5 }}>
+      <Typography sx={{ mb: 0.8, fontWeight: 950 }}>สถานะคิวหมายถึงอะไร</Typography>
+      <Stack spacing={0.5}>
+        {items.map((item) => (
+          <Typography key={item} sx={{ color: 'text.secondary', fontSize: '0.88rem', fontWeight: 760 }}>
+            {item}
+          </Typography>
+        ))}
+      </Stack>
+    </Box>
+  )
+}
+
 function BookingsCard({
   bookings,
   query,
@@ -2687,6 +2792,14 @@ function BookingsCard({
 
   const [serviceIdForCreate, setServiceIdForCreate] = useState('')
   const [bookingDateForCreate, setBookingDateForCreate] = useState(selectedDate)
+  const nextBooking = useMemo(
+    () =>
+      bookings
+        .filter((booking) => !isClosedBookingStatus(booking.status))
+        .slice()
+        .sort((a, b) => a.slotTime.localeCompare(b.slotTime))[0] ?? null,
+    [bookings],
+  )
 
   const openEditBooking = (booking: Booking) => {
     if (isClosedBookingStatus(booking.status)) return
@@ -2737,6 +2850,8 @@ function BookingsCard({
             <Typography variant="h2">รายการจอง</Typography>
             <Typography sx={{ fontWeight: 950, color: 'primary.main' }}>{formatThaiDateLabel(selectedDate)}</Typography>
           </Stack>
+          {nextBooking && <NextBookingPanel booking={nextBooking} />}
+          <BookingStatusGuide />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
             <TextField
               placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่จอง"
@@ -2985,7 +3100,27 @@ function BookingActionButtons({
 }) {
   const statusAction = getBookingStatusAction(booking.status)
   const [isMoreOpen, setIsMoreOpen] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<BookingStatus | null>(null)
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false)
   const canUseSecondaryActions = !isClosedBookingStatus(booking.status)
+  const pendingConfirmation = pendingStatus ? getBookingStatusConfirmation(pendingStatus) : null
+
+  const openStatusConfirm = (status: BookingStatus) => {
+    if (isClosedBookingStatus(booking.status)) return
+    setPendingStatus(status)
+  }
+
+  const confirmStatusChange = () => {
+    if (!pendingStatus) return
+    const nextStatus = pendingStatus
+    setPendingStatus(null)
+    void onStatusChange(booking, nextStatus)
+  }
+
+  const confirmCancelBooking = () => {
+    setIsCancelConfirmOpen(false)
+    onDeleteBooking(booking)
+  }
 
   return (
     <>
@@ -3013,7 +3148,7 @@ function BookingActionButtons({
           fullWidth
           variant="contained"
           disabled={statusAction.disabled}
-          onClick={() => onStatusChange(booking, statusAction.nextStatus)}
+          onClick={() => openStatusConfirm(statusAction.nextStatus)}
         >
           {statusAction.label}
         </Button>
@@ -3039,13 +3174,13 @@ function BookingActionButtons({
             <Button
               fullWidth
               variant="outlined"
-              disabled={!canUseSecondaryActions}
-              onClick={() => {
-                setIsMoreOpen(false)
-                onStatusChange(booking, 'no_show')
-              }}
-            >
-              ไม่มาตามนัด
+            disabled={!canUseSecondaryActions}
+            onClick={() => {
+              setIsMoreOpen(false)
+              openStatusConfirm('no_show')
+            }}
+          >
+            ไม่มาตามนัด
             </Button>
           )}
           <Button
@@ -3054,12 +3189,58 @@ function BookingActionButtons({
             disabled={!canUseSecondaryActions}
             onClick={() => {
               setIsMoreOpen(false)
-              onDeleteBooking(booking)
+              setIsCancelConfirmOpen(true)
             }}
             sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
           >
             ยกเลิกคิว
           </Button>
+        </Stack>
+      </BottomEditorSheet>
+
+      <BottomEditorSheet isOpen={Boolean(pendingConfirmation)} onClose={() => setPendingStatus(null)} title={pendingConfirmation?.title ?? ''}>
+        {pendingConfirmation && (
+          <Stack spacing={1.6}>
+            <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+              {pendingConfirmation.description}
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
+              <Button variant="outlined" onClick={() => setPendingStatus(null)}>
+                ปิด
+              </Button>
+              <Button
+                variant="contained"
+                onClick={confirmStatusChange}
+                sx={
+                  pendingConfirmation.danger
+                    ? { bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }
+                    : undefined
+                }
+              >
+                {pendingConfirmation.confirmLabel}
+              </Button>
+            </Stack>
+          </Stack>
+        )}
+      </BottomEditorSheet>
+
+      <BottomEditorSheet isOpen={isCancelConfirmOpen} onClose={() => setIsCancelConfirmOpen(false)} title="ยืนยันยกเลิกคิว?">
+        <Stack spacing={1.6}>
+          <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+            ใช้เมื่อร้านต้องยกเลิกคิวนี้จริง ๆ หลังยกเลิกแล้วลูกค้าจะไม่ควรเห็นคิวนี้เป็นคิวที่กำลังใช้งาน
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
+            <Button variant="outlined" onClick={() => setIsCancelConfirmOpen(false)}>
+              ปิด
+            </Button>
+            <Button
+              variant="contained"
+              onClick={confirmCancelBooking}
+              sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+            >
+              ยืนยันยกเลิกคิว
+            </Button>
+          </Stack>
         </Stack>
       </BottomEditorSheet>
     </>
@@ -3123,6 +3304,12 @@ function BookingCreateSheet({
   return (
     <BottomEditorSheet isOpen={isOpen} onClose={onClose} title="เพิ่มคิวโทร/หน้าร้าน">
       <Stack spacing={2}>
+        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
+          <Typography sx={{ fontWeight: 950 }}>กรอกเฉพาะข้อมูลจำเป็นก่อน</Typography>
+          <Typography sx={{ mt: 0.3, color: 'text.secondary', fontWeight: 760 }}>
+            เลือกบริการ ชื่อลูกค้า เบอร์โทร วันที่ และเวลาให้ครบ ส่วนหมายเหตุค่อยเติมทีหลังได้
+          </Typography>
+        </Box>
         <FormControl fullWidth>
           <Select aria-label="บริการ" value={serviceId} onChange={(event) => onServiceIdChange(event.target.value)} displayEmpty>
             <MenuItem value="" disabled>
