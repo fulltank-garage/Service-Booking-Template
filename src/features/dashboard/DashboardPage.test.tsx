@@ -162,7 +162,9 @@ describe('DashboardPage', () => {
 
     renderPage()
 
-    expect(await screen.findByText('คิวถัดไป')).toBeInTheDocument()
+    expect(await screen.findByText('ต้องจัดการตอนนี้')).toBeInTheDocument()
+    expect(screen.getByText('คิวถัดไป')).toBeInTheDocument()
+    expect(screen.getByText('คิวอื่นของวันนี้')).toBeInTheDocument()
     expect(screen.getAllByText(/สมชาย/).length).toBeGreaterThan(0)
     expect(screen.getByText(/รอจัดการ = ลูกค้าจองเข้ามาแล้ว/)).toBeInTheDocument()
     expect(screen.getByText(/ยืนยันแล้ว = ร้านรับคิวนี้แล้ว/)).toBeInTheDocument()
@@ -363,6 +365,7 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByRole('button', { name: 'ตรวจแจ้งเตือนเครื่องนี้' })).toBeInTheDocument()
     expect(screen.getByText(/เครื่องนี้พร้อมรับแจ้งเตือน/)).toBeInTheDocument()
+    expect(screen.getByText(/เปิดจาก Home Screen/)).toBeInTheDocument()
   })
 
   it('saves shop times and reminder lead from dropdown controls', async () => {
@@ -380,6 +383,9 @@ describe('DashboardPage', () => {
     expect(screen.getByText('จำนวนคิว')).toBeInTheDocument()
     expect(screen.getByText('แจ้งเตือน')).toBeInTheDocument()
     expect(screen.getByText('วันหยุด')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ใช้ค่าร้านเล็ก' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ใช้ค่าร้านกลาง' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ใช้ค่าร้านใหญ่' })).toBeInTheDocument()
     await user.click(await screen.findByLabelText('เวลาเปิดร้าน'))
     await user.click(await screen.findByRole('option', { name: '10:30' }))
     await user.click(screen.getByLabelText('เวลาปิดร้าน'))
@@ -464,7 +470,7 @@ describe('DashboardPage', () => {
       expect(mockedAdminApi.listBookings).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'pending' }))
     })
 
-    await user.click(screen.getAllByRole('button', { name: 'ยืนยัน' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'รับคิวนี้' })[0])
     await user.click(await screen.findByRole('button', { name: 'ยืนยันรับคิว' }))
 
     await waitFor(() => {
@@ -539,6 +545,42 @@ describe('DashboardPage', () => {
     await user.click(screen.getAllByRole('button', { name: 'เพิ่มคิวโทร/หน้าร้าน' })[0])
 
     expect(await screen.findByText('กรอกเฉพาะข้อมูลจำเป็นก่อน')).toBeInTheDocument()
+    expect(screen.getByText('ข้อมูลจำเป็น')).toBeInTheDocument()
+    expect(screen.getByText('รายละเอียดเพิ่มเติม (ไม่บังคับ)')).toBeInTheDocument()
+  })
+
+  it('shows shop-language actions for active bookings', async () => {
+    mockedAdminApi.listBookings.mockResolvedValue([
+      {
+        id: 'booking-1',
+        serviceId: 'service-1',
+        bookingCode: 'Q-1006-0001',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        bookingDate: todayISO(),
+        slotTime: '10:00',
+        status: 'pending',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+      {
+        id: 'booking-2',
+        serviceId: 'service-1',
+        bookingCode: 'Q-1006-0002',
+        customerName: 'สมหญิง',
+        phone: '0891111111',
+        bookingDate: todayISO(),
+        slotTime: '11:00',
+        status: 'confirmed',
+        createdAt: '2026-06-05T03:00:00.000Z',
+      },
+    ])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+
+    renderPage()
+
+    expect(await screen.findAllByRole('button', { name: 'รับคิวนี้' })).not.toHaveLength(0)
+    expect(screen.getAllByRole('button', { name: 'บันทึกว่าเสร็จแล้ว' })).not.toHaveLength(0)
   })
 
   it('adds a service when a realtime service event arrives', async () => {

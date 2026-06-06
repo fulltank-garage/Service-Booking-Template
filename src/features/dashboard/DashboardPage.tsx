@@ -89,12 +89,12 @@ const statusChipTextSx = (status: BookingStatus) =>
 
 const getBookingStatusAction = (status: BookingStatus) => {
   if (status === 'pending') {
-    return { label: 'ยืนยัน', nextStatus: 'confirmed' as BookingStatus, disabled: false }
+    return { label: 'รับคิวนี้', nextStatus: 'confirmed' as BookingStatus, disabled: false }
   }
   if (status === 'confirmed') {
-    return { label: 'เสร็จสิ้น', nextStatus: 'completed' as BookingStatus, disabled: false }
+    return { label: 'บันทึกว่าเสร็จแล้ว', nextStatus: 'completed' as BookingStatus, disabled: false }
   }
-  return { label: status === 'completed' ? 'เสร็จสิ้น' : 'ยืนยัน', nextStatus: status, disabled: true }
+  return { label: status === 'completed' ? 'บันทึกว่าเสร็จแล้ว' : 'รับคิวนี้', nextStatus: status, disabled: true }
 }
 
 const getBookingStatusConfirmation = (status: BookingStatus) => {
@@ -1855,6 +1855,9 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
               </Button>
             </Stack>
           </Stack>
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.88rem', fontWeight: 760 }}>
+            ถ้าใช้ iPhone หรือ iPad ต้องเปิดจาก Home Screen และอนุญาตแจ้งเตือนใน Settings ของแอปนี้
+          </Typography>
           {showDetails && (
             <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
               <Typography sx={{ color: 'text.secondary', fontWeight: 760, wordBreak: 'break-word' }}>
@@ -1936,6 +1939,29 @@ function BookingSettingsPage({
   ] as const
   const selectedDays = closedWeekdays.split(',').map((value) => value.trim()).filter(Boolean)
   const weekdayLabelMap = new Map<string, string>(weekdayOptions)
+  const applyPreset = (preset: 'small' | 'medium' | 'large') => {
+    if (preset === 'small') {
+      setSlotCapacity('1')
+      setMinAdvanceHours('0')
+      setMaxAdvanceDays('30')
+      setBufferMinutes('10')
+      setReminderLeadMinutes('1440')
+      return
+    }
+    if (preset === 'medium') {
+      setSlotCapacity('2')
+      setMinAdvanceHours('1')
+      setMaxAdvanceDays('45')
+      setBufferMinutes('15')
+      setReminderLeadMinutes('1440')
+      return
+    }
+    setSlotCapacity('4')
+    setMinAdvanceHours('2')
+    setMaxAdvanceDays('60')
+    setBufferMinutes('15')
+    setReminderLeadMinutes('120')
+  }
 
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
@@ -1944,6 +1970,26 @@ function BookingSettingsPage({
           การตั้งค่าร้าน
         </Typography>
         <Stack spacing={2}>
+          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.5 }}>
+            <Typography variant="h3" sx={{ mb: 0.5 }}>
+              ค่าแนะนำตามขนาดร้าน
+            </Typography>
+            <Typography sx={{ mb: 1.2, color: 'text.secondary', fontWeight: 760 }}>
+              เลือกค่าเริ่มต้นได้ก่อน แล้วค่อยปรับตัวเลขให้ตรงกับหน้าร้านจริง
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Button variant="outlined" onClick={() => applyPreset('small')}>
+                ใช้ค่าร้านเล็ก
+              </Button>
+              <Button variant="outlined" onClick={() => applyPreset('medium')}>
+                ใช้ค่าร้านกลาง
+              </Button>
+              <Button variant="outlined" onClick={() => applyPreset('large')}>
+                ใช้ค่าร้านใหญ่
+              </Button>
+            </Stack>
+          </Box>
+
           <SettingsSection title="เวลาร้าน">
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -2702,20 +2748,36 @@ function BottomEditorSheet({
 
 function NextBookingPanel({ booking }: { booking: Booking }) {
   return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.5 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}>
-        <Box>
-          <Typography sx={{ color: 'primary.main', fontWeight: 950 }}>คิวถัดไป</Typography>
-          <Typography sx={{ mt: 0.25, fontWeight: 950 }}>
-            {booking.customerName} เวลา {booking.slotTime}
-          </Typography>
-          <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
-            {booking.service?.nameTh ?? 'ยังไม่ได้ระบุบริการ'} · {booking.bookingCode}
-          </Typography>
-        </Box>
-        <Chip label={statusLabels[booking.status]} color="primary" sx={statusChipTextSx(booking.status)} />
-      </Stack>
-    </Box>
+    <Stack spacing={0.8}>
+      <Typography variant="h3">ต้องจัดการตอนนี้</Typography>
+      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.5 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between' }}>
+          <Box>
+            <Typography sx={{ color: 'primary.main', fontWeight: 950 }}>คิวถัดไป</Typography>
+            <Typography sx={{ mt: 0.25, fontWeight: 950 }}>
+              {booking.customerName} เวลา {booking.slotTime}
+            </Typography>
+            <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+              {booking.service?.nameTh ?? 'ยังไม่ได้ระบุบริการ'} · {booking.bookingCode}
+            </Typography>
+          </Box>
+          <Chip label={statusLabels[booking.status]} color="primary" sx={statusChipTextSx(booking.status)} />
+        </Stack>
+      </Box>
+    </Stack>
+  )
+}
+
+function BookingListSectionHeader({ hasBookings }: { hasBookings: boolean }) {
+  return (
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.5} sx={{ mt: 1.2, mb: 1, justifyContent: 'space-between' }}>
+      <Box>
+        <Typography variant="h3">คิวอื่นของวันนี้</Typography>
+        <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+          {hasBookings ? 'ดูรายละเอียดและจัดการคิวทั้งหมดของวันที่เลือก' : 'ยังไม่มีคิวอื่นในวันที่เลือก'}
+        </Typography>
+      </Box>
+    </Stack>
   )
 }
 
@@ -2892,6 +2954,8 @@ function BookingsCard({
             </Button>
           </Stack>
         </Stack>
+
+        <BookingListSectionHeader hasBookings={bookings.length > 0} />
 
         {bookings.length === 0 ? (
           <Box
@@ -3310,6 +3374,7 @@ function BookingCreateSheet({
             เลือกบริการ ชื่อลูกค้า เบอร์โทร วันที่ และเวลาให้ครบ ส่วนหมายเหตุค่อยเติมทีหลังได้
           </Typography>
         </Box>
+        <Typography variant="h3">ข้อมูลจำเป็น</Typography>
         <FormControl fullWidth>
           <Select aria-label="บริการ" value={serviceId} onChange={(event) => onServiceIdChange(event.target.value)} displayEmpty>
             <MenuItem value="" disabled>
@@ -3360,7 +3425,12 @@ function BookingCreateSheet({
             </FormControl>
           </Grid>
         </Grid>
-        <TextField fullWidth multiline minRows={3} label="หมายเหตุ" value={notes} onChange={(event) => setNotes(event.target.value)} />
+        <Box>
+          <Typography variant="h3" sx={{ mb: 1 }}>
+            รายละเอียดเพิ่มเติม (ไม่บังคับ)
+          </Typography>
+          <TextField fullWidth multiline minRows={3} label="หมายเหตุ" value={notes} onChange={(event) => setNotes(event.target.value)} />
+        </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
           <Button variant="outlined" disabled={isSaving} onClick={onClose}>
             ยกเลิก
