@@ -101,12 +101,15 @@ const isClosedBookingStatus = (status: BookingStatus) =>
   status === 'completed' || status === 'cancelled' || status === 'no_show'
 
 const pageLabels = {
+  setup: 'เริ่มใช้งานร้าน',
   overview: 'จัดการคิวจองบริการ',
   bookings: 'รายการจอง',
   services: 'บริการของร้าน',
   notifications: 'รายการแจ้งเตือน',
   settings: 'การตั้งค่าร้าน',
 } as const
+
+const simpleModeStorageKey = 'service-booking-admin-simple-mode'
 
 const formatThaiPrice = (priceCents: number) =>
   `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
@@ -285,6 +288,7 @@ type DashboardPageProps = {
 export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendingAppUpdate, onLogout }: DashboardPageProps) {
   const [activePage, setActivePage] = useState<AdminPage>('bookings')
   const [isNavOpen, setIsNavOpen] = useState(false)
+  const [isSimpleMode, setIsSimpleMode] = useState(() => window.localStorage.getItem(simpleModeStorageKey) === 'true')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
@@ -468,6 +472,22 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     return { pending, confirmed, unread, total: bookings.length }
   }, [bookings, notifications])
 
+  const setupProgress = useMemo(() => {
+    const items = [
+      { label: 'เพิ่มบริการแรก', done: services.length > 0 },
+      { label: 'ตั้งเวลาเปิดปิดร้าน', done: Boolean(bookingSettings?.openTime && bookingSettings?.closeTime) },
+      { label: 'ทดลองสร้างคิว', done: bookings.length > 0 },
+      { label: 'เปิดแจ้งเตือนโทรศัพท์', done: pushHealth?.recommendation === 'push_ready' },
+    ]
+    const doneCount = items.filter((item) => item.done).length
+    return { items, doneCount, total: items.length }
+  }, [bookingSettings, bookings.length, pushHealth, services.length])
+
+  const handleSimpleModeChange = (enabled: boolean) => {
+    setIsSimpleMode(enabled)
+    window.localStorage.setItem(simpleModeStorageKey, String(enabled))
+  }
+
   const handleStatusChange = async (booking: Booking, status: BookingStatus) => {
     const updatedBooking = { ...booking, status }
     const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
@@ -571,9 +591,12 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           latestRealtimeAt={latestRealtimeAt}
           open={isNavOpen}
           realtimeStatus={realtimeStatus}
+          setupTodoCount={setupProgress.total - setupProgress.doneCount}
+          simpleMode={isSimpleMode}
           unreadCount={summary.unread}
           onApplyAppUpdate={applyAppUpdate}
           onChangePage={handleChangePage}
+          onSimpleModeChange={handleSimpleModeChange}
           onClose={() => setIsNavOpen(false)}
           onLogout={onLogout}
       />
@@ -586,9 +609,12 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           hasPendingAppUpdate={hasPendingAppUpdate}
           latestRealtimeAt={latestRealtimeAt}
           realtimeStatus={realtimeStatus}
+          setupTodoCount={setupProgress.total - setupProgress.doneCount}
+          simpleMode={isSimpleMode}
           unreadCount={summary.unread}
           onApplyAppUpdate={applyAppUpdate}
           onChangePage={handleChangePage}
+          onSimpleModeChange={handleSimpleModeChange}
           onLogout={onLogout}
         />
 
@@ -609,6 +635,15 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
               <DashboardSkeleton activePage={activePage} />
             ) : (
               <>
+                {activePage === 'setup' && (
+                  <SetupChecklistPage
+                    progress={setupProgress}
+                    pushHealth={pushHealth}
+                    onChangePage={handleChangePage}
+                    onSimpleModeChange={handleSimpleModeChange}
+                    simpleMode={isSimpleMode}
+                  />
+                )}
                 {activePage === 'overview' && (
                   <OverviewPage dailySummary={dailySummary} summary={summary} />
                 )}
@@ -655,6 +690,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                   <NotificationsPage
                     notifications={notifications}
                     pushHealth={pushHealth}
+                    simpleMode={isSimpleMode}
                     onError={() => setNotice('อัปเดตแจ้งเตือนไม่สำเร็จ')}
                     onMarkAllRead={async () => {
                       const unreadNotifications = notifications.filter((notification) => !notification.isRead)
@@ -840,11 +876,14 @@ function MobileNavDrawer({
   latestRealtimeAt,
   open,
   realtimeStatus,
+  setupTodoCount,
+  simpleMode,
   unreadCount,
   onApplyAppUpdate,
   onChangePage,
   onClose,
   onLogout,
+  onSimpleModeChange,
 }: {
   activePage: AdminPage
   adminEmail: string
@@ -853,11 +892,14 @@ function MobileNavDrawer({
   latestRealtimeAt: Date | null
   open: boolean
   realtimeStatus: RealtimeStatus
+  setupTodoCount: number
+  simpleMode: boolean
   unreadCount: number
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onClose: () => void
   onLogout: () => void
+  onSimpleModeChange: (enabled: boolean) => void
 }) {
   return (
     <Drawer
@@ -902,10 +944,13 @@ function MobileNavDrawer({
         }
         latestRealtimeAt={latestRealtimeAt}
         realtimeStatus={realtimeStatus}
+        setupTodoCount={setupTodoCount}
+        simpleMode={simpleMode}
         unreadCount={unreadCount}
         onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
+        onSimpleModeChange={onSimpleModeChange}
       />
     </Drawer>
   )
@@ -918,10 +963,13 @@ function Sidebar({
   hasPendingAppUpdate,
   latestRealtimeAt,
   realtimeStatus,
+  setupTodoCount,
+  simpleMode,
   unreadCount,
   onApplyAppUpdate,
   onChangePage,
   onLogout,
+  onSimpleModeChange,
 }: {
   activePage: AdminPage
   adminEmail: string
@@ -929,10 +977,13 @@ function Sidebar({
   hasPendingAppUpdate: boolean
   latestRealtimeAt: Date | null
   realtimeStatus: RealtimeStatus
+  setupTodoCount: number
+  simpleMode: boolean
   unreadCount: number
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
+  onSimpleModeChange: (enabled: boolean) => void
 }) {
   return (
     <Box
@@ -958,10 +1009,13 @@ function Sidebar({
         hasPendingAppUpdate={hasPendingAppUpdate}
         latestRealtimeAt={latestRealtimeAt}
         realtimeStatus={realtimeStatus}
+        setupTodoCount={setupTodoCount}
+        simpleMode={simpleMode}
         unreadCount={unreadCount}
         onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
+        onSimpleModeChange={onSimpleModeChange}
       />
     </Box>
   )
@@ -976,10 +1030,13 @@ function SidebarContent({
   headerAction,
   latestRealtimeAt,
   realtimeStatus,
+  setupTodoCount,
+  simpleMode,
   unreadCount,
   onApplyAppUpdate,
   onChangePage,
   onLogout,
+  onSimpleModeChange,
 }: {
   activePage: AdminPage
   adminEmail: string
@@ -989,18 +1046,23 @@ function SidebarContent({
   headerAction?: ReactNode
   latestRealtimeAt: Date | null
   realtimeStatus: RealtimeStatus
+  setupTodoCount: number
+  simpleMode: boolean
   unreadCount: number
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
+  onSimpleModeChange: (enabled: boolean) => void
 }) {
-  const navItems: Array<{ page: AdminPage; label: string; icon: ReactNode }> = [
+  const navItems: Array<{ page: AdminPage; label: string; icon: ReactNode; hiddenInSimpleMode?: boolean }> = [
+    { page: 'setup', label: 'เริ่มใช้งาน', icon: <CheckCircleIcon /> },
     { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <MiscellaneousServicesIcon /> },
-    { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon /> },
+    { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon />, hiddenInSimpleMode: true },
     { page: 'settings', label: 'การตั้งค่าร้าน', icon: <SettingsIcon /> },
   ]
+  const visibleNavItems = navItems.filter((item) => !(simpleMode && item.hiddenInSimpleMode))
 
   return (
     <Stack
@@ -1031,8 +1093,9 @@ function SidebarContent({
         {headerAction}
       </Stack>
       <Stack spacing={1}>
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = activePage === item.page
+          const badgeCount = item.page === 'notifications' ? unreadCount : item.page === 'setup' ? setupTodoCount : 0
           return (
             <Tooltip key={item.page} title={compact ? item.label : ''} placement="right">
               <Button
@@ -1047,7 +1110,7 @@ function SidebarContent({
                   minHeight: compact ? 50 : 58,
                   minWidth: 0,
                   pl: compact ? 0 : 2.5,
-                  pr: compact ? 0 : item.page === 'notifications' && unreadCount > 0 ? 5 : 2.5,
+                  pr: compact ? 0 : badgeCount > 0 ? 5 : 2.5,
                   fontSize: '1rem',
                   fontWeight: 900,
                   bgcolor: isActive ? 'primary.main' : 'background.default',
@@ -1060,10 +1123,10 @@ function SidebarContent({
                   },
                 }}
               >
-                {item.page === 'notifications' && unreadCount > 0 && (
+                {badgeCount > 0 && (
                   <Box
                     component="span"
-                    aria-label={`${unreadCount} รายการแจ้งเตือนที่ยังไม่อ่าน`}
+                    aria-label={item.page === 'notifications' ? `${unreadCount} รายการแจ้งเตือนที่ยังไม่อ่าน` : `เหลือ ${setupTodoCount} ขั้นตอนเริ่มใช้งาน`}
                     sx={{
                       position: 'absolute',
                       top: 7,
@@ -1084,7 +1147,7 @@ function SidebarContent({
                       lineHeight: 1,
                     }}
                   >
-                    {unreadCount > 99 ? '99+' : unreadCount}
+                    {badgeCount > 99 ? '99+' : badgeCount}
                   </Box>
                 )}
                 <Box
@@ -1103,6 +1166,21 @@ function SidebarContent({
           )
         })}
       </Stack>
+      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
+        <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 950 }}>โหมดง่าย</Typography>
+            <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: '0.72rem', fontWeight: 760, lineHeight: 1.25 }}>
+              เหมาะกับร้านเล็กที่ใช้แค่คิวหลัก
+            </Typography>
+          </Box>
+          <IOSSwitch
+            checked={simpleMode}
+            slotProps={{ input: { 'aria-label': 'โหมดง่าย' } }}
+            onChange={(event) => onSimpleModeChange(event.target.checked)}
+          />
+        </Stack>
+      </Box>
       <Box sx={{ flex: 1 }} />
       <AdminProfilePanel
         adminEmail={adminEmail}
@@ -1290,6 +1368,129 @@ function OverviewPage({
   )
 }
 
+function SetupChecklistPage({
+  onChangePage,
+  onSimpleModeChange,
+  progress,
+  pushHealth,
+  simpleMode,
+}: {
+  onChangePage: (page: AdminPage) => void
+  onSimpleModeChange: (enabled: boolean) => void
+  progress: { items: Array<{ label: string; done: boolean }>; doneCount: number; total: number }
+  pushHealth: PushHealthReport | null
+  simpleMode: boolean
+}) {
+  const steps: Array<{
+    label: string
+    description: string
+    done: boolean
+    actionLabel: string
+    page: AdminPage
+  }> = [
+    {
+      label: 'เพิ่มบริการแรก',
+      description: 'ใส่ชื่อบริการ ราคา และเวลาที่ใช้ เพื่อให้ลูกค้าเลือกจองได้',
+      done: progress.items.find((item) => item.label === 'เพิ่มบริการแรก')?.done ?? false,
+      actionLabel: 'ไปเพิ่มบริการ',
+      page: 'services',
+    },
+    {
+      label: 'ตั้งเวลาเปิดปิดร้าน',
+      description: 'กำหนดเวลาที่ร้านรับคิว วันปิดร้าน และเวลาพักระหว่างคิว',
+      done: progress.items.find((item) => item.label === 'ตั้งเวลาเปิดปิดร้าน')?.done ?? false,
+      actionLabel: 'ไปตั้งค่าร้าน',
+      page: 'settings',
+    },
+    {
+      label: 'ทดลองสร้างคิว',
+      description: 'ลองเพิ่มคิวโทรหรือ walk-in เพื่อให้ทีมคุ้นกับหน้ารายการจอง',
+      done: progress.items.find((item) => item.label === 'ทดลองสร้างคิว')?.done ?? false,
+      actionLabel: 'ไปหน้ารายการจอง',
+      page: 'bookings',
+    },
+    {
+      label: 'เปิดแจ้งเตือนโทรศัพท์',
+      description: pushHealth?.recommendation === 'push_ready' ? 'เครื่องนี้พร้อมรับแจ้งเตือนแล้ว' : 'เปิดแจ้งเตือนเพื่อให้ร้านรู้ทันทีเมื่อมีคิวใหม่',
+      done: progress.items.find((item) => item.label === 'เปิดแจ้งเตือนโทรศัพท์')?.done ?? false,
+      actionLabel: 'ไปดูแจ้งเตือน',
+      page: 'notifications',
+    },
+  ]
+
+  return (
+    <Stack spacing={2.5}>
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 2.5 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h2">เริ่มใช้งานร้าน</Typography>
+              <Typography sx={{ mt: 0.75, color: 'text.secondary', fontWeight: 760 }}>
+                ทำตามขั้นตอนสั้น ๆ เพื่อให้ร้านเริ่มรับคิวได้โดยไม่ต้องตั้งค่าทุกอย่างตั้งแต่แรก
+              </Typography>
+            </Box>
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4, minWidth: { md: 180 } }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                ความพร้อมใช้งาน
+              </Typography>
+              <Typography sx={{ fontSize: '1.8rem', fontWeight: 950, lineHeight: 1.1 }}>
+                {progress.doneCount}/{progress.total}
+              </Typography>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 2.5 }}>
+          <Stack spacing={1.2}>
+            {steps.map((step) => (
+              <Box
+                key={step.label}
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: step.done ? 'secondary.main' : 'background.default', p: 1.5 }}
+              >
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                      <Chip
+                        label={step.done ? 'เสร็จแล้ว' : 'ยังต้องทำ'}
+                        color={step.done ? 'success' : 'primary'}
+                        sx={step.done ? undefined : statusChipSx}
+                      />
+                      <Typography sx={{ fontWeight: 950 }}>{step.label}</Typography>
+                    </Stack>
+                    <Typography sx={{ mt: 0.7, color: 'text.secondary', fontWeight: 760 }}>{step.description}</Typography>
+                  </Box>
+                  <Button variant={step.done ? 'outlined' : 'contained'} onClick={() => onChangePage(step.page)}>
+                    {step.actionLabel}
+                  </Button>
+                </Stack>
+              </Box>
+            ))}
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 2.5 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
+            <Box>
+              <Typography sx={{ fontWeight: 950 }}>โหมดง่ายสำหรับร้านเล็ก</Typography>
+              <Typography sx={{ mt: 0.5, color: 'text.secondary', fontWeight: 760 }}>
+                ซ่อนหน้าที่ไม่จำเป็นและให้ร้านโฟกัสกับคิว บริการ และตั้งค่าหลัก
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontWeight: 900 }}>{simpleMode ? 'เปิดอยู่' : 'ปิดอยู่'}</Typography>
+              <IOSSwitch checked={simpleMode} onChange={(event) => onSimpleModeChange(event.target.checked)} />
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
+  )
+}
+
 function DailySummaryPanel({ item, title }: { item: DailyBookingSummary; title: string }) {
   return (
     <Grid size={{ xs: 12, md: 6 }}>
@@ -1375,12 +1576,14 @@ function NotificationsPage({
   onMarkAllRead,
   onMarkRead,
   pushHealth,
+  simpleMode,
 }: {
   notifications: AdminNotification[]
   onError: () => void
   onMarkAllRead: () => Promise<void>
   onMarkRead: (notificationId: string) => Promise<void>
   pushHealth: PushHealthReport | null
+  simpleMode: boolean
 }) {
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [markingId, setMarkingId] = useState('')
@@ -1414,7 +1617,7 @@ function NotificationsPage({
 
   return (
     <Stack spacing={2}>
-      {pushHealth && <PushHealthCard health={pushHealth} />}
+      {!simpleMode && pushHealth && <PushHealthCard health={pushHealth} />}
       <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <CardContent sx={{ p: 2.5 }}>
           <Stack spacing={2}>
@@ -1482,12 +1685,13 @@ function NotificationsPage({
 }
 
 function PushHealthCard({ health }: { health: PushHealthReport }) {
+  const [showDetails, setShowDetails] = useState(false)
   const recommendationLabels: Record<string, string> = {
-    push_ready: 'พร้อมส่งแจ้งเตือน',
-    vapid_not_configured: 'ยังไม่ได้ตั้งค่า VAPID',
-    vapid_key_mismatch: 'VAPID public/private ไม่ใช่คู่เดียวกัน',
-    push_sender_not_ready: 'ตัวส่ง push ยังไม่พร้อม',
-    no_subscription: 'ยังไม่มีเครื่องที่ผูกแจ้งเตือน',
+    push_ready: 'แจ้งเตือนโทรศัพท์พร้อมใช้งาน',
+    vapid_not_configured: 'ยังไม่ได้ตั้งค่าระบบแจ้งเตือน',
+    vapid_key_mismatch: 'การตั้งค่าแจ้งเตือนไม่ตรงกัน',
+    push_sender_not_ready: 'ระบบส่งแจ้งเตือนยังไม่พร้อม',
+    no_subscription: 'ยังไม่มีเครื่องที่เปิดแจ้งเตือน',
   }
   const isReady = health.recommendation === 'push_ready'
   return (
@@ -1504,9 +1708,9 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
           </Stack>
           <Grid container spacing={1}>
             {[
-              ['VAPID', health.validKeys ? 'ถูกต้อง' : health.configured ? 'ต้องแก้ไข' : 'ยังไม่ตั้งค่า'],
-              ['ตัวส่ง Push', health.senderReady ? 'พร้อม' : 'ยังไม่พร้อม'],
-              ['เครื่องที่ผูกไว้', `${health.subscriptionCount} เครื่อง`],
+              ['การตั้งค่าระบบ', health.validKeys ? 'พร้อม' : health.configured ? 'ต้องให้ผู้ดูแลตรวจสอบ' : 'ยังไม่ตั้งค่า'],
+              ['การส่งแจ้งเตือน', health.senderReady ? 'พร้อมส่ง' : 'ยังไม่พร้อมส่ง'],
+              ['เครื่องที่เปิดแจ้งเตือน', `${health.subscriptionCount} เครื่อง`],
             ].map(([label, value]) => (
               <Grid key={label} size={{ xs: 12, sm: 4 }}>
                 <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
@@ -1518,10 +1722,21 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
               </Grid>
             ))}
           </Grid>
-          {health.lastError && (
-            <Typography sx={{ color: 'text.secondary', fontWeight: 760, wordBreak: 'break-word' }}>
-              รายละเอียด: {health.lastError}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
+            <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+              ร้านควรเห็นสถานะพร้อมใช้งาน หรือมีเครื่องที่เปิดแจ้งเตือนอย่างน้อย 1 เครื่อง
             </Typography>
+            <Button variant="outlined" onClick={() => setShowDetails((current) => !current)}>
+              {showDetails ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียดผู้ดูแล'}
+            </Button>
+          </Stack>
+          {showDetails && (
+            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
+              <Typography sx={{ color: 'text.secondary', fontWeight: 760, wordBreak: 'break-word' }}>
+                สถานะระบบ: {health.recommendation}
+                {health.lastError ? ` · ${health.lastError}` : ''}
+              </Typography>
+            </Box>
           )}
         </Stack>
       </CardContent>
@@ -2667,61 +2882,83 @@ function BookingActionButtons({
   onStatusChange: (booking: Booking, status: BookingStatus) => void | Promise<void>
 }) {
   const statusAction = getBookingStatusAction(booking.status)
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
+  const canUseSecondaryActions = !isClosedBookingStatus(booking.status)
 
   return (
-    <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      spacing={1}
-      sx={{
-        display: { xs: 'grid', sm: 'flex' },
-        gridTemplateColumns: { xs: 'minmax(0, 1fr) minmax(0, 1fr)', sm: 'none' },
-        columnGap: { xs: 1, sm: 0 },
-        rowGap: { xs: 1, sm: 0 },
-        justifyContent: { xs: 'stretch', sm: 'flex-end' },
-        '& .MuiButton-root': {
-          minHeight: 48,
-          px: 1,
-          whiteSpace: 'nowrap',
-        },
-      }}
-    >
-      <Button
-        fullWidth
-        variant="contained"
-        disabled={statusAction.disabled}
-        onClick={() => onStatusChange(booking, statusAction.nextStatus)}
-        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, order: { sm: 4 } }}
+    <>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        sx={{
+          justifyContent: { xs: 'stretch', sm: 'flex-end' },
+          '& .MuiButton-root': {
+            minHeight: 48,
+            px: 1,
+            whiteSpace: 'nowrap',
+          },
+        }}
       >
-        {statusAction.label}
-      </Button>
-      <Button
-        fullWidth
-        variant="outlined"
-        disabled={isClosedBookingStatus(booking.status)}
-        onClick={() => onEditBooking(booking)}
-        sx={{ order: { sm: 1 } }}
-      >
-        แก้ไข
-      </Button>
-      <Button
-        fullWidth
-        variant="contained"
-        disabled={isClosedBookingStatus(booking.status)}
-        onClick={() => onDeleteBooking(booking)}
-        sx={{ order: { sm: 2 }, bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
-      >
-        ยกเลิก
-      </Button>
-      <Button
-        fullWidth
-        variant="outlined"
-        disabled={isClosedBookingStatus(booking.status)}
-        onClick={() => onStatusChange(booking, 'no_show')}
-        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, order: { sm: 3 } }}
-      >
-        ไม่มาตามนัด
-      </Button>
-    </Stack>
+        <Button
+          fullWidth
+          variant="outlined"
+          disabled={!canUseSecondaryActions}
+          onClick={() => setIsMoreOpen(true)}
+        >
+          เพิ่มเติม
+        </Button>
+        <Button
+          fullWidth
+          variant="contained"
+          disabled={statusAction.disabled}
+          onClick={() => onStatusChange(booking, statusAction.nextStatus)}
+        >
+          {statusAction.label}
+        </Button>
+      </Stack>
+
+      <BottomEditorSheet isOpen={isMoreOpen} onClose={() => setIsMoreOpen(false)} title="จัดการเพิ่มเติม">
+        <Stack spacing={1.2}>
+          <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+            ใช้เฉพาะกรณีที่ต้องแก้ไขคิว ยกเลิกคิว หรือบันทึกว่าลูกค้าไม่มาตามนัด
+          </Typography>
+          <Button
+            fullWidth
+            variant="outlined"
+            disabled={!canUseSecondaryActions}
+            onClick={() => {
+              setIsMoreOpen(false)
+              onEditBooking(booking)
+            }}
+          >
+            แก้ไขคิว
+          </Button>
+          <Button
+            fullWidth
+            variant="outlined"
+            disabled={!canUseSecondaryActions}
+            onClick={() => {
+              setIsMoreOpen(false)
+              onStatusChange(booking, 'no_show')
+            }}
+          >
+            ไม่มาตามนัด
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            disabled={!canUseSecondaryActions}
+            onClick={() => {
+              setIsMoreOpen(false)
+              onDeleteBooking(booking)
+            }}
+            sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+          >
+            ยกเลิกคิว
+          </Button>
+        </Stack>
+      </BottomEditorSheet>
+    </>
   )
 }
 

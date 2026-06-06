@@ -454,7 +454,8 @@ describe('DashboardPage', () => {
     renderPage()
     expect(await screen.findAllByText('สมชาย')).not.toHaveLength(0)
 
-    await user.click(screen.getAllByRole('button', { name: 'ไม่มาตามนัด' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'เพิ่มเติม' })[0])
+    await user.click(await screen.findByRole('button', { name: 'ไม่มาตามนัด' }))
 
     await waitFor(() => {
       expect(mockedAdminApi.updateBookingStatus).toHaveBeenCalledWith('booking-1', 'no_show')
@@ -523,7 +524,8 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'บริการของร้าน' }))
     expect(await screen.findAllByText('ทำเล็บเจล')).not.toHaveLength(0)
-    const [serviceSwitch] = await screen.findAllByRole('switch')
+    const switches = await screen.findAllByRole('switch')
+    const serviceSwitch = switches[switches.length - 1]
     await user.click(serviceSwitch)
 
     await waitFor(() => {
