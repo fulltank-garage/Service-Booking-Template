@@ -426,7 +426,7 @@ func (store *notificationStore) CountBookingsForSlot(context.Context, string, st
 	return 0, nil
 }
 func (store *notificationStore) CreateBooking(context.Context, *models.Booking) error { return nil }
-func (store *notificationStore) CreateBookingWithAvailability(context.Context, *models.Booking, int, int) error {
+func (store *notificationStore) CreateBookingWithAvailability(context.Context, *models.Booking, int, int, int) error {
 	return nil
 }
 func (store *notificationStore) FindBookingByID(context.Context, string) (models.Booking, error) {
@@ -438,7 +438,7 @@ func (store *notificationStore) LatestBookingByLineUser(context.Context, string)
 func (store *notificationStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
 	return nil, nil
 }
-func (store *notificationStore) UpdateBookingWithAvailability(context.Context, *models.Booking, int, int) (models.Booking, error) {
+func (store *notificationStore) UpdateBookingWithAvailability(context.Context, *models.Booking, int, int, int) (models.Booking, error) {
 	return models.Booking{}, nil
 }
 func (store *notificationStore) UpdateBookingStatus(context.Context, string, string) (models.Booking, error) {

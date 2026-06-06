@@ -5,6 +5,7 @@ const (
 	BookingStatusConfirmed = "confirmed"
 	BookingStatusCompleted = "completed"
 	BookingStatusCancelled = "cancelled"
+	BookingStatusNoShow    = "no_show"
 )
 
 type Booking struct {
@@ -38,6 +39,7 @@ type BookingSettings struct {
 	MinAdvanceHours     int                   `json:"minAdvanceHours" gorm:"not null;default:0"`
 	MaxAdvanceDays      int                   `json:"maxAdvanceDays" gorm:"not null;default:60"`
 	ReminderLeadMinutes int                   `json:"reminderLeadMinutes" gorm:"not null;default:1440"`
+	BufferMinutes       int                   `json:"bufferMinutes" gorm:"not null;default:0"`
 	BlackoutDates       []BookingBlackoutDate `json:"blackoutDates" gorm:"-"`
 }
 

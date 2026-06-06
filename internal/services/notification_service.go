@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/fulltank-garage/service-booking-template-api/internal/models"
@@ -49,12 +50,15 @@ type NotificationService struct {
 }
 
 type PushDeliveryReport struct {
-	Attempted      int    `json:"attempted"`
-	Sent           int    `json:"sent"`
-	Expired        int    `json:"expired"`
-	Failed         int    `json:"failed"`
-	LastStatusCode int    `json:"lastStatusCode,omitempty"`
-	LastError      string `json:"lastError,omitempty"`
+	TotalSubscriptions    int    `json:"totalSubscriptions"`
+	TargetedSubscriptions int    `json:"targetedSubscriptions"`
+	Attempted             int    `json:"attempted"`
+	Sent                  int    `json:"sent"`
+	Expired               int    `json:"expired"`
+	Failed                int    `json:"failed"`
+	LastStatusCode        int    `json:"lastStatusCode,omitempty"`
+	LastError             string `json:"lastError,omitempty"`
+	Recommendation        string `json:"recommendation,omitempty"`
 }
 
 func NewNotificationService(store repositories.Store, hub *ws.Hub, redisClient *redis.Client) *NotificationService {
@@ -83,7 +87,7 @@ func (service *NotificationService) BookingUpdated(ctx context.Context, booking 
 	return service.createAndPublish(ctx, &models.Notification{
 		Type:      models.NotificationTypeBookingUpdated,
 		Title:     "อัปเดตสถานะคิว",
-		Body:      fmt.Sprintf("%s เปลี่ยนเป็น %s", booking.BookingCode, booking.Status),
+		Body:      fmt.Sprintf("%s เปลี่ยนเป็น %s", booking.BookingCode, bookingStatusLabel(booking.Status)),
 		URL:       "/bookings",
 		BookingID: booking.ID,
 	}, &booking)
@@ -262,10 +266,12 @@ func (service *NotificationService) sendPushMessage(ctx context.Context, message
 		log.Printf("list push subscriptions: %v", err)
 		return report, err
 	}
+	report.TotalSubscriptions = len(subscriptions)
 	for _, subscription := range subscriptions {
 		if endpoint != "" && subscription.Endpoint != endpoint {
 			continue
 		}
+		report.TargetedSubscriptions++
 		report.Attempted++
 		if err := service.push.Send(ctx, subscription, message); err != nil {
 			report.Failed++
@@ -281,11 +287,12 @@ func (service *NotificationService) sendPushMessage(ctx context.Context, message
 		}
 		report.Sent++
 	}
+	report.Recommendation = pushRecommendation(report)
 	return report, nil
 }
 
 func (service *NotificationService) sendPushToSubscription(ctx context.Context, subscription models.PushSubscription, message PushMessage) (PushDeliveryReport, error) {
-	report := PushDeliveryReport{}
+	report := PushDeliveryReport{TotalSubscriptions: 1, TargetedSubscriptions: 1}
 	if service.push == nil {
 		return report, nil
 	}
@@ -300,9 +307,11 @@ func (service *NotificationService) sendPushToSubscription(ctx context.Context, 
 				log.Printf("delete expired push subscription %s: %v", subscription.Endpoint, deleteErr)
 			}
 		}
+		report.Recommendation = pushRecommendation(report)
 		return report, nil
 	}
 	report.Sent = 1
+	report.Recommendation = pushRecommendation(report)
 	return report, nil
 }
 
@@ -312,6 +321,28 @@ func (report *PushDeliveryReport) recordPushError(err error) {
 	if errors.As(err, &pushErr) {
 		report.LastStatusCode = pushErr.StatusCode
 	}
+}
+
+func pushRecommendation(report PushDeliveryReport) string {
+	if report.Sent > 0 {
+		return "push_ready"
+	}
+	if report.Attempted == 0 {
+		if report.TotalSubscriptions == 0 {
+			return "no_subscription"
+		}
+		return "subscription_not_found"
+	}
+	if report.Expired > 0 {
+		return "subscription_expired"
+	}
+	if report.LastStatusCode == http.StatusForbidden || report.LastStatusCode == http.StatusUnauthorized {
+		return "vapid_or_permission_invalid"
+	}
+	if report.Failed > 0 {
+		return "provider_failed"
+	}
+	return "unknown"
 }
 
 func formatThaiDateLabel(value string) string {

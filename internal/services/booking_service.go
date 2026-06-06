@@ -73,6 +73,7 @@ type BookingSettingsInput struct {
 	MinAdvanceHours     int                          `json:"minAdvanceHours"`
 	MaxAdvanceDays      int                          `json:"maxAdvanceDays"`
 	ReminderLeadMinutes int                          `json:"reminderLeadMinutes"`
+	BufferMinutes       int                          `json:"bufferMinutes"`
 	BlackoutDates       []models.BookingBlackoutDate `json:"blackoutDates"`
 }
 
@@ -263,7 +264,7 @@ func (service *BookingService) ListAvailability(ctx context.Context, serviceID s
 	}
 	availability := make([]AvailabilitySlot, 0, len(slots))
 	for _, slot := range slots {
-		count := countOverlappingBookings(existingBookings, slot, serviceItem.DurationMinutes)
+		count := countOverlappingBookings(existingBookings, slot, serviceItem.DurationMinutes, settings.BufferMinutes)
 		isInsideBookingWindow := validateBookingWindow(settings, date, slot, service.now()) == nil
 		availability = append(availability, AvailabilitySlot{
 			Time:      slot,
@@ -323,7 +324,7 @@ func (service *BookingService) CreateBooking(ctx context.Context, input CreateBo
 		SlotTime:     input.SlotTime,
 		Status:       models.BookingStatusPending,
 	}
-	if err := service.store.CreateBookingWithAvailability(ctx, &booking, serviceItem.DurationMinutes, settings.SlotCapacity); err != nil {
+	if err := service.store.CreateBookingWithAvailability(ctx, &booking, serviceItem.DurationMinutes, settings.SlotCapacity, settings.BufferMinutes); err != nil {
 		if errors.Is(err, repositories.ErrSlotCapacityReached) {
 			return models.Booking{}, ErrSlotUnavailable
 		}
@@ -409,7 +410,7 @@ func (service *BookingService) UpdateBooking(ctx context.Context, id string, inp
 	if input.Status != "" {
 		booking.Status = input.Status
 	}
-	updated, err := service.store.UpdateBookingWithAvailability(ctx, &booking, serviceItem.DurationMinutes, settings.SlotCapacity)
+	updated, err := service.store.UpdateBookingWithAvailability(ctx, &booking, serviceItem.DurationMinutes, settings.SlotCapacity, settings.BufferMinutes)
 	if err != nil {
 		if errors.Is(err, repositories.ErrSlotCapacityReached) {
 			return models.Booking{}, ErrSlotUnavailable
@@ -471,7 +472,7 @@ func (service *BookingService) ListReminderCandidates(ctx context.Context, now t
 	until := now.Add(time.Duration(leadMinutes) * time.Minute)
 	candidates := make([]models.Booking, 0)
 	for _, booking := range bookings {
-		if booking.Status == models.BookingStatusCancelled || booking.Status == models.BookingStatusCompleted {
+		if isClosedBookingStatus(booking.Status) {
 			continue
 		}
 		start, err := bookingStartTime(booking.BookingDate, booking.SlotTime)
@@ -500,7 +501,7 @@ func (service *BookingService) UpdateBookingStatus(ctx context.Context, id strin
 		_ = service.notifier.BookingUpdated(ctx, booking)
 	}
 	service.sendCustomerMessage(ctx, booking, bookingStatusMessage(booking))
-	if status == models.BookingStatusCompleted {
+	if status == models.BookingStatusCompleted || status == models.BookingStatusNoShow {
 		service.switchToBookingMenu(ctx, booking.LineUserID)
 	}
 	return booking, nil
@@ -621,6 +622,8 @@ func bookingStatusLabel(status string) string {
 		return "เสร็จสิ้น"
 	case models.BookingStatusCancelled:
 		return "ยกเลิก"
+	case models.BookingStatusNoShow:
+		return "ไม่มาตามนัด"
 	default:
 		return "รอจัดการ"
 	}
@@ -724,6 +727,7 @@ func normalizeBookingSettingsInput(input BookingSettingsInput, fallbackCapacity 
 		MinAdvanceHours:     input.MinAdvanceHours,
 		MaxAdvanceDays:      input.MaxAdvanceDays,
 		ReminderLeadMinutes: input.ReminderLeadMinutes,
+		BufferMinutes:       input.BufferMinutes,
 		BlackoutDates:       normalizeBlackoutDates(input.BlackoutDates),
 	}, fallbackCapacity)
 }
@@ -753,6 +757,9 @@ func normalizeBookingSettings(settings models.BookingSettings, fallbackCapacity 
 	if settings.ReminderLeadMinutes <= 0 {
 		settings.ReminderLeadMinutes = 24 * 60
 	}
+	if settings.BufferMinutes < 0 {
+		settings.BufferMinutes = 0
+	}
 	settings.BlackoutDates = normalizeBlackoutDates(settings.BlackoutDates)
 	return settings
 }
@@ -774,6 +781,9 @@ func validateBookingSettings(settings models.BookingSettings) error {
 	}
 	if settings.SlotCapacity <= 0 || settings.SlotCapacity > 100 {
 		return fmt.Errorf("%w: slotCapacity", ErrInvalidBooking)
+	}
+	if settings.BufferMinutes < 0 || settings.BufferMinutes > 240 {
+		return fmt.Errorf("%w: bufferMinutes", ErrInvalidBooking)
 	}
 	for _, raw := range strings.Split(settings.ClosedWeekdays, ",") {
 		raw = strings.TrimSpace(raw)
@@ -853,7 +863,11 @@ func serviceSlots(settings models.BookingSettings, durationMinutes int) ([]strin
 	start, _ := parseClock(settings.OpenTime)
 	closeAt, _ := parseClock(settings.CloseTime)
 	slots := make([]string, 0, 16)
-	for current := start; !current.Add(time.Duration(durationMinutes) * time.Minute).After(closeAt); current = current.Add(time.Duration(durationMinutes) * time.Minute) {
+	stepMinutes := durationMinutes + settings.BufferMinutes
+	if stepMinutes <= 0 {
+		stepMinutes = settings.SlotIntervalMinutes
+	}
+	for current := start; !current.Add(time.Duration(durationMinutes) * time.Minute).After(closeAt); current = current.Add(time.Duration(stepMinutes) * time.Minute) {
 		slots = append(slots, current.Format("15:04"))
 	}
 	return slots, nil
@@ -895,15 +909,18 @@ func containsSlot(slots []string, slot string) bool {
 	return false
 }
 
-func countOverlappingBookings(bookings []models.Booking, slot string, durationMinutes int) int64 {
+func countOverlappingBookings(bookings []models.Booking, slot string, durationMinutes int, bufferMinutes int) int64 {
 	slotStart, ok := clockMinutes(slot)
 	if !ok || durationMinutes <= 0 {
 		return 0
 	}
-	slotEnd := slotStart + durationMinutes
+	if bufferMinutes < 0 {
+		bufferMinutes = 0
+	}
+	slotEnd := slotStart + durationMinutes + bufferMinutes
 	var count int64
 	for _, booking := range bookings {
-		if booking.Status == models.BookingStatusCancelled {
+		if isClosedBookingStatus(booking.Status) {
 			continue
 		}
 		bookingDuration := booking.Service.DurationMinutes
@@ -914,7 +931,7 @@ func countOverlappingBookings(bookings []models.Booking, slot string, durationMi
 		if !ok {
 			continue
 		}
-		bookingEnd := bookingStart + bookingDuration
+		bookingEnd := bookingStart + bookingDuration + bufferMinutes
 		if slotStart < bookingEnd && bookingStart < slotEnd {
 			count++
 		}
@@ -952,9 +969,13 @@ func bookingCode(date string) string {
 
 func isAllowedStatus(status string) bool {
 	switch status {
-	case models.BookingStatusPending, models.BookingStatusConfirmed, models.BookingStatusCompleted, models.BookingStatusCancelled:
+	case models.BookingStatusPending, models.BookingStatusConfirmed, models.BookingStatusCompleted, models.BookingStatusCancelled, models.BookingStatusNoShow:
 		return true
 	default:
 		return false
 	}
+}
+
+func isClosedBookingStatus(status string) bool {
+	return status == models.BookingStatusCancelled || status == models.BookingStatusCompleted || status == models.BookingStatusNoShow
 }

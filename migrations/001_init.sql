@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS booking_settings (
   closed_weekdays varchar(32) NOT NULL DEFAULT '',
   min_advance_hours integer NOT NULL DEFAULT 0,
   max_advance_days integer NOT NULL DEFAULT 60,
-  reminder_lead_minutes integer NOT NULL DEFAULT 1440
+  reminder_lead_minutes integer NOT NULL DEFAULT 1440,
+  buffer_minutes integer NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS booking_blackout_dates (

@@ -290,6 +290,38 @@ func TestListAvailabilityUsesServiceDurationAndOverlappingBookings(t *testing.T)
 	}
 }
 
+func TestListAvailabilityUsesBufferMinutesForOverlappingBookings(t *testing.T) {
+	store := &fakeStore{
+		service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true, DurationMinutes: 30},
+		settings: models.BookingSettings{
+			OpenTime:            "09:00",
+			CloseTime:           "10:30",
+			SlotIntervalMinutes: 30,
+			SlotCapacity:        1,
+			BufferMinutes:       15,
+		},
+		bookings: []models.Booking{
+			{
+				SlotTime: "09:00",
+				Status:   models.BookingStatusPending,
+				Service:  models.Service{DurationMinutes: 30},
+			},
+		},
+	}
+	service := NewBookingService(store, nil, nil, 1)
+
+	slots, err := service.ListAvailability(context.Background(), "svc-1", "2026-06-10")
+	if err != nil {
+		t.Fatalf("list availability: %v", err)
+	}
+	if len(slots) != 2 {
+		t.Fatalf("expected buffer-aware slots, got %d", len(slots))
+	}
+	if slots[0].Available || !slots[1].Available {
+		t.Fatalf("expected buffer to block 09:00 and allow 09:45, got %#v", slots)
+	}
+}
+
 func TestCreateBookingAllowsOverlappingSlotWhenCapacityAvailable(t *testing.T) {
 	store := &fakeStore{
 		service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true, DurationMinutes: 45},
@@ -323,6 +355,40 @@ func TestCreateBookingAllowsOverlappingSlotWhenCapacityAvailable(t *testing.T) {
 	}
 	if booking.SlotTime != "09:45" {
 		t.Fatalf("expected booking at overlapping slot, got %q", booking.SlotTime)
+	}
+}
+
+func TestCreateBookingRejectsSlotBlockedByBufferTime(t *testing.T) {
+	store := &fakeStore{
+		service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true, DurationMinutes: 15},
+		settings: models.BookingSettings{
+			OpenTime:            "09:00",
+			CloseTime:           "11:00",
+			SlotIntervalMinutes: 15,
+			SlotCapacity:        1,
+			BufferMinutes:       15,
+		},
+		bookings: []models.Booking{
+			{
+				SlotTime: "09:00",
+				Status:   models.BookingStatusPending,
+				Service:  models.Service{DurationMinutes: 30},
+			},
+		},
+	}
+	service := NewBookingService(store, nil, nil, 1)
+
+	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
+		ServiceID:    "svc-1",
+		CustomerName: "Somchai",
+		Phone:        "0890000000",
+		LineUserID:   "line-user-1",
+		BookingDate:  "2026-06-10",
+		SlotTime:     "09:30",
+	})
+
+	if !errors.Is(err, ErrSlotUnavailable) {
+		t.Fatalf("expected buffer-blocked slot to be unavailable, got %v", err)
 	}
 }
 
@@ -450,6 +516,12 @@ func TestListReminderCandidatesReturnsUpcomingActiveBookings(t *testing.T) {
 				SlotTime:    "15:00",
 				Status:      models.BookingStatusCancelled,
 			},
+			{
+				BaseModel:   models.BaseModel{ID: "booking-3"},
+				BookingDate: "2026-06-06",
+				SlotTime:    "16:00",
+				Status:      models.BookingStatusNoShow,
+			},
 		},
 	}
 	service := NewBookingService(store, nil, nil, 1)
@@ -462,6 +534,27 @@ func TestListReminderCandidatesReturnsUpcomingActiveBookings(t *testing.T) {
 	}
 	if len(candidates) != 1 || candidates[0].ID != "booking-1" {
 		t.Fatalf("expected one active upcoming candidate, got %#v", candidates)
+	}
+}
+
+func TestUpdateBookingStatusNoShowSwitchesRichMenuToBooking(t *testing.T) {
+	store := &fakeStore{
+		created: &models.Booking{
+			BaseModel:   models.BaseModel{ID: "booking-1"},
+			BookingCode: "Q-TEST",
+			LineUserID:  "line-user-1",
+			Status:      models.BookingStatusConfirmed,
+		},
+	}
+	switcher := &recordingRichMenuSwitcher{}
+	service := NewBookingService(store, nil, switcher, 1)
+
+	if _, err := service.UpdateBookingStatus(context.Background(), "booking-1", models.BookingStatusNoShow); err != nil {
+		t.Fatalf("update status: %v", err)
+	}
+
+	if switcher.bookingMenuUserID != "line-user-1" {
+		t.Fatalf("expected booking rich menu switch, got %q", switcher.bookingMenuUserID)
 	}
 }
 
@@ -696,8 +789,8 @@ func (store *fakeStore) CreateBooking(_ context.Context, booking *models.Booking
 	store.created = booking
 	return nil
 }
-func (store *fakeStore) CreateBookingWithAvailability(_ context.Context, booking *models.Booking, durationMinutes int, capacity int) error {
-	if countOverlappingBookings(store.bookings, booking.SlotTime, durationMinutes) >= int64(capacity) {
+func (store *fakeStore) CreateBookingWithAvailability(_ context.Context, booking *models.Booking, durationMinutes int, capacity int, bufferMinutes int) error {
+	if countOverlappingBookings(store.bookings, booking.SlotTime, durationMinutes, bufferMinutes) >= int64(capacity) {
 		return repositories.ErrSlotCapacityReached
 	}
 	store.created = booking
@@ -715,8 +808,8 @@ func (store *fakeStore) LatestBookingByLineUser(context.Context, string) (models
 func (store *fakeStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
 	return store.bookings, nil
 }
-func (store *fakeStore) UpdateBookingWithAvailability(_ context.Context, booking *models.Booking, durationMinutes int, capacity int) (models.Booking, error) {
-	if countOverlappingBookings(store.bookings, booking.SlotTime, durationMinutes) >= int64(capacity) {
+func (store *fakeStore) UpdateBookingWithAvailability(_ context.Context, booking *models.Booking, durationMinutes int, capacity int, bufferMinutes int) (models.Booking, error) {
+	if countOverlappingBookings(store.bookings, booking.SlotTime, durationMinutes, bufferMinutes) >= int64(capacity) {
 		return models.Booking{}, repositories.ErrSlotCapacityReached
 	}
 	store.created = booking
