@@ -34,13 +34,21 @@ type BookingSuccessPageProps = {
 
 const latestBookingCache = new Map<string, Booking>()
 const latestBookingRequests = new Map<string, Promise<Booking>>()
+const bookingRefreshIntervalMs = 5_000
 
 const isNotFoundError = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 404
 
-const loadLatestBookingOnce = (lineUserId: string) => {
-  const existingRequest = latestBookingRequests.get(lineUserId)
-  if (existingRequest) {
-    return existingRequest
+const forgetLatestBooking = (lineUserId: string) => {
+  latestBookingCache.delete(lineUserId)
+  latestBookingRequests.delete(lineUserId)
+}
+
+const loadLatestBooking = (lineUserId: string, options?: { force?: boolean }) => {
+  if (!options?.force) {
+    const existingRequest = latestBookingRequests.get(lineUserId)
+    if (existingRequest) {
+      return existingRequest
+    }
   }
   const request = bookingApi.latestBookingByLineUser(lineUserId)
     .then((booking) => {
@@ -72,6 +80,7 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const fallbackBookingRef = useRef(fallbackBooking)
   const displayedBooking = lineProfile?.userId ? booking : fallbackBooking
+  const displayedBookingId = displayedBooking?.id ?? ''
   const fallbackBookingId = fallbackBooking?.id ?? ''
   const todayKey = new Date().toISOString().slice(0, 10)
   const rescheduleSlotSelectValue = slots.some((slot) => slot.time === rescheduleSlot) ? rescheduleSlot : ''
@@ -94,13 +103,12 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
       setIsLoading(true)
       setError('')
       try {
-        const latestBooking = await loadLatestBookingOnce(lineProfile.userId)
+        const latestBooking = await loadLatestBooking(lineProfile.userId)
         if (active) setBooking(latestBooking)
       } catch (error) {
         if (active) {
           if (isNotFoundError(error)) {
-            latestBookingCache.delete(lineProfile.userId)
-            latestBookingRequests.delete(lineProfile.userId)
+            forgetLatestBooking(lineProfile.userId)
             setBooking(null)
             onBookingCancelledRef.current()
           } else {
@@ -117,6 +125,44 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
       active = false
     }
   }, [fallbackBookingId, lineProfile?.userId])
+
+  useEffect(() => {
+    if (!lineProfile?.userId || !displayedBookingId) {
+      return undefined
+    }
+
+    let active = true
+    const refreshBooking = async () => {
+      try {
+        const latestBooking = await loadLatestBooking(lineProfile.userId, { force: true })
+        if (active) setBooking(latestBooking)
+      } catch (error) {
+        if (!active) return
+        if (isNotFoundError(error)) {
+          forgetLatestBooking(lineProfile.userId)
+          setBooking(null)
+          onBookingCancelledRef.current()
+        }
+      }
+    }
+
+    const refreshWhenVisible = () => {
+      if (!document.hidden) {
+        void refreshBooking()
+      }
+    }
+
+    const interval = window.setInterval(refreshBooking, bookingRefreshIntervalMs)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    window.addEventListener('focus', refreshWhenVisible)
+
+    return () => {
+      active = false
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      window.removeEventListener('focus', refreshWhenVisible)
+    }
+  }, [displayedBookingId, lineProfile?.userId])
 
   useEffect(() => {
     if (!autoCloseOnSuccess || !displayedBooking) {
