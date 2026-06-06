@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
 import { appTheme } from '../../theme/theme'
 import { adminApi } from '../../api/adminApi'
+import { todayISO } from '../../utils/dateFormat'
 import type { AdminNotification, AdminRealtimeEvent } from '../../types/admin'
 
 const realtimeState = vi.hoisted(() => ({
@@ -424,6 +425,7 @@ describe('DashboardPage', () => {
 
   it('marks an active booking as no-show from the booking list', async () => {
     const user = userEvent.setup()
+    const bookingDate = todayISO()
     mockedAdminApi.listBookings.mockResolvedValue([
       {
         id: 'booking-1',
@@ -431,7 +433,7 @@ describe('DashboardPage', () => {
         bookingCode: 'Q-1006-0001',
         customerName: 'สมชาย',
         phone: '0890000000',
-        bookingDate: '2026-06-06',
+        bookingDate,
         slotTime: '10:00',
         status: 'confirmed',
         createdAt: '2026-06-05T02:00:00.000Z',
@@ -445,7 +447,7 @@ describe('DashboardPage', () => {
       bookingCode: 'Q-1006-0001',
       customerName: 'สมชาย',
       phone: '0890000000',
-      bookingDate: '2026-06-06',
+      bookingDate,
       slotTime: '10:00',
       status: 'no_show',
       createdAt: '2026-06-05T02:00:00.000Z',

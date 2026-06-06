@@ -1447,7 +1447,13 @@ function SetupChecklistPage({
             {steps.map((step) => (
               <Box
                 key={step.label}
-                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: step.done ? 'secondary.main' : 'background.default', p: 1.5 }}
+                sx={{
+                  border: '1px solid',
+                  borderColor: step.done ? 'primary.main' : 'divider',
+                  borderRadius: 2.5,
+                  bgcolor: 'background.default',
+                  p: 1.5,
+                }}
               >
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
                   <Box sx={{ minWidth: 0 }}>
@@ -1649,9 +1655,9 @@ function NotificationsPage({
                   key={notification.id}
                   sx={{
                     border: '1px solid',
-                    borderColor: 'divider',
+                    borderColor: notification.isRead ? 'divider' : 'primary.main',
                     borderRadius: 2.5,
-                    bgcolor: notification.isRead ? 'background.default' : 'secondary.main',
+                    bgcolor: 'background.default',
                     p: 1.6,
                   }}
                 >
