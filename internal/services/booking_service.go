@@ -79,6 +79,7 @@ type BookingSettingsInput struct {
 type BookingNotifier interface {
 	BookingCreated(ctx context.Context, booking models.Booking) error
 	BookingUpdated(ctx context.Context, booking models.Booking) error
+	BookingRescheduled(ctx context.Context, booking models.Booking) error
 	BookingDeleted(ctx context.Context, booking models.Booking, reason string) error
 	ServiceChanged(ctx context.Context, eventType string, service models.Service) error
 	BookingSettingsUpdated(ctx context.Context, settings models.BookingSettings) error
@@ -396,6 +397,8 @@ func (service *BookingService) UpdateBooking(ctx context.Context, id string, inp
 	if !containsSlot(slots, input.SlotTime) {
 		return models.Booking{}, ErrSlotUnavailable
 	}
+	previousBookingDate := booking.BookingDate
+	previousSlotTime := booking.SlotTime
 	booking.ServiceID = input.ServiceID
 	booking.Service = serviceItem
 	booking.CustomerName = input.CustomerName
@@ -414,7 +417,11 @@ func (service *BookingService) UpdateBooking(ctx context.Context, id string, inp
 		return models.Booking{}, err
 	}
 	if service.notifier != nil {
-		_ = service.notifier.BookingUpdated(ctx, updated)
+		if previousBookingDate != updated.BookingDate || previousSlotTime != updated.SlotTime {
+			_ = service.notifier.BookingRescheduled(ctx, updated)
+		} else {
+			_ = service.notifier.BookingUpdated(ctx, updated)
+		}
 	}
 	return updated, nil
 }

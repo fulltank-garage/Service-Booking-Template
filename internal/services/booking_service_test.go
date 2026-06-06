@@ -123,7 +123,8 @@ func TestUpdateServiceCanReactivateInactiveService(t *testing.T) {
 			IsActive:        false,
 		},
 	}
-	service := NewBookingService(store, nil, nil, 1)
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
 
 	updated, err := service.UpdateService(context.Background(), "svc-1", ServiceInput{
 		NameTH:          "ทำเล็บเจล",
@@ -229,7 +230,8 @@ func TestListAvailabilityUsesBookingSettings(t *testing.T) {
 			ClosedWeekdays:      "0",
 		},
 	}
-	service := NewBookingService(store, nil, nil, 1)
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
 
 	slots, err := service.ListAvailability(context.Background(), "svc-1", "2026-06-10")
 	if err != nil {
@@ -406,7 +408,8 @@ func TestRescheduleBookingByLineUserUpdatesSlotAndNotes(t *testing.T) {
 			Status:       models.BookingStatusPending,
 		},
 	}
-	service := NewBookingService(store, nil, nil, 1)
+	notifier := &recordingBookingNotifier{}
+	service := NewBookingService(store, notifier, nil, 1)
 
 	booking, err := service.RescheduleBookingByLineUser(context.Background(), "booking-1", RescheduleBookingInput{
 		LineUserID:  "line-user-1",
@@ -423,6 +426,12 @@ func TestRescheduleBookingByLineUserUpdatesSlotAndNotes(t *testing.T) {
 	}
 	if booking.Notes != "ขอเลื่อนเป็นช่วงสาย" {
 		t.Fatalf("expected notes to update, got %q", booking.Notes)
+	}
+	if notifier.rescheduledBooking.ID != "booking-1" {
+		t.Fatalf("expected reschedule notifier to run, got %#v", notifier.rescheduledBooking)
+	}
+	if notifier.updatedBooking.ID != "" {
+		t.Fatalf("expected generic update notifier to be skipped for reschedule, got %#v", notifier.updatedBooking)
 	}
 }
 
@@ -770,13 +779,14 @@ func (messenger *recordingCustomerMessenger) SendBookingMessage(_ context.Contex
 }
 
 type recordingBookingNotifier struct {
-	createdBooking   models.Booking
-	updatedBooking   models.Booking
-	deletedBooking   models.Booking
-	deletedReason    string
-	serviceEventType string
-	service          models.Service
-	settings         models.BookingSettings
+	createdBooking     models.Booking
+	updatedBooking     models.Booking
+	rescheduledBooking models.Booking
+	deletedBooking     models.Booking
+	deletedReason      string
+	serviceEventType   string
+	service            models.Service
+	settings           models.BookingSettings
 }
 
 func (notifier *recordingBookingNotifier) BookingCreated(_ context.Context, booking models.Booking) error {
@@ -786,6 +796,11 @@ func (notifier *recordingBookingNotifier) BookingCreated(_ context.Context, book
 
 func (notifier *recordingBookingNotifier) BookingUpdated(_ context.Context, booking models.Booking) error {
 	notifier.updatedBooking = booking
+	return nil
+}
+
+func (notifier *recordingBookingNotifier) BookingRescheduled(_ context.Context, booking models.Booking) error {
+	notifier.rescheduledBooking = booking
 	return nil
 }
 

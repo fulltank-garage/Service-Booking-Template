@@ -89,12 +89,32 @@ func (service *NotificationService) BookingUpdated(ctx context.Context, booking 
 	}, &booking)
 }
 
+func (service *NotificationService) BookingRescheduled(ctx context.Context, booking models.Booking) error {
+	return service.createAndPublish(ctx, &models.Notification{
+		Type:      models.NotificationTypeBookingUpdated,
+		Title:     "มีการเลื่อนนัด",
+		Body:      fmt.Sprintf("%s เลื่อนเป็นเวลา %s %s", booking.CustomerName, booking.SlotTime, formatThaiDateLabel(booking.BookingDate)),
+		URL:       "/bookings",
+		BookingID: booking.ID,
+	}, &booking)
+}
+
 func (service *NotificationService) BookingDeleted(ctx context.Context, booking models.Booking, reason string) error {
 	eventType := models.NotificationTypeBookingDeleted
+	title := "ลบรายการจองแล้ว"
+	body := fmt.Sprintf("%s %s ถูกลบออกจากระบบ", booking.BookingCode, booking.CustomerName)
 	if reason == "cancelled" {
 		eventType = models.NotificationTypeBookingCancelled
+		title = "มีการยกเลิกการจอง"
+		body = fmt.Sprintf("%s ยกเลิกคิว %s", booking.CustomerName, booking.BookingCode)
 	}
-	return service.publish(ctx, RealtimeEvent{Type: eventType, Booking: &booking, BookingID: booking.ID})
+	return service.createAndPublish(ctx, &models.Notification{
+		Type:      eventType,
+		Title:     title,
+		Body:      body,
+		URL:       "/bookings",
+		BookingID: booking.ID,
+	}, &booking)
 }
 
 func (service *NotificationService) ServiceChanged(ctx context.Context, eventType string, item models.Service) error {
