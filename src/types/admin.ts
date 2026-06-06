@@ -24,6 +24,32 @@ export type Booking = {
   status: BookingStatus
   service?: ServiceItem
   createdAt: string
+  noShowCount?: number
+}
+
+export type DailyBookingSummary = {
+  date: string
+  pending: number
+  confirmed: number
+  completed: number
+  cancelled: number
+  noShow: number
+  total: number
+}
+
+export type BookingDailySummary = {
+  today: DailyBookingSummary
+  tomorrow: DailyBookingSummary
+}
+
+export type PushHealthReport = {
+  configured: boolean
+  validKeys: boolean
+  senderReady: boolean
+  subscriptionCount: number
+  lastStatusCode?: number
+  lastError?: string
+  recommendation: string
 }
 
 export type AdminNotification = {

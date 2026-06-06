@@ -47,7 +47,17 @@ import WifiTetheringIcon from '@mui/icons-material/WifiTethering'
 import { adminApi, type BookingPayload, type ServicePayload } from '../../api/adminApi'
 import { BrandMark } from '../../components/BrandMark'
 import { useAdminRealtime, type RealtimeStatus } from '../../hooks/useAdminRealtime'
-import type { AdminNotification, AdminRealtimeEvent, Booking, BookingSettings, BookingStatus, ServiceItem } from '../../types/admin'
+import type {
+  AdminNotification,
+  AdminRealtimeEvent,
+  Booking,
+  BookingDailySummary,
+  DailyBookingSummary,
+  BookingSettings,
+  BookingStatus,
+  PushHealthReport,
+  ServiceItem,
+} from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
 import { refreshPushSubscription, registerAdminServiceWorker } from '../notifications/pushNotifications'
 import { addDaysToISODate, formatThaiDateLabel, todayISO } from '../../utils/dateFormat'
@@ -279,6 +289,8 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null)
+  const [dailySummary, setDailySummary] = useState<BookingDailySummary | null>(null)
+  const [pushHealth, setPushHealth] = useState<PushHealthReport | null>(null)
   const [selectedBookingDate, setSelectedBookingDate] = useState(todayISO)
   const [bookingQuery, setBookingQuery] = useState('')
   const [bookingStatusFilter, setBookingStatusFilter] = useState<BookingStatus | 'all'>('all')
@@ -302,11 +314,13 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
 
     try {
-      const [bookingItems, notificationItems, serviceItems, settings] = await Promise.all([
+      const [bookingItems, notificationItems, serviceItems, settings, summaryItems, pushHealthReport] = await Promise.all([
         adminApi.listBookings({ date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }),
         adminApi.listNotifications(),
         adminApi.listServices(),
         adminApi.getBookingSettings(),
+        adminApi.getBookingSummary(todayISO()),
+        adminApi.getPushHealth(),
       ])
       const newBookingNotification = hasLoadedDataRef.current
         ? notificationItems.find(
@@ -321,6 +335,8 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
       setServices(serviceItems)
       setNotifications(notificationItems)
       setBookingSettings(settings)
+      setDailySummary(summaryItems)
+      setPushHealth(pushHealthReport)
       setLatestRealtimeAt(new Date())
       knownNotificationIdsRef.current = new Set(notificationItems.map((notification) => notification.id))
       hasLoadedDataRef.current = true
@@ -360,12 +376,17 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     showNotificationNotice(notification)
   }, [showNotificationNotice])
 
+  const refreshDailySummary = useCallback(() => {
+    void adminApi.getBookingSummary(todayISO()).then(setDailySummary).catch(() => undefined)
+  }, [])
+
   useAdminRealtime({
     onEvent: useCallback(
       (event: AdminRealtimeEvent) => {
         setLatestRealtimeAt(new Date())
 
         if (event.type === 'booking.deleted' || event.type === 'booking.cancelled') {
+          refreshDailySummary()
           const bookingId = event.booking?.id ?? event.bookingId
           if (bookingId) {
             setBookings((current) => current.filter((booking) => booking.id !== bookingId))
@@ -373,6 +394,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
             void loadData()
           }
         } else if (event.booking) {
+          refreshDailySummary()
           const incomingBooking = event.booking as Booking
           const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
           setBookings((current) =>
@@ -424,7 +446,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           void loadData()
         }
       },
-      [bookingQuery, bookingStatusFilter, handleRealtimeNotification, loadData, selectedBookingDate],
+      [bookingQuery, bookingStatusFilter, handleRealtimeNotification, loadData, refreshDailySummary, selectedBookingDate],
     ),
     onLegacyNotification: handleRealtimeNotification,
     onRefresh: loadData,
@@ -495,6 +517,39 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     }
   }
 
+  const handleCreateBooking = async (payload: Omit<BookingPayload, 'status'>) => {
+    try {
+      const created = await adminApi.createBooking(payload)
+      const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
+      setBookings((current) =>
+        sortBookingsByNewestCreated(bookingMatchesFilters(created, filters) ? upsertById(current, created) : current),
+      )
+      refreshDailySummary()
+      setNotice('เพิ่มคิวจองแล้ว')
+    } catch {
+      setNotice('เพิ่มคิวจองไม่สำเร็จ')
+      void loadData()
+      throw new Error('create booking failed')
+    }
+  }
+
+  const handleExportBookings = async () => {
+    try {
+      const blob = await adminApi.exportBookings({ date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `bookings-${selectedBookingDate}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      setNotice('ส่งออกประวัติการจองแล้ว')
+    } catch {
+      setNotice('ส่งออกประวัติการจองไม่สำเร็จ')
+    }
+  }
+
   const handleChangePage = (page: AdminPage) => {
     setActivePage(page)
     setIsNavOpen(false)
@@ -555,7 +610,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
             ) : (
               <>
                 {activePage === 'overview' && (
-                  <OverviewPage summary={summary} />
+                  <OverviewPage dailySummary={dailySummary} summary={summary} />
                 )}
                 {activePage === 'bookings' && (
 	                  <BookingsPage
@@ -564,7 +619,9 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
 	                    selectedDate={selectedBookingDate}
 	                    services={services}
 	                    statusFilter={bookingStatusFilter}
+	                    onCreateBooking={handleCreateBooking}
 	                    onDeleteBooking={handleDeleteBooking}
+	                    onExportBookings={handleExportBookings}
 	                    onQueryChange={setBookingQuery}
 	                    onNextDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, 1))}
 	                    onPreviousDay={() => setSelectedBookingDate((date) => addDaysToISODate(date, -1))}
@@ -597,6 +654,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                 {activePage === 'notifications' && (
                   <NotificationsPage
                     notifications={notifications}
+                    pushHealth={pushHealth}
                     onError={() => setNotice('อัปเดตแจ้งเตือนไม่สำเร็จ')}
                     onMarkAllRead={async () => {
                       const unreadNotifications = notifications.filter((notification) => !notification.isRead)
@@ -1201,8 +1259,10 @@ function AdminProfilePanel({
   )
 }
 function OverviewPage({
+  dailySummary,
   summary,
 }: {
+  dailySummary: BookingDailySummary | null
   summary: { pending: number; confirmed: number; unread: number; total: number }
 }) {
   return (
@@ -1213,7 +1273,48 @@ function OverviewPage({
         <SummaryCard icon={<CalendarMonthIcon />} label="คิวทั้งหมด" value={summary.total} color="#FF008C" />
         <SummaryCard icon={<NotificationsIcon />} label="แจ้งเตือนยังไม่อ่าน" value={summary.unread} color="#111827" />
       </Grid>
+      {dailySummary && (
+        <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Typography variant="h2" sx={{ mb: 1.5 }}>
+              สรุปคิววันนี้/พรุ่งนี้
+            </Typography>
+            <Grid container spacing={1.5}>
+              <DailySummaryPanel title="วันนี้" item={dailySummary.today} />
+              <DailySummaryPanel title="พรุ่งนี้" item={dailySummary.tomorrow} />
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
     </Stack>
+  )
+}
+
+function DailySummaryPanel({ item, title }: { item: DailyBookingSummary; title: string }) {
+  return (
+    <Grid size={{ xs: 12, md: 6 }}>
+      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.6 }}>
+        <Typography sx={{ color: 'primary.main', fontWeight: 950 }}>
+          {title} · {formatThaiDateLabel(item.date)}
+        </Typography>
+        <Grid container spacing={1} sx={{ mt: 0.5 }}>
+          {[
+            ['ทั้งหมด', item.total],
+            ['รอจัดการ', item.pending],
+            ['ยืนยันแล้ว', item.confirmed],
+            ['เสร็จสิ้น', item.completed],
+            ['ไม่มาตามนัด', item.noShow],
+          ].map(([label, value]) => (
+            <Grid key={label} size={{ xs: 6, sm: 4 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                {label}
+              </Typography>
+              <Typography sx={{ fontWeight: 950, lineHeight: 1.15 }}>{value}</Typography>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    </Grid>
   )
 }
 
@@ -1223,7 +1324,9 @@ function BookingsPage({
   selectedDate,
   services,
   statusFilter,
+  onCreateBooking,
   onDeleteBooking,
+  onExportBookings,
   onNextDay,
   onPreviousDay,
   onQueryChange,
@@ -1236,7 +1339,9 @@ function BookingsPage({
   selectedDate: string
   services: ServiceItem[]
   statusFilter: BookingStatus | 'all'
+  onCreateBooking: (payload: Omit<BookingPayload, 'status'>) => Promise<void>
   onDeleteBooking: (booking: Booking) => void
+  onExportBookings: () => void | Promise<void>
   onNextDay: () => void
   onPreviousDay: () => void
   onQueryChange: (query: string) => void
@@ -1251,7 +1356,9 @@ function BookingsPage({
       selectedDate={selectedDate}
       services={services}
       statusFilter={statusFilter}
+      onCreateBooking={onCreateBooking}
       onDeleteBooking={onDeleteBooking}
+      onExportBookings={onExportBookings}
       onNextDay={onNextDay}
       onPreviousDay={onPreviousDay}
       onQueryChange={onQueryChange}
@@ -1267,11 +1374,13 @@ function NotificationsPage({
   onError,
   onMarkAllRead,
   onMarkRead,
+  pushHealth,
 }: {
   notifications: AdminNotification[]
   onError: () => void
   onMarkAllRead: () => Promise<void>
   onMarkRead: (notificationId: string) => Promise<void>
+  pushHealth: PushHealthReport | null
 }) {
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [markingId, setMarkingId] = useState('')
@@ -1304,9 +1413,11 @@ function NotificationsPage({
   }
 
   return (
-    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-      <CardContent sx={{ p: 2.5 }}>
-        <Stack spacing={2}>
+    <Stack spacing={2}>
+      {pushHealth && <PushHealthCard health={pushHealth} />}
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <CardContent sx={{ p: 2.5 }}>
+          <Stack spacing={2}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
             <Typography variant="h2">รายการแจ้งเตือน</Typography>
             <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: 'space-between' }}>
@@ -1362,6 +1473,55 @@ function NotificationsPage({
                 </Box>
               ))}
             </Stack>
+          )}
+          </Stack>
+        </CardContent>
+      </Card>
+    </Stack>
+  )
+}
+
+function PushHealthCard({ health }: { health: PushHealthReport }) {
+  const recommendationLabels: Record<string, string> = {
+    push_ready: 'พร้อมส่งแจ้งเตือน',
+    vapid_not_configured: 'ยังไม่ได้ตั้งค่า VAPID',
+    vapid_key_mismatch: 'VAPID public/private ไม่ใช่คู่เดียวกัน',
+    push_sender_not_ready: 'ตัวส่ง push ยังไม่พร้อม',
+    no_subscription: 'ยังไม่มีเครื่องที่ผูกแจ้งเตือน',
+  }
+  const isReady = health.recommendation === 'push_ready'
+  return (
+    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack spacing={1.2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between' }}>
+            <Typography variant="h2">สถานะแจ้งเตือน Admin</Typography>
+            <Chip
+              color={isReady ? 'success' : 'primary'}
+              label={recommendationLabels[health.recommendation] ?? health.recommendation}
+              sx={isReady ? undefined : statusChipSx}
+            />
+          </Stack>
+          <Grid container spacing={1}>
+            {[
+              ['VAPID', health.validKeys ? 'ถูกต้อง' : health.configured ? 'ต้องแก้ไข' : 'ยังไม่ตั้งค่า'],
+              ['ตัวส่ง Push', health.senderReady ? 'พร้อม' : 'ยังไม่พร้อม'],
+              ['เครื่องที่ผูกไว้', `${health.subscriptionCount} เครื่อง`],
+            ].map(([label, value]) => (
+              <Grid key={label} size={{ xs: 12, sm: 4 }}>
+                <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                    {label}
+                  </Typography>
+                  <Typography sx={{ fontWeight: 950 }}>{value}</Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+          {health.lastError && (
+            <Typography sx={{ color: 'text.secondary', fontWeight: 760, wordBreak: 'break-word' }}>
+              รายละเอียด: {health.lastError}
+            </Typography>
           )}
         </Stack>
       </CardContent>
@@ -2176,7 +2336,9 @@ function BookingsCard({
   selectedDate,
   services,
   statusFilter,
+  onCreateBooking,
   onDeleteBooking,
+  onExportBookings,
   onNextDay,
   onPreviousDay,
   onQueryChange,
@@ -2189,7 +2351,9 @@ function BookingsCard({
   selectedDate: string
   services: ServiceItem[]
   statusFilter: BookingStatus | 'all'
+  onCreateBooking: (payload: Omit<BookingPayload, 'status'>) => Promise<void>
   onDeleteBooking: (booking: Booking) => void
+  onExportBookings: () => void | Promise<void>
   onNextDay: () => void
   onPreviousDay: () => void
   onQueryChange: (query: string) => void
@@ -2198,6 +2362,7 @@ function BookingsCard({
   onUpdateBooking: (booking: Booking, payload: BookingPayload) => Promise<void>
 }) {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editServiceId, setEditServiceId] = useState('')
   const [editCustomerName, setEditCustomerName] = useState('')
   const [editPhone, setEditPhone] = useState('')
@@ -2205,6 +2370,16 @@ function BookingsCard({
   const [editSlotTime, setEditSlotTime] = useState('')
   const [editNotes, setEditNotes] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  const openCreateBooking = () => {
+    setServiceIdForCreate(services[0]?.id ?? '')
+    setBookingDateForCreate(selectedDate)
+    setIsCreateOpen(true)
+  }
+
+  const [serviceIdForCreate, setServiceIdForCreate] = useState('')
+  const [bookingDateForCreate, setBookingDateForCreate] = useState(selectedDate)
 
   const openEditBooking = (booking: Booking) => {
     if (isClosedBookingStatus(booking.status)) return
@@ -2233,6 +2408,16 @@ function BookingsCard({
       setEditingBooking(null)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleExport = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      await onExportBookings()
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -2269,6 +2454,12 @@ function BookingsCard({
             </FormControl>
           </Stack>
           <Stack direction="row" spacing={0.8} sx={{ justifyContent: 'flex-end' }}>
+            <Button variant="contained" onClick={openCreateBooking}>
+              เพิ่มคิว
+            </Button>
+            <Button variant="outlined" disabled={isExporting} onClick={handleExport}>
+              {isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV'}
+            </Button>
             <Button variant="outlined" onClick={onPreviousDay}>
               วันก่อนหน้า
             </Button>
@@ -2332,6 +2523,11 @@ function BookingsCard({
                         <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', fontWeight: 760 }}>
                           เบอร์โทร: {booking.phone}
                         </Typography>
+                        {booking.noShowCount ? (
+                          <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', fontWeight: 760 }}>
+                            ไม่มาตามนัดสะสม: {booking.noShowCount} ครั้ง
+                          </Typography>
+                        ) : null}
                       </Stack>
                     </Box>
 	                    <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
@@ -2360,6 +2556,11 @@ function BookingsCard({
                     <Typography variant="body2" color="text.secondary">
                       {booking.phone}
                     </Typography>
+                    {booking.noShowCount ? (
+                      <Typography variant="body2" color="text.secondary">
+                        ไม่มาตามนัด {booking.noShowCount} ครั้ง
+                      </Typography>
+                    ) : null}
                   </TableCell>
                   <TableCell>{booking.service?.nameTh ?? '-'}</TableCell>
                   <TableCell>
@@ -2380,6 +2581,20 @@ function BookingsCard({
         )}
         </CardContent>
       </Card>
+      <BookingCreateSheet
+        bookingDate={bookingDateForCreate}
+        isOpen={isCreateOpen}
+        selectedDate={selectedDate}
+        serviceId={serviceIdForCreate}
+        services={services}
+        onBookingDateChange={setBookingDateForCreate}
+        onClose={() => setIsCreateOpen(false)}
+        onCreate={async (payload) => {
+          await onCreateBooking(payload)
+          setIsCreateOpen(false)
+        }}
+        onServiceIdChange={setServiceIdForCreate}
+      />
       <BottomEditorSheet isOpen={Boolean(editingBooking)} onClose={() => setEditingBooking(null)} title="แก้ไขรายการจอง">
         <Stack spacing={2}>
           <FormControl fullWidth>
@@ -2507,6 +2722,131 @@ function BookingActionButtons({
         ไม่มาตามนัด
       </Button>
     </Stack>
+  )
+}
+
+function BookingCreateSheet({
+  bookingDate,
+  isOpen,
+  onBookingDateChange,
+  onClose,
+  onCreate,
+  onServiceIdChange,
+  selectedDate,
+  serviceId,
+  services,
+}: {
+  bookingDate: string
+  isOpen: boolean
+  onBookingDateChange: (value: string) => void
+  onClose: () => void
+  onCreate: (payload: Omit<BookingPayload, 'status'>) => Promise<void>
+  onServiceIdChange: (value: string) => void
+  selectedDate: string
+  serviceId: string
+  services: ServiceItem[]
+}) {
+  const [customerName, setCustomerName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [slotTime, setSlotTime] = useState('')
+  const [notes, setNotes] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const reset = () => {
+    onServiceIdChange(services[0]?.id ?? '')
+    setCustomerName('')
+    setPhone('')
+    onBookingDateChange(selectedDate)
+    setSlotTime('')
+    setNotes('')
+  }
+
+  const handleCreate = async () => {
+    if (isSaving || !serviceId || !customerName.trim() || !phone.trim() || !bookingDate || !slotTime) return
+    setIsSaving(true)
+    try {
+      await onCreate({
+        serviceId,
+        customerName: customerName.trim(),
+        phone: digitsOnly(phone),
+        bookingDate,
+        slotTime,
+        notes: notes.trim(),
+      })
+      reset()
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <BottomEditorSheet isOpen={isOpen} onClose={onClose} title="เพิ่มคิวจอง">
+      <Stack spacing={2}>
+        <FormControl fullWidth>
+          <Select aria-label="บริการ" value={serviceId} onChange={(event) => onServiceIdChange(event.target.value)} displayEmpty>
+            <MenuItem value="" disabled>
+              เลือกบริการ
+            </MenuItem>
+            {services.map((service) => (
+              <MenuItem key={service.id} value={service.id}>
+                {service.nameTh}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Grid container spacing={1.5}>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              label="ชื่อผู้จอง"
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              fullWidth
+              label="เบอร์โทร"
+              value={phone}
+              onChange={(event) => setPhone(digitsOnly(event.target.value))}
+              slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
+            />
+          </Grid>
+        </Grid>
+        <Grid container spacing={1.5}>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField fullWidth label="วันที่" type="date" value={bookingDate} onChange={(event) => onBookingDateChange(event.target.value)} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControl fullWidth>
+              <Select aria-label="เวลา" value={slotTime} onChange={(event) => setSlotTime(event.target.value)} displayEmpty>
+                <MenuItem value="" disabled>
+                  เลือกเวลา
+                </MenuItem>
+                {shopTimeOptions.map((option) => (
+                  <MenuItem key={`create-time-${option.value}`} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+        <TextField fullWidth multiline minRows={3} label="หมายเหตุ" value={notes} onChange={(event) => setNotes(event.target.value)} />
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'flex-end' }}>
+          <Button variant="outlined" disabled={isSaving} onClick={onClose}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!serviceId || !customerName.trim() || !phone.trim() || !bookingDate || !slotTime || isSaving}
+            onClick={handleCreate}
+          >
+            {isSaving ? 'กำลังบันทึก...' : 'บันทึกคิว'}
+          </Button>
+        </Stack>
+      </Stack>
+    </BottomEditorSheet>
   )
 }
 

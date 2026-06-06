@@ -20,6 +20,10 @@ vi.mock('../../api/adminApi', () => ({
     listNotifications: vi.fn(),
     listServices: vi.fn(),
     getBookingSettings: vi.fn(),
+    getBookingSummary: vi.fn(),
+    getPushHealth: vi.fn(),
+    createBooking: vi.fn(),
+    exportBookings: vi.fn(),
     updateBookingSettings: vi.fn(),
     deleteBooking: vi.fn(),
     markNotificationRead: vi.fn(),
@@ -57,6 +61,10 @@ describe('DashboardPage', () => {
     mockedAdminApi.listNotifications.mockReset()
     mockedAdminApi.listServices.mockReset()
     mockedAdminApi.getBookingSettings.mockReset()
+    mockedAdminApi.getBookingSummary.mockReset()
+    mockedAdminApi.getPushHealth.mockReset()
+    mockedAdminApi.createBooking.mockReset()
+    mockedAdminApi.exportBookings.mockReset()
     mockedAdminApi.updateBookingSettings.mockReset()
     mockedAdminApi.deleteBooking.mockReset()
     mockedAdminApi.markNotificationRead.mockReset()
@@ -75,6 +83,45 @@ describe('DashboardPage', () => {
       bufferMinutes: 0,
       blackoutDates: [],
     })
+    mockedAdminApi.getBookingSummary.mockResolvedValue({
+      today: {
+        date: '2026-06-06',
+        pending: 0,
+        confirmed: 0,
+        completed: 0,
+        cancelled: 0,
+        noShow: 0,
+        total: 0,
+      },
+      tomorrow: {
+        date: '2026-06-07',
+        pending: 0,
+        confirmed: 0,
+        completed: 0,
+        cancelled: 0,
+        noShow: 0,
+        total: 0,
+      },
+    })
+    mockedAdminApi.getPushHealth.mockResolvedValue({
+      configured: true,
+      validKeys: true,
+      senderReady: true,
+      subscriptionCount: 1,
+      recommendation: 'push_ready',
+    })
+    mockedAdminApi.createBooking.mockResolvedValue({
+      id: 'booking-created',
+      serviceId: 'service-1',
+      bookingCode: 'Q-1006-9999',
+      customerName: 'ลูกค้า Walk-in',
+      phone: '0800000000',
+      bookingDate: '2026-06-06',
+      slotTime: '09:00',
+      status: 'pending',
+      createdAt: '2026-06-06T01:00:00.000Z',
+    })
+    mockedAdminApi.exportBookings.mockResolvedValue(new Blob(['booking_code']))
   })
 
   afterEach(() => {

@@ -1,5 +1,14 @@
 import { httpClient } from './httpClient'
-import type { AdminNotification, ApiEnvelope, Booking, BookingSettings, BookingStatus, ServiceItem } from '../types/admin'
+import type {
+  AdminNotification,
+  ApiEnvelope,
+  Booking,
+  BookingDailySummary,
+  BookingSettings,
+  BookingStatus,
+  PushHealthReport,
+  ServiceItem,
+} from '../types/admin'
 
 type AdminLoginResponse = {
   email: string
@@ -22,6 +31,7 @@ export type BookingPayload = {
   serviceId: string
   customerName: string
   phone: string
+  lineUserId?: string
   bookingDate: string
   slotTime: string
   notes: string
@@ -53,6 +63,30 @@ export const adminApi = {
       },
     })
     return response.data.data
+  },
+
+  createBooking: async (payload: Omit<BookingPayload, 'status'>) => {
+    const response = await httpClient.post<ApiEnvelope<Booking>>('/admin/bookings', payload)
+    return response.data.data
+  },
+
+  getBookingSummary: async (date?: string) => {
+    const response = await httpClient.get<ApiEnvelope<BookingDailySummary>>('/admin/bookings/summary', {
+      params: date ? { date } : undefined,
+    })
+    return response.data.data
+  },
+
+  exportBookings: async (params?: BookingListParams) => {
+    const response = await httpClient.get<Blob>('/admin/bookings/export', {
+      params: {
+        ...(params?.date ? { date: params.date } : {}),
+        ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
+        ...(params?.query ? { query: params.query } : {}),
+      },
+      responseType: 'blob',
+    })
+    return response.data
   },
 
   listServices: async () => {
@@ -111,6 +145,11 @@ export const adminApi = {
   getPushPublicKey: async () => {
     const response = await httpClient.get<{ configured: boolean; publicKey: string; error?: string }>('/admin/push/public-key')
     return response.data
+  },
+
+  getPushHealth: async () => {
+    const response = await httpClient.get<ApiEnvelope<PushHealthReport>>('/admin/push/health')
+    return response.data.data
   },
 
   subscribePush: async (subscription: PushSubscriptionJSON) => {
