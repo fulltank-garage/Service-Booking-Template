@@ -2,6 +2,13 @@ import { adminApi } from '../../api/adminApi'
 
 const serviceWorkerPath = '/admin-sw.js'
 
+type PushDeliveryReport = {
+  attempted: number
+  sent: number
+  expired: number
+  failed: number
+}
+
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -64,6 +71,40 @@ const ensurePushSubscription = async (registration: ServiceWorkerRegistration, p
   return { subscription: await subscribeWithPublicKey(registration, publicKey), isNewOrRepaired: true }
 }
 
+const isPushDelivered = (report: PushDeliveryReport) => report.attempted > 0 && report.sent > 0
+
+const formatPushReport = (report: PushDeliveryReport) =>
+  `attempted=${report.attempted}, sent=${report.sent}, failed=${report.failed}, expired=${report.expired}`
+
+const testPushSubscription = async (subscription: PushSubscription) => adminApi.testPush(subscription.toJSON())
+
+const repairAndTestPushSubscription = async (registration: ServiceWorkerRegistration, publicKey: string) => {
+  const currentSubscription = await registration.pushManager.getSubscription()
+  await currentSubscription?.unsubscribe().catch(() => false)
+  const subscription = await subscribeWithPublicKey(registration, publicKey)
+  const report = await testPushSubscription(subscription)
+  return { report, subscription }
+}
+
+const verifyPushSubscription = async (
+  registration: ServiceWorkerRegistration,
+  publicKey: string,
+  subscription: PushSubscription,
+  prefix: string,
+) => {
+  const firstReport = await testPushSubscription(subscription)
+  if (isPushDelivered(firstReport)) {
+    return subscription
+  }
+
+  const repaired = await repairAndTestPushSubscription(registration, publicKey)
+  if (isPushDelivered(repaired.report)) {
+    return repaired.subscription
+  }
+
+  throw new Error(`${prefix} (${formatPushReport(repaired.report)})`)
+}
+
 const getConfiguredPublicKey = async () => {
   const publicKey = await adminApi.getPushPublicKey()
   if (!publicKey.configured || !publicKey.publicKey) {
@@ -108,12 +149,14 @@ export const enablePushNotifications = async () => {
   }
 
   const registration = await registerServiceWorker()
-  const { subscription } = await ensurePushSubscription(registration, await getConfiguredPublicKey())
-  const report = await adminApi.testPush(subscription.toJSON())
-  if (report.attempted === 0 || report.sent === 0) {
-    throw new Error('เปิดสิทธิ์แล้ว แต่ยังส่งทดสอบแจ้งเตือนไม่สำเร็จ กรุณาลองเปิดแจ้งเตือนอีกครั้ง')
-  }
-  return subscription
+  const publicKey = await getConfiguredPublicKey()
+  const { subscription } = await ensurePushSubscription(registration, publicKey)
+  return verifyPushSubscription(
+    registration,
+    publicKey,
+    subscription,
+    'เปิดสิทธิ์แล้ว แต่ยังส่งทดสอบแจ้งเตือนไม่สำเร็จ กรุณาลองเปิดแจ้งเตือนอีกครั้ง',
+  )
 }
 
 export const refreshPushSubscription = async () => {
@@ -122,12 +165,15 @@ export const refreshPushSubscription = async () => {
   }
 
   const registration = await registerServiceWorker()
-  const result = await ensurePushSubscription(registration, await getConfiguredPublicKey())
+  const publicKey = await getConfiguredPublicKey()
+  const result = await ensurePushSubscription(registration, publicKey)
   if (result.isNewOrRepaired) {
-    const report = await adminApi.testPush(result.subscription.toJSON())
-    if (report.attempted === 0 || report.sent === 0) {
-      throw new Error('ซิงก์แจ้งเตือนแล้ว แต่ยังส่งทดสอบแจ้งเตือนไม่สำเร็จ กรุณาเปิดแจ้งเตือนอีกครั้ง')
-    }
+    return verifyPushSubscription(
+      registration,
+      publicKey,
+      result.subscription,
+      'ซิงก์แจ้งเตือนแล้ว แต่ยังส่งทดสอบแจ้งเตือนไม่สำเร็จ กรุณาเปิดแจ้งเตือนอีกครั้ง',
+    )
   }
   return result.subscription
 }

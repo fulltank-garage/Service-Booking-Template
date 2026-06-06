@@ -131,4 +131,51 @@ describe('pushNotifications', () => {
       keys: { auth: 'auth', p256dh: 'p256dh' },
     })
   })
+
+  it('repairs the push subscription when the first notification test fails', async () => {
+    const oldSubscription = {
+      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
+      toJSON: () => ({ endpoint: 'https://push.example.test/old', keys: { auth: 'old-auth', p256dh: 'old-p256dh' } }),
+      unsubscribe: vi.fn().mockResolvedValue(true),
+    } as unknown as PushSubscription
+    const repairedSubscription = {
+      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
+      toJSON: () => ({ endpoint: 'https://push.example.test/repaired', keys: { auth: 'new-auth', p256dh: 'new-p256dh' } }),
+    } as unknown as PushSubscription
+    const subscribe = vi.fn().mockResolvedValue(repairedSubscription)
+    const registration = {
+      pushManager: {
+        getSubscription: vi.fn().mockResolvedValue(oldSubscription),
+        subscribe,
+      },
+      update: vi.fn().mockResolvedValue(undefined),
+    }
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        ready: Promise.resolve(registration),
+        register: vi.fn().mockResolvedValue(registration),
+      },
+    })
+    mockedAdminApi.getPushPublicKey.mockResolvedValue({ configured: true, publicKey: 'AQID' })
+    mockedAdminApi.testPush
+      .mockResolvedValueOnce({ attempted: 1, sent: 0, expired: 1, failed: 1 })
+      .mockResolvedValueOnce({ attempted: 1, sent: 1, expired: 0, failed: 0 })
+
+    await enablePushNotifications()
+
+    expect(oldSubscription.unsubscribe).toHaveBeenCalled()
+    expect(subscribe).toHaveBeenCalledWith({
+      applicationServerKey: new Uint8Array([1, 2, 3]),
+      userVisibleOnly: true,
+    })
+    expect(mockedAdminApi.testPush).toHaveBeenNthCalledWith(1, {
+      endpoint: 'https://push.example.test/old',
+      keys: { auth: 'old-auth', p256dh: 'old-p256dh' },
+    })
+    expect(mockedAdminApi.testPush).toHaveBeenNthCalledWith(2, {
+      endpoint: 'https://push.example.test/repaired',
+      keys: { auth: 'new-auth', p256dh: 'new-p256dh' },
+    })
+  })
 })
