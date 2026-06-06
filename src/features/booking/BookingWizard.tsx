@@ -258,7 +258,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             <Box>
               <Typography variant="h2">จองคิวเรียบร้อย</Typography>
               <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                ระบบบันทึกคำขอของคุณแล้ว ทีมงานจะดูแลรายการจองต่อไป
+                ร้านได้รับข้อมูลแล้ว กรุณารอการยืนยันจากร้าน
               </Typography>
             </Box>
             <Divider sx={{ width: '100%' }} />
@@ -268,7 +268,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               <SummaryItem label="เวลา" value={confirmedBooking.slotTime} />
             </Grid>
             <Button variant="contained" onClick={() => setConfirmedBooking(null)}>
-              เริ่มการจอง
+              จองคิวใหม่
             </Button>
           </Stack>
         </CardContent>
@@ -288,11 +288,11 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
     >
       <CardContent sx={{ p: 2.25 }}>
         <Stack spacing={2.25}>
-          <Box>
-            <Typography variant="h2" sx={{ fontSize: '1.8rem' }}>
-              จองคิว
-            </Typography>
-            <Typography sx={{ mt: 0.75, color: 'text.secondary' }}>เลือกวัน เวลา และกรอกข้อมูลติดต่อ</Typography>
+            <Box>
+              <Typography variant="h2" sx={{ fontSize: '1.8rem' }}>
+                จองคิว
+              </Typography>
+            <Typography sx={{ mt: 0.75, color: 'text.secondary' }}>เลือกบริการ วันเวลา แล้วกรอกเบอร์โทร</Typography>
           </Box>
 
           {error && (
@@ -300,17 +300,6 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               {error}
             </Alert>
           )}
-
-          <BookingCalendar
-            blackoutDates={blackoutDates}
-            bookingDate={bookingDate}
-            closedWeekdays={closedWeekdays}
-            maxDateKey={maxDateKey}
-            todayKey={todayKey}
-            visibleMonth={visibleMonth}
-            onMonthChange={setVisibleMonth}
-            onSelectDate={setBookingDate}
-          />
 
           <FormControl fullWidth>
             <Select
@@ -359,6 +348,17 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Select>
           </FormControl>
 
+          <BookingCalendar
+            blackoutDates={blackoutDates}
+            bookingDate={bookingDate}
+            closedWeekdays={closedWeekdays}
+            maxDateKey={maxDateKey}
+            todayKey={todayKey}
+            visibleMonth={visibleMonth}
+            onMonthChange={setVisibleMonth}
+            onSelectDate={setBookingDate}
+          />
+
           <Box>
             <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
               <ScheduleIcon color="primary" />
@@ -404,7 +404,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label={lineProfile?.displayName ? 'ชื่อผู้จองจาก LINE' : 'ชื่อผู้จอง'}
+                label={lineProfile?.displayName ? 'ชื่อจาก LINE' : 'ชื่อผู้จอง'}
                 value={customerName}
                 disabled={Boolean(lineProfile?.displayName)}
                 onChange={(event) => setManualCustomerName(event.target.value)}
@@ -429,7 +429,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
                 fullWidth
                 multiline
                 minRows={3}
-                label="หมายเหตุ"
+                label="หมายเหตุ (ไม่บังคับ)"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 placeholder="รายละเอียดเพิ่มเติม เช่น ลายที่อยากทำหรือเวลาที่สะดวก"
@@ -445,7 +445,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               disabled={!canSubmit || isSubmitting}
               onClick={handleSubmit}
             >
-              {isSubmitting ? 'กำลังส่ง...' : 'ยืนยันการจอง'}
+              {isSubmitting ? 'กำลังส่ง...' : 'จองคิว'}
             </Button>
           </Stack>
         </Stack>

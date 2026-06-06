@@ -92,16 +92,16 @@ describe('BookingWizard', () => {
     const user = userEvent.setup()
     renderWizard()
 
-    await screen.findByText('จองคิว')
+    await screen.findByRole('heading', { name: 'จองคิว' })
     expect(screen.getByText('เลือกวันที่')).toBeInTheDocument()
     expect(screen.getByText('เลือกบริการของคุณ')).toBeInTheDocument()
     await user.click(screen.getByLabelText('บริการ'))
     await user.click(await screen.findByRole('option', { name: 'บริการทดสอบ' }))
     await user.type(screen.getByLabelText('ชื่อผู้จอง'), 'สมชาย')
     await user.type(screen.getByLabelText('เบอร์โทร'), '0890000000')
-    await user.type(screen.getByLabelText('หมายเหตุ'), 'ขอที่นั่งริมหน้าต่าง')
+    await user.type(screen.getByLabelText(/หมายเหตุ/), 'ขอที่นั่งริมหน้าต่าง')
 
-    const submitButton = screen.getByRole('button', { name: /ยืนยันการจอง/i })
+    const submitButton = screen.getByRole('button', { name: 'จองคิว' })
     await waitFor(() => expect(submitButton).toBeEnabled())
     await user.click(submitButton)
 
@@ -163,7 +163,7 @@ describe('BookingWizard', () => {
 
     expect(await screen.findByRole('heading', { name: 'จองคิว' })).toBeInTheDocument()
     expect(screen.queryByText('สมชาย')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('ชื่อผู้จองจาก LINE')).toHaveValue('สมชาย')
+    expect(screen.getByLabelText('ชื่อจาก LINE')).toHaveValue('สมชาย')
   })
 
   it('disables recurring closed weekdays on the booking calendar', async () => {
