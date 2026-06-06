@@ -73,8 +73,32 @@ func (handler *NotificationHandler) Subscribe(c *gin.Context) {
 func (handler *NotificationHandler) TestPush(c *gin.Context) {
 	var payload struct {
 		Endpoint string `json:"endpoint"`
+		Keys     struct {
+			P256DH string `json:"p256dh"`
+			Auth   string `json:"auth"`
+		} `json:"keys"`
 	}
 	_ = c.ShouldBindJSON(&payload)
+	if payload.Endpoint != "" && payload.Keys.P256DH != "" && payload.Keys.Auth != "" {
+		subscription := models.PushSubscription{
+			Endpoint:  payload.Endpoint,
+			P256DH:    payload.Keys.P256DH,
+			Auth:      payload.Keys.Auth,
+			UserAgent: c.Request.UserAgent(),
+		}
+		if err := handler.service.SavePushSubscription(c.Request.Context(), &subscription); err != nil {
+			c.JSON(http.StatusInternalServerError, errorBody("บันทึก subscription ไม่สำเร็จ"))
+			return
+		}
+		report, err := handler.service.SendTestPushToSubscription(c.Request.Context(), subscription)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, errorBody("ส่งทดสอบแจ้งเตือนไม่สำเร็จ"))
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": report})
+		return
+	}
+
 	report, err := handler.service.SendTestPush(c.Request.Context(), payload.Endpoint)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, errorBody("ส่งทดสอบแจ้งเตือนไม่สำเร็จ"))

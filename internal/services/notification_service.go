@@ -157,6 +157,14 @@ func (service *NotificationService) SendTestPush(ctx context.Context, endpoint s
 	}, endpoint)
 }
 
+func (service *NotificationService) SendTestPushToSubscription(ctx context.Context, subscription models.PushSubscription) (PushDeliveryReport, error) {
+	return service.sendPushToSubscription(ctx, subscription, PushMessage{
+		Title: "ทดสอบแจ้งเตือน",
+		Body:  "ระบบแจ้งเตือนพร้อมใช้งาน",
+		URL:   "/",
+	})
+}
+
 func (service *NotificationService) Subscribe(ctx context.Context) {
 	if service.redis == nil {
 		return
@@ -250,6 +258,27 @@ func (service *NotificationService) sendPushMessage(ctx context.Context, message
 		}
 		report.Sent++
 	}
+	return report, nil
+}
+
+func (service *NotificationService) sendPushToSubscription(ctx context.Context, subscription models.PushSubscription, message PushMessage) (PushDeliveryReport, error) {
+	report := PushDeliveryReport{}
+	if service.push == nil {
+		return report, nil
+	}
+	report.Attempted = 1
+	if err := service.push.Send(ctx, subscription, message); err != nil {
+		report.Failed = 1
+		log.Printf("send push subscription %s: %v", subscription.Endpoint, err)
+		if errors.Is(err, ErrExpiredPushSubscription) {
+			report.Expired = 1
+			if deleteErr := service.store.DeletePushSubscription(ctx, subscription.Endpoint); deleteErr != nil {
+				log.Printf("delete expired push subscription %s: %v", subscription.Endpoint, deleteErr)
+			}
+		}
+		return report, nil
+	}
+	report.Sent = 1
 	return report, nil
 }
 

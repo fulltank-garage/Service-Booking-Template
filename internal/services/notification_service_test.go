@@ -138,6 +138,31 @@ func TestSendTestPushReportsDeliveryAndCleansExpiredSubscriptions(t *testing.T) 
 	}
 }
 
+func TestSendTestPushToSubscriptionUsesProvidedSubscription(t *testing.T) {
+	store := &notificationStore{}
+	pushSender := &recordingPushSender{}
+	service := NewNotificationServiceWithPush(store, nil, nil, pushSender)
+
+	report, err := service.SendTestPushToSubscription(context.Background(), models.PushSubscription{
+		Endpoint: "https://push.example.test/current",
+		P256DH:   "current-key",
+		Auth:     "current-auth",
+	})
+
+	if err != nil {
+		t.Fatalf("send test push to subscription: %v", err)
+	}
+	if report.Attempted != 1 || report.Sent != 1 || report.Failed != 0 || report.Expired != 0 {
+		t.Fatalf("unexpected delivery report: %#v", report)
+	}
+	if store.listPushCalls != 0 {
+		t.Fatalf("expected direct test push to skip stored subscriptions lookup, got %d lookups", store.listPushCalls)
+	}
+	if len(pushSender.sent) != 1 || pushSender.sent[0].Title != "ทดสอบแจ้งเตือน" {
+		t.Fatalf("expected test push to provided subscription, got %#v", pushSender.sent)
+	}
+}
+
 func TestBookingCreatedRunsNotificationCleanup(t *testing.T) {
 	store := &notificationStore{}
 	service := NewNotificationServiceWithPush(store, nil, nil, nil)
@@ -210,6 +235,7 @@ type notificationStore struct {
 	deletedEndpoints  []string
 	cleanupReadBefore time.Time
 	cleanupAllBefore  time.Time
+	listPushCalls     int
 }
 
 type fakeRealtimeRedis struct {
@@ -302,6 +328,7 @@ func (store *notificationStore) SavePushSubscription(context.Context, *models.Pu
 	return nil
 }
 func (store *notificationStore) ListPushSubscriptions(context.Context) ([]models.PushSubscription, error) {
+	store.listPushCalls++
 	return store.subscriptions, nil
 }
 func (store *notificationStore) DeletePushSubscription(_ context.Context, endpoint string) error {
