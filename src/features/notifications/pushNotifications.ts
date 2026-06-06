@@ -155,6 +155,9 @@ const verifyPushSubscription = async (
 
 const getConfiguredPublicKey = async () => {
   const publicKey = await adminApi.getPushPublicKey()
+  if (publicKey.error) {
+    throw new Error(publicKey.error)
+  }
   if (!publicKey.configured || !publicKey.publicKey) {
     throw new Error('เปิดสิทธิ์แจ้งเตือนแล้ว แต่ระบบยังไม่ได้ตั้งค่าคีย์ส่งแจ้งเตือนครบ')
   }

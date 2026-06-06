@@ -109,7 +109,7 @@ export const adminApi = {
   },
 
   getPushPublicKey: async () => {
-    const response = await httpClient.get<{ configured: boolean; publicKey: string }>('/admin/push/public-key')
+    const response = await httpClient.get<{ configured: boolean; publicKey: string; error?: string }>('/admin/push/public-key')
     return response.data
   },
 
