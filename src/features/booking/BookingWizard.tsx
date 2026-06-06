@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 import {
   Alert,
   Box,
@@ -63,6 +64,11 @@ const toISODate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
 const digitsOnly = (value: string) => value.replace(/\D/g, '')
+
+const isActiveBookingError = (error: unknown) =>
+  axios.isAxiosError(error) &&
+  error.response?.status === 409 &&
+  String(error.response.data?.error?.message ?? '').includes('active booking')
 
 const addDays = (date: Date, count: number) => {
   const next = new Date(date)
@@ -228,8 +234,12 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
       const booking = await bookingApi.createBooking(payload)
       setConfirmedBooking(booking)
       onBookingConfirmed?.(booking)
-    } catch {
-      setError('ส่งคำขอจองคิวไม่สำเร็จ กรุณาลองใหม่')
+    } catch (error) {
+      setError(
+        isActiveBookingError(error)
+          ? 'คุณมีรายการจองที่ยังใช้งานอยู่แล้ว กรุณาเปิดหน้าข้อมูลการจองเพื่อตรวจสอบหรือยกเลิกก่อนจองใหม่'
+          : 'ส่งคำขอจองคิวไม่สำเร็จ กรุณาลองใหม่',
+      )
     } finally {
       setIsSubmitting(false)
     }
