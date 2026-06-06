@@ -2454,12 +2454,35 @@ function BookingActionButtons({
   const statusAction = getBookingStatusAction(booking.status)
 
   return (
-    <Stack direction="row" spacing={1} sx={{ justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
+      spacing={1}
+      sx={{
+        display: { xs: 'grid', sm: 'flex' },
+        gridTemplateColumns: { xs: 'minmax(0, 1fr) minmax(0, 1fr)', sm: 'none' },
+        justifyContent: { xs: 'stretch', sm: 'flex-end' },
+        '& .MuiButton-root': {
+          minHeight: 48,
+          px: 1,
+          whiteSpace: 'nowrap',
+        },
+      }}
+    >
+      <Button
+        fullWidth
+        variant="contained"
+        disabled={statusAction.disabled}
+        onClick={() => onStatusChange(booking, statusAction.nextStatus)}
+        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, order: { sm: 4 } }}
+      >
+        {statusAction.label}
+      </Button>
       <Button
         fullWidth
         variant="outlined"
         disabled={isClosedBookingStatus(booking.status)}
         onClick={() => onEditBooking(booking)}
+        sx={{ order: { sm: 1 } }}
       >
         แก้ไข
       </Button>
@@ -2468,7 +2491,7 @@ function BookingActionButtons({
         variant="contained"
         disabled={isClosedBookingStatus(booking.status)}
         onClick={() => onDeleteBooking(booking)}
-        sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
+        sx={{ order: { sm: 2 }, bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
       >
         ยกเลิก
       </Button>
@@ -2477,16 +2500,9 @@ function BookingActionButtons({
         variant="outlined"
         disabled={isClosedBookingStatus(booking.status)}
         onClick={() => onStatusChange(booking, 'no_show')}
+        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' }, order: { sm: 3 } }}
       >
         ไม่มาตามนัด
-      </Button>
-      <Button
-        fullWidth
-        variant="contained"
-        disabled={statusAction.disabled}
-        onClick={() => onStatusChange(booking, statusAction.nextStatus)}
-      >
-        {statusAction.label}
       </Button>
     </Stack>
   )
