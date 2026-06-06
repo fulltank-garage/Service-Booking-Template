@@ -49,10 +49,12 @@ type NotificationService struct {
 }
 
 type PushDeliveryReport struct {
-	Attempted int `json:"attempted"`
-	Sent      int `json:"sent"`
-	Expired   int `json:"expired"`
-	Failed    int `json:"failed"`
+	Attempted      int    `json:"attempted"`
+	Sent           int    `json:"sent"`
+	Expired        int    `json:"expired"`
+	Failed         int    `json:"failed"`
+	LastStatusCode int    `json:"lastStatusCode,omitempty"`
+	LastError      string `json:"lastError,omitempty"`
 }
 
 func NewNotificationService(store repositories.Store, hub *ws.Hub, redisClient *redis.Client) *NotificationService {
@@ -247,6 +249,7 @@ func (service *NotificationService) sendPushMessage(ctx context.Context, message
 		report.Attempted++
 		if err := service.push.Send(ctx, subscription, message); err != nil {
 			report.Failed++
+			report.recordPushError(err)
 			log.Printf("send push subscription %s: %v", subscription.Endpoint, err)
 			if errors.Is(err, ErrExpiredPushSubscription) {
 				report.Expired++
@@ -269,6 +272,7 @@ func (service *NotificationService) sendPushToSubscription(ctx context.Context, 
 	report.Attempted = 1
 	if err := service.push.Send(ctx, subscription, message); err != nil {
 		report.Failed = 1
+		report.recordPushError(err)
 		log.Printf("send push subscription %s: %v", subscription.Endpoint, err)
 		if errors.Is(err, ErrExpiredPushSubscription) {
 			report.Expired = 1
@@ -280,6 +284,14 @@ func (service *NotificationService) sendPushToSubscription(ctx context.Context, 
 	}
 	report.Sent = 1
 	return report, nil
+}
+
+func (report *PushDeliveryReport) recordPushError(err error) {
+	report.LastError = err.Error()
+	var pushErr *PushError
+	if errors.As(err, &pushErr) {
+		report.LastStatusCode = pushErr.StatusCode
+	}
 }
 
 func formatThaiDateLabel(value string) string {

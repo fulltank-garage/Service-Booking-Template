@@ -27,9 +27,13 @@ var ErrExpiredPushSubscription = errors.New("expired push subscription")
 
 type PushError struct {
 	StatusCode int
+	Body       string
 }
 
 func (err *PushError) Error() string {
+	if err.Body != "" {
+		return fmt.Sprintf("web push response status %d: %s", err.StatusCode, err.Body)
+	}
 	return fmt.Sprintf("web push response status %d", err.StatusCode)
 }
 
@@ -86,10 +90,10 @@ func (sender *WebPushSender) Send(ctx context.Context, subscription models.PushS
 		Urgency:         webpush.UrgencyHigh,
 	})
 	if response != nil {
-		_, _ = io.Copy(io.Discard, response.Body)
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 512))
 		_ = response.Body.Close()
 		if response.StatusCode >= 400 {
-			return &PushError{StatusCode: response.StatusCode}
+			return &PushError{StatusCode: response.StatusCode, Body: strings.TrimSpace(string(body))}
 		}
 	}
 	if err != nil {

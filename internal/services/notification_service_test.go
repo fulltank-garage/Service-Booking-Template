@@ -163,6 +163,35 @@ func TestSendTestPushToSubscriptionUsesProvidedSubscription(t *testing.T) {
 	}
 }
 
+func TestSendTestPushToSubscriptionReportsProviderErrors(t *testing.T) {
+	store := &notificationStore{}
+	pushSender := &recordingPushSender{
+		errByEndpoint: map[string]error{
+			"https://push.example.test/current": &PushError{StatusCode: 403, Body: "BadJwtToken"},
+		},
+	}
+	service := NewNotificationServiceWithPush(store, nil, nil, pushSender)
+
+	report, err := service.SendTestPushToSubscription(context.Background(), models.PushSubscription{
+		Endpoint: "https://push.example.test/current",
+		P256DH:   "current-key",
+		Auth:     "current-auth",
+	})
+
+	if err != nil {
+		t.Fatalf("send test push to subscription: %v", err)
+	}
+	if report.Attempted != 1 || report.Sent != 0 || report.Failed != 1 || report.Expired != 0 {
+		t.Fatalf("unexpected delivery report: %#v", report)
+	}
+	if report.LastStatusCode != 403 {
+		t.Fatalf("expected provider status code in report, got %d", report.LastStatusCode)
+	}
+	if report.LastError != "web push response status 403: BadJwtToken" {
+		t.Fatalf("expected provider error in report, got %q", report.LastError)
+	}
+}
+
 func TestBookingCreatedRunsNotificationCleanup(t *testing.T) {
 	store := &notificationStore{}
 	service := NewNotificationServiceWithPush(store, nil, nil, nil)
