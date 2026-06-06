@@ -1814,6 +1814,23 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
     no_subscription: 'ยังไม่มีเครื่องที่กดเปิดแจ้งเตือน ให้เปิดจากปุ่มด้านบนของหน้า',
   }
   const isReady = health.recommendation === 'push_ready'
+  const diagnosticSteps = [
+    {
+      label: '1 เปิดจาก Home Screen',
+      value: health.subscriptionCount > 0 ? 'พบเครื่องที่เปิดแจ้งเตือนแล้ว' : 'ติดตั้งและเปิดแอปจาก Home Screen ก่อน',
+      ready: health.subscriptionCount > 0,
+    },
+    {
+      label: '2 อนุญาตแจ้งเตือน',
+      value: health.subscriptionCount > 0 ? 'มีสิทธิ์รับแจ้งเตือนแล้ว' : 'กดเปิดแจ้งเตือนและอนุญาตใน Settings',
+      ready: health.subscriptionCount > 0,
+    },
+    {
+      label: '3 เซิร์ฟเวอร์พร้อมส่ง',
+      value: health.senderReady ? 'พร้อมส่งแจ้งเตือนไปที่เครื่องนี้' : 'ให้ผู้ดูแลตรวจสอบคีย์แจ้งเตือน',
+      ready: health.senderReady,
+    },
+  ]
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
       <CardContent sx={{ p: 2.5 }}>
@@ -1858,6 +1875,20 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
           <Typography sx={{ color: 'text.secondary', fontSize: '0.88rem', fontWeight: 760 }}>
             ถ้าใช้ iPhone หรือ iPad ต้องเปิดจาก Home Screen และอนุญาตแจ้งเตือนใน Settings ของแอปนี้
           </Typography>
+          <Grid container spacing={1}>
+            {diagnosticSteps.map((step) => (
+              <Grid key={step.label} size={{ xs: 12, md: 4 }}>
+                <Box sx={{ border: '1px solid', borderColor: step.ready ? '#16A34A' : 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
+                  <Typography sx={{ color: step.ready ? '#15803D' : 'text.primary', fontWeight: 950 }}>
+                    {step.label}
+                  </Typography>
+                  <Typography sx={{ mt: 0.35, color: 'text.secondary', fontSize: '0.86rem', fontWeight: 760 }}>
+                    {step.value}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
           {showDetails && (
             <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
               <Typography sx={{ color: 'text.secondary', fontWeight: 760, wordBreak: 'break-word' }}>
@@ -1977,6 +2008,17 @@ function BookingSettingsPage({
             <Typography sx={{ mb: 1.2, color: 'text.secondary', fontWeight: 760 }}>
               เลือกค่าเริ่มต้นได้ก่อน แล้วค่อยปรับตัวเลขให้ตรงกับหน้าร้านจริง
             </Typography>
+            <Stack spacing={0.5} sx={{ mb: 1.2 }}>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.86rem', fontWeight: 760 }}>
+                ร้านเล็ก = 1 ช่าง รับทีละ 1 คิว พัก 10 นาที
+              </Typography>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.86rem', fontWeight: 760 }}>
+                ร้านกลาง = 2 ช่าง รับพร้อมกัน 2 คิว พัก 15 นาที
+              </Typography>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.86rem', fontWeight: 760 }}>
+                ร้านใหญ่ = 4 ช่าง รับพร้อมกันหลายคิว และเตือนก่อนนัดเร็วขึ้น
+              </Typography>
+            </Stack>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
               <Button variant="outlined" onClick={() => applyPreset('small')}>
                 ใช้ค่าร้านเล็ก
@@ -2802,6 +2844,53 @@ function BookingStatusGuide() {
   )
 }
 
+function TodayFocusPanel({
+  booking,
+  onDeleteBooking,
+  onEditBooking,
+  onStatusChange,
+  simpleMode,
+}: {
+  booking: Booking
+  onDeleteBooking: (booking: Booking) => void
+  onEditBooking: (booking: Booking) => void
+  onStatusChange: (booking: Booking, status: BookingStatus) => void | Promise<void>
+  simpleMode: boolean
+}) {
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'primary.main', borderRadius: 2.5, bgcolor: '#FFFFFF', p: 1.6 }}>
+      <Stack spacing={1.2}>
+        <Box>
+          <Typography variant="h3">วันนี้ต้องทำอะไร</Typography>
+          <Typography sx={{ mt: 0.35, color: 'text.secondary', fontWeight: 760 }}>
+            โฟกัสคิวถัดไปก่อน แล้วค่อยดูคิวอื่นของวันนี้
+          </Typography>
+        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ color: 'primary.main', fontWeight: 950 }}>{booking.bookingCode}</Typography>
+            <Typography sx={{ fontWeight: 950 }}>
+              {booking.customerName} เวลา {booking.slotTime}
+            </Typography>
+            <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
+              {booking.service?.nameTh ?? 'ยังไม่ได้ระบุบริการ'} · {statusLabels[booking.status]}
+            </Typography>
+          </Box>
+          <Box sx={{ minWidth: { xs: '100%', sm: 280 } }}>
+            <BookingActionButtons
+              booking={booking}
+              simpleMode={simpleMode}
+              onDeleteBooking={onDeleteBooking}
+              onEditBooking={onEditBooking}
+              onStatusChange={onStatusChange}
+            />
+          </Box>
+        </Stack>
+      </Stack>
+    </Box>
+  )
+}
+
 function BookingsCard({
   bookings,
   query,
@@ -2912,6 +3001,15 @@ function BookingsCard({
             <Typography variant="h2">รายการจอง</Typography>
             <Typography sx={{ fontWeight: 950, color: 'primary.main' }}>{formatThaiDateLabel(selectedDate)}</Typography>
           </Stack>
+          {nextBooking && (
+            <TodayFocusPanel
+              booking={nextBooking}
+              simpleMode={simpleMode}
+              onDeleteBooking={onDeleteBooking}
+              onEditBooking={openEditBooking}
+              onStatusChange={onStatusChange}
+            />
+          )}
           {nextBooking && <NextBookingPanel booking={nextBooking} />}
           <BookingStatusGuide />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
@@ -3348,12 +3446,12 @@ function BookingCreateSheet({
   }
 
   const handleCreate = async () => {
-    if (isSaving || !serviceId || !customerName.trim() || !phone.trim() || !bookingDate || !slotTime) return
+    if (isSaving || !serviceId || !phone.trim() || !bookingDate || !slotTime) return
     setIsSaving(true)
     try {
       await onCreate({
         serviceId,
-        customerName: customerName.trim(),
+        customerName: customerName.trim() || 'ลูกค้า Walk-in',
         phone: digitsOnly(phone),
         bookingDate,
         slotTime,
@@ -3371,7 +3469,7 @@ function BookingCreateSheet({
         <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
           <Typography sx={{ fontWeight: 950 }}>กรอกเฉพาะข้อมูลจำเป็นก่อน</Typography>
           <Typography sx={{ mt: 0.3, color: 'text.secondary', fontWeight: 760 }}>
-            เลือกบริการ ชื่อลูกค้า เบอร์โทร วันที่ และเวลาให้ครบ ส่วนหมายเหตุค่อยเติมทีหลังได้
+            เลือกบริการ เบอร์โทร วันที่ และเวลาให้ครบ ชื่อลูกค้ากับหมายเหตุค่อยเติมทีหลังได้
           </Typography>
         </Box>
         <Typography variant="h3">ข้อมูลจำเป็น</Typography>
@@ -3437,7 +3535,7 @@ function BookingCreateSheet({
           </Button>
           <Button
             variant="contained"
-            disabled={!serviceId || !customerName.trim() || !phone.trim() || !bookingDate || !slotTime || isSaving}
+            disabled={!serviceId || !phone.trim() || !bookingDate || !slotTime || isSaving}
             onClick={handleCreate}
           >
             {isSaving ? 'กำลังบันทึก...' : 'บันทึกคิว'}

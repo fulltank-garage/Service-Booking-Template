@@ -171,6 +171,42 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/เสร็จสิ้น = ร้านทำคิวนี้เสร็จแล้ว/)).toBeInTheDocument()
   })
 
+  it('shows a focused today mode for the next active booking', async () => {
+    mockedAdminApi.listBookings.mockResolvedValue([
+      {
+        id: 'booking-next',
+        serviceId: 'service-1',
+        bookingCode: 'Q-NEXT',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        bookingDate: todayISO(),
+        slotTime: '10:00',
+        status: 'pending',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+      {
+        id: 'booking-later',
+        serviceId: 'service-1',
+        bookingCode: 'Q-LATER',
+        customerName: 'สมหญิง',
+        phone: '0891111111',
+        bookingDate: todayISO(),
+        slotTime: '12:00',
+        status: 'confirmed',
+        createdAt: '2026-06-05T03:00:00.000Z',
+      },
+    ])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+
+    renderPage()
+
+    expect(await screen.findByText('วันนี้ต้องทำอะไร')).toBeInTheDocument()
+    expect(screen.getByText(/โฟกัสคิวถัดไป/)).toBeInTheDocument()
+    expect(screen.getAllByText(/สมชาย/).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: 'รับคิวนี้' }).length).toBeGreaterThan(0)
+  })
+
   it('keeps the newest created booking at the top of the booking list', async () => {
     mockedAdminApi.listBookings.mockResolvedValue([
       {
@@ -365,7 +401,10 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByRole('button', { name: 'ตรวจแจ้งเตือนเครื่องนี้' })).toBeInTheDocument()
     expect(screen.getByText(/เครื่องนี้พร้อมรับแจ้งเตือน/)).toBeInTheDocument()
-    expect(screen.getByText(/เปิดจาก Home Screen/)).toBeInTheDocument()
+    expect(screen.getAllByText(/เปิดจาก Home Screen/).length).toBeGreaterThan(0)
+    expect(screen.getByText('1 เปิดจาก Home Screen')).toBeInTheDocument()
+    expect(screen.getByText('2 อนุญาตแจ้งเตือน')).toBeInTheDocument()
+    expect(screen.getByText('3 เซิร์ฟเวอร์พร้อมส่ง')).toBeInTheDocument()
   })
 
   it('saves shop times and reminder lead from dropdown controls', async () => {
@@ -386,6 +425,9 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('button', { name: 'ใช้ค่าร้านเล็ก' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ใช้ค่าร้านกลาง' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ใช้ค่าร้านใหญ่' })).toBeInTheDocument()
+    expect(screen.getByText(/ร้านเล็ก = 1 ช่าง/)).toBeInTheDocument()
+    expect(screen.getByText(/ร้านกลาง = 2 ช่าง/)).toBeInTheDocument()
+    expect(screen.getByText(/ร้านใหญ่ = 4 ช่าง/)).toBeInTheDocument()
     await user.click(await screen.findByLabelText('เวลาเปิดร้าน'))
     await user.click(await screen.findByRole('option', { name: '10:30' }))
     await user.click(screen.getByLabelText('เวลาปิดร้าน'))
@@ -515,6 +557,7 @@ describe('DashboardPage', () => {
 
     await user.click(screen.getAllByRole('button', { name: 'เพิ่มเติม' })[0])
     await user.click(await screen.findByRole('button', { name: 'ไม่มาตามนัด' }))
+    expect(await screen.findByText(/ใช้เมื่อเลยเวลานัดแล้วลูกค้าไม่มา/)).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'บันทึกไม่มาตามนัด' }))
 
     await waitFor(() => {
@@ -547,6 +590,41 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('กรอกเฉพาะข้อมูลจำเป็นก่อน')).toBeInTheDocument()
     expect(screen.getByText('ข้อมูลจำเป็น')).toBeInTheDocument()
     expect(screen.getByText('รายละเอียดเพิ่มเติม (ไม่บังคับ)')).toBeInTheDocument()
+  })
+
+  it('creates a walk-in booking with service time and phone first', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([
+      {
+        id: 'service-1',
+        nameTh: 'ทำเล็บเจล',
+        nameEn: 'Gel nail',
+        descriptionTh: 'ทำเล็บเจลสีพื้น',
+        durationMinutes: 45,
+        priceCents: 35000,
+        accentColor: '#FF008C',
+        isActive: true,
+      },
+    ])
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'เพิ่มคิวโทร/หน้าร้าน' })[0])
+    await user.type((await screen.findAllByLabelText('เบอร์โทร'))[0], '0890000000')
+    await user.click(screen.getAllByLabelText('เวลา')[0])
+    await user.click(await screen.findByRole('option', { name: '10:00' }))
+    await user.click(screen.getByRole('button', { name: 'บันทึกคิว' }))
+
+    await waitFor(() => {
+      expect(mockedAdminApi.createBooking).toHaveBeenCalledWith(expect.objectContaining({
+        serviceId: 'service-1',
+        customerName: 'ลูกค้า Walk-in',
+        phone: '0890000000',
+        slotTime: '10:00',
+      }))
+    })
   })
 
   it('shows shop-language actions for active bookings', async () => {
