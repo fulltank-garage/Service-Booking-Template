@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
 import { appTheme } from '../../theme/theme'
 import { adminApi } from '../../api/adminApi'
@@ -74,6 +74,10 @@ describe('DashboardPage', () => {
       reminderLeadMinutes: 1440,
       blackoutDates: [],
     })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('opens bookings as the first admin page', async () => {
@@ -160,6 +164,40 @@ describe('DashboardPage', () => {
     })
 
     expect(await screen.findByRole('status')).toHaveTextContent('มีคิวจองใหม่')
+  })
+
+  it('does not duplicate booking push notifications from realtime events', async () => {
+    const notificationConstructor = vi.fn()
+    Object.defineProperty(notificationConstructor, 'permission', {
+      configurable: true,
+      value: 'granted',
+    })
+    vi.stubGlobal('Notification', notificationConstructor)
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+
+    renderPage()
+    expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
+
+    act(() => {
+      realtimeState.options?.onEvent?.({
+        type: 'booking.created',
+        notification: {
+          id: 'notification-new',
+          type: 'booking.created',
+          title: 'มีคิวจองใหม่',
+          body: 'Pachara จองเวลา 16:30 วันที่ 6 มิ.ย. 2569',
+          url: '/bookings',
+          isRead: false,
+          bookingId: 'booking-new',
+          createdAt: '2026-06-06T09:06:00.000Z',
+        },
+      })
+    })
+
+    expect(await screen.findByRole('status')).toHaveTextContent('มีคิวจองใหม่')
+    expect(notificationConstructor).not.toHaveBeenCalled()
   })
 
   it('renders the notification history menu again', async () => {
