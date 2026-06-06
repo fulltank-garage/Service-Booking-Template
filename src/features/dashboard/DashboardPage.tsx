@@ -2460,6 +2460,8 @@ function BookingActionButtons({
       sx={{
         display: { xs: 'grid', sm: 'flex' },
         gridTemplateColumns: { xs: 'minmax(0, 1fr) minmax(0, 1fr)', sm: 'none' },
+        columnGap: { xs: 1, sm: 0 },
+        rowGap: { xs: 1, sm: 0 },
         justifyContent: { xs: 'stretch', sm: 'flex-end' },
         '& .MuiButton-root': {
           minHeight: 48,
