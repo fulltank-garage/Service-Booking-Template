@@ -250,6 +250,7 @@ describe('DashboardPage', () => {
   })
 
   it('renders the notification history menu again', async () => {
+    window.localStorage.setItem('service-booking-admin-simple-mode', 'false')
     mockedAdminApi.listBookings.mockResolvedValue([])
     mockedAdminApi.listServices.mockResolvedValue([])
     mockedAdminApi.listNotifications.mockResolvedValue([])
@@ -260,6 +261,7 @@ describe('DashboardPage', () => {
   })
 
   it('shows unread notification count on the notifications menu', async () => {
+    window.localStorage.setItem('service-booking-admin-simple-mode', 'false')
     mockedAdminApi.listBookings.mockResolvedValue([])
     mockedAdminApi.listServices.mockResolvedValue([])
     mockedAdminApi.listNotifications.mockResolvedValue([
@@ -281,6 +283,7 @@ describe('DashboardPage', () => {
 
   it('opens notifications after saving settings even when notification timestamps are missing', async () => {
     const user = userEvent.setup()
+    window.localStorage.setItem('service-booking-admin-simple-mode', 'false')
     const settings = {
       openTime: '09:00',
       closeTime: '17:00',
@@ -317,7 +320,7 @@ describe('DashboardPage', () => {
     await user.click(screen.getByRole('button', { name: 'รายการแจ้งเตือน' }))
 
     expect(await screen.findByRole('heading', { name: 'รายการแจ้งเตือน' })).toBeInTheDocument()
-    expect(await screen.findByText('อัปเดตการตั้งค่าร้าน')).toBeInTheDocument()
+    expect(await screen.findByText('แก้ไขตั้งค่าร้านแล้ว')).toBeInTheDocument()
   })
 
   it('saves shop times and reminder lead from dropdown controls', async () => {
@@ -425,6 +428,7 @@ describe('DashboardPage', () => {
 
   it('marks an active booking as no-show from the booking list', async () => {
     const user = userEvent.setup()
+    window.localStorage.setItem('service-booking-admin-simple-mode', 'false')
     const bookingDate = todayISO()
     mockedAdminApi.listBookings.mockResolvedValue([
       {

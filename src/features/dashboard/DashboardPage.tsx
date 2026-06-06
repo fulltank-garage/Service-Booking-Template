@@ -166,6 +166,30 @@ const formatNotificationTimestamp = (createdAt?: string) => {
   }).format(createdDate)}`
 }
 
+const notificationTypeLabels: Record<string, string> = {
+  'booking.created': 'มีคิวใหม่',
+  'booking.updated': 'มีการแก้ไขคิว',
+  'booking.cancelled': 'มีคิวยกเลิก',
+  'booking.deleted': 'มีการลบคิว',
+  'service.created': 'เพิ่มบริการแล้ว',
+  'service.updated': 'แก้ไขบริการแล้ว',
+  'service.deleted': 'ลบบริการแล้ว',
+  'booking_settings.updated': 'แก้ไขตั้งค่าร้านแล้ว',
+}
+
+const formatShopNotificationTitle = (notification: AdminNotification) =>
+  notificationTypeLabels[notification.type] ?? notification.title
+
+const formatShopNotificationBody = (body: string) =>
+  body
+    .replaceAll('pending', 'รอจัดการ')
+    .replaceAll('confirmed', 'ยืนยันแล้ว')
+    .replaceAll('completed', 'เสร็จสิ้น')
+    .replaceAll('cancelled', 'ยกเลิก')
+    .replaceAll('no_show', 'ไม่มาตามนัด')
+    .replaceAll('subscription', 'เครื่องที่เปิดแจ้งเตือน')
+    .replaceAll('VAPID', 'คีย์แจ้งเตือน')
+
 const upsertById = <T extends { id: string }>(items: T[], nextItem: T) => {
   const existingIndex = items.findIndex((item) => item.id === nextItem.id)
   if (existingIndex === -1) {
@@ -288,7 +312,7 @@ type DashboardPageProps = {
 export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendingAppUpdate, onLogout }: DashboardPageProps) {
   const [activePage, setActivePage] = useState<AdminPage>('bookings')
   const [isNavOpen, setIsNavOpen] = useState(false)
-  const [isSimpleMode, setIsSimpleMode] = useState(() => window.localStorage.getItem(simpleModeStorageKey) === 'true')
+  const [isSimpleMode, setIsSimpleMode] = useState(() => window.localStorage.getItem(simpleModeStorageKey) !== 'false')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
@@ -648,11 +672,19 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                   <OverviewPage dailySummary={dailySummary} summary={summary} />
                 )}
                 {activePage === 'bookings' && (
+                  <>
+                  {setupProgress.doneCount < setupProgress.total && (
+                    <QuickStartNudge
+                      progress={setupProgress}
+                      onChangePage={handleChangePage}
+                    />
+                  )}
 	                  <BookingsPage
 	                    bookings={bookings}
 	                    query={bookingQuery}
 	                    selectedDate={selectedBookingDate}
 	                    services={services}
+	                    simpleMode={isSimpleMode}
 	                    statusFilter={bookingStatusFilter}
 	                    onCreateBooking={handleCreateBooking}
 	                    onDeleteBooking={handleDeleteBooking}
@@ -664,6 +696,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
 	                    onStatusChange={handleStatusChange}
 	                    onUpdateBooking={handleUpdateBooking}
 	                  />
+                  </>
                 )}
                 {activePage === 'services' && (
                   <ServicesPage
@@ -1525,11 +1558,50 @@ function DailySummaryPanel({ item, title }: { item: DailyBookingSummary; title: 
   )
 }
 
+function QuickStartNudge({
+  onChangePage,
+  progress,
+}: {
+  onChangePage: (page: AdminPage) => void
+  progress: { items: Array<{ label: string; done: boolean }>; doneCount: number; total: number }
+}) {
+  const nextStep = progress.items.find((item) => !item.done)
+  const nextPage: AdminPage =
+    nextStep?.label === 'เพิ่มบริการแรก' ? 'services' :
+    nextStep?.label === 'ตั้งเวลาเปิดปิดร้าน' ? 'settings' :
+    nextStep?.label === 'เปิดแจ้งเตือนโทรศัพท์' ? 'notifications' :
+    'setup'
+
+  return (
+    <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.4} sx={{ alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 950 }}>เริ่มรับคิวให้พร้อมก่อนใช้งานจริง</Typography>
+            <Typography sx={{ mt: 0.4, color: 'text.secondary', fontWeight: 760 }}>
+              เหลือ {progress.total - progress.doneCount} ขั้นตอน: {nextStep?.label ?? 'ตรวจสอบความพร้อมของร้าน'}
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button variant="outlined" onClick={() => onChangePage('setup')}>
+              ดูขั้นตอนทั้งหมด
+            </Button>
+            <Button variant="contained" onClick={() => onChangePage(nextPage)}>
+              ทำขั้นตอนถัดไป
+            </Button>
+          </Stack>
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
 function BookingsPage({
   bookings,
   query,
   selectedDate,
   services,
+  simpleMode,
   statusFilter,
   onCreateBooking,
   onDeleteBooking,
@@ -1545,6 +1617,7 @@ function BookingsPage({
   query: string
   selectedDate: string
   services: ServiceItem[]
+  simpleMode: boolean
   statusFilter: BookingStatus | 'all'
   onCreateBooking: (payload: Omit<BookingPayload, 'status'>) => Promise<void>
   onDeleteBooking: (booking: Booking) => void
@@ -1562,6 +1635,7 @@ function BookingsPage({
       query={query}
       selectedDate={selectedDate}
       services={services}
+      simpleMode={simpleMode}
       statusFilter={statusFilter}
       onCreateBooking={onCreateBooking}
       onDeleteBooking={onDeleteBooking}
@@ -1663,8 +1737,8 @@ function NotificationsPage({
                 >
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ justifyContent: 'space-between' }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 950 }}>{notification.title}</Typography>
-                      <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>{notification.body}</Typography>
+                      <Typography sx={{ fontWeight: 950 }}>{formatShopNotificationTitle(notification)}</Typography>
+                      <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>{formatShopNotificationBody(notification.body)}</Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
                         {formatNotificationTimestamp(notification.createdAt)}
                       </Typography>
@@ -1699,6 +1773,13 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
     push_sender_not_ready: 'ระบบส่งแจ้งเตือนยังไม่พร้อม',
     no_subscription: 'ยังไม่มีเครื่องที่เปิดแจ้งเตือน',
   }
+  const recommendationMessages: Record<string, string> = {
+    push_ready: 'เครื่องนี้พร้อมรับแจ้งเตือนเมื่อมีคิวใหม่แล้ว',
+    vapid_not_configured: 'ต้องให้ผู้ดูแลระบบตั้งค่าคีย์แจ้งเตือนบนเซิร์ฟเวอร์ก่อน',
+    vapid_key_mismatch: 'คีย์แจ้งเตือนของเครื่องนี้ไม่ตรงกับเซิร์ฟเวอร์ ให้เปิดแจ้งเตือนใหม่อีกครั้ง',
+    push_sender_not_ready: 'เซิร์ฟเวอร์ยังส่งแจ้งเตือนไม่ได้ ให้ผู้ดูแลตรวจสอบการตั้งค่า',
+    no_subscription: 'ยังไม่มีเครื่องที่กดเปิดแจ้งเตือน ให้เปิดจากปุ่มด้านบนของหน้า',
+  }
   const isReady = health.recommendation === 'push_ready'
   return (
     <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
@@ -1730,7 +1811,7 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
           </Grid>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
             <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
-              ร้านควรเห็นสถานะพร้อมใช้งาน หรือมีเครื่องที่เปิดแจ้งเตือนอย่างน้อย 1 เครื่อง
+              {recommendationMessages[health.recommendation] ?? 'ตรวจสอบสถานะแจ้งเตือนก่อนใช้งานจริง'}
             </Typography>
             <Button variant="outlined" onClick={() => setShowDetails((current) => !current)}>
               {showDetails ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียดผู้ดูแล'}
@@ -1739,7 +1820,7 @@ function PushHealthCard({ health }: { health: PushHealthReport }) {
           {showDetails && (
             <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
               <Typography sx={{ color: 'text.secondary', fontWeight: 760, wordBreak: 'break-word' }}>
-                สถานะระบบ: {health.recommendation}
+                ข้อมูลสำหรับผู้ดูแล: {health.recommendation}
                 {health.lastError ? ` · ${health.lastError}` : ''}
               </Typography>
             </Box>
@@ -1850,27 +1931,30 @@ function BookingSettingsPage({
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
-                label="ช่างกี่คน"
+                label="รับลูกค้าพร้อมกันได้กี่คิว"
                 value={slotCapacity}
                 onChange={(event) => setSlotCapacity(digitsOnly(event.target.value))}
+                helperText="เช่น มีช่าง 2 คน รับพร้อมกันได้ 2 คิว"
                 slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
-                label="จองล่วงหน้าอย่างน้อย (ชั่วโมง)"
+                label="ต้องจองล่วงหน้าอย่างน้อยกี่ชั่วโมง"
                 value={minAdvanceHours}
                 onChange={(event) => setMinAdvanceHours(digitsOnly(event.target.value))}
+                helperText="ใส่ 0 ถ้ารับจองเวลาที่ใกล้ที่สุดได้"
                 slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
-                label="จองล่วงหน้าได้สูงสุด (วัน)"
+                label="ลูกค้าจองล่วงหน้าได้ไกลสุดกี่วัน"
                 value={maxAdvanceDays}
                 onChange={(event) => setMaxAdvanceDays(digitsOnly(event.target.value))}
+                helperText="เช่น 30 คือเปิดรับคิวล่วงหน้าได้ 30 วัน"
                 slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9]*' } }}
               />
             </Grid>
@@ -2556,6 +2640,7 @@ function BookingsCard({
   query,
   selectedDate,
   services,
+  simpleMode,
   statusFilter,
   onCreateBooking,
   onDeleteBooking,
@@ -2571,6 +2656,7 @@ function BookingsCard({
   query: string
   selectedDate: string
   services: ServiceItem[]
+  simpleMode: boolean
   statusFilter: BookingStatus | 'all'
   onCreateBooking: (payload: Omit<BookingPayload, 'status'>) => Promise<void>
   onDeleteBooking: (booking: Booking) => void
@@ -2666,7 +2752,9 @@ function BookingsCard({
                 onChange={(event) => onStatusFilterChange(event.target.value as BookingStatus | 'all')}
               >
                 <MenuItem value="all">ทุกสถานะ</MenuItem>
-                {Object.entries(statusLabels).map(([status, label]) => (
+                {Object.entries(statusLabels)
+                  .filter(([status]) => !simpleMode || status === 'pending' || status === 'confirmed' || status === 'completed')
+                  .map(([status, label]) => (
                   <MenuItem key={status} value={status}>
                     {label}
                   </MenuItem>
@@ -2676,7 +2764,7 @@ function BookingsCard({
           </Stack>
           <Stack direction="row" spacing={0.8} sx={{ justifyContent: 'flex-end' }}>
             <Button variant="contained" onClick={openCreateBooking}>
-              เพิ่มคิว
+              เพิ่มคิวโทร/หน้าร้าน
             </Button>
             <Button variant="outlined" disabled={isExporting} onClick={handleExport}>
               {isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV'}
@@ -2703,6 +2791,12 @@ function BookingsCard({
             }}
           >
             <Typography sx={{ fontWeight: 900, color: 'text.primary' }}>ยังไม่มีรายการจอง</Typography>
+            <Typography sx={{ mt: 0.5, color: 'text.secondary', fontWeight: 760 }}>
+              ถ้ามีลูกค้าโทรมาหรือเดินเข้าร้าน สามารถเพิ่มคิวเองได้ทันที
+            </Typography>
+            <Button variant="contained" sx={{ mt: 1.5 }} onClick={openCreateBooking}>
+              เพิ่มคิวโทร/หน้าร้าน
+            </Button>
           </Box>
         ) : (
           <>
@@ -2751,7 +2845,7 @@ function BookingsCard({
                         ) : null}
                       </Stack>
                     </Box>
-	                    <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
+	                    <BookingActionButtons booking={booking} simpleMode={simpleMode} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
                   </Stack>
                 </Box>
               ))}
@@ -2790,7 +2884,7 @@ function BookingsCard({
                   <TableCell>
                     <Stack spacing={1}>
                       <Chip color={isClosedBookingStatus(booking.status) ? 'secondary' : 'primary'} label={statusLabels[booking.status]} sx={statusChipTextSx(booking.status)} />
-	                      <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
+	                      <BookingActionButtons booking={booking} simpleMode={simpleMode} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -2881,11 +2975,13 @@ function BookingActionButtons({
   onDeleteBooking,
   onEditBooking,
   onStatusChange,
+  simpleMode,
 }: {
   booking: Booking
   onDeleteBooking: (booking: Booking) => void
   onEditBooking: (booking: Booking) => void
   onStatusChange: (booking: Booking, status: BookingStatus) => void | Promise<void>
+  simpleMode: boolean
 }) {
   const statusAction = getBookingStatusAction(booking.status)
   const [isMoreOpen, setIsMoreOpen] = useState(false)
@@ -2926,7 +3022,7 @@ function BookingActionButtons({
       <BottomEditorSheet isOpen={isMoreOpen} onClose={() => setIsMoreOpen(false)} title="จัดการเพิ่มเติม">
         <Stack spacing={1.2}>
           <Typography sx={{ color: 'text.secondary', fontWeight: 760 }}>
-            ใช้เฉพาะกรณีที่ต้องแก้ไขคิว ยกเลิกคิว หรือบันทึกว่าลูกค้าไม่มาตามนัด
+            ใช้เฉพาะกรณีที่ต้องแก้ไขหรือยกเลิกคิว เพื่อไม่ให้ปุ่มหลักรกเกินไป
           </Typography>
           <Button
             fullWidth
@@ -2939,17 +3035,19 @@ function BookingActionButtons({
           >
             แก้ไขคิว
           </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            disabled={!canUseSecondaryActions}
-            onClick={() => {
-              setIsMoreOpen(false)
-              onStatusChange(booking, 'no_show')
-            }}
-          >
-            ไม่มาตามนัด
-          </Button>
+          {!simpleMode && (
+            <Button
+              fullWidth
+              variant="outlined"
+              disabled={!canUseSecondaryActions}
+              onClick={() => {
+                setIsMoreOpen(false)
+                onStatusChange(booking, 'no_show')
+              }}
+            >
+              ไม่มาตามนัด
+            </Button>
+          )}
           <Button
             fullWidth
             variant="contained"
@@ -3023,7 +3121,7 @@ function BookingCreateSheet({
   }
 
   return (
-    <BottomEditorSheet isOpen={isOpen} onClose={onClose} title="เพิ่มคิวจอง">
+    <BottomEditorSheet isOpen={isOpen} onClose={onClose} title="เพิ่มคิวโทร/หน้าร้าน">
       <Stack spacing={2}>
         <FormControl fullWidth>
           <Select aria-label="บริการ" value={serviceId} onChange={(event) => onServiceIdChange(event.target.value)} displayEmpty>
