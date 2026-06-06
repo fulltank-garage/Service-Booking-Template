@@ -72,6 +72,7 @@ describe('DashboardPage', () => {
       minAdvanceHours: 0,
       maxAdvanceDays: 60,
       reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
       blackoutDates: [],
     })
   })
@@ -100,7 +101,7 @@ describe('DashboardPage', () => {
         bookingCode: 'Q-1006-0001',
         customerName: 'สมชาย',
         phone: '0890000000',
-        bookingDate: '2026-06-10',
+        bookingDate: '2026-06-06',
         slotTime: '17:00',
         status: 'pending',
         createdAt: '2026-06-05T01:00:00.000Z',
@@ -111,7 +112,7 @@ describe('DashboardPage', () => {
         bookingCode: 'Q-1006-0002',
         customerName: 'สมหญิง',
         phone: '0891111111',
-        bookingDate: '2026-06-10',
+        bookingDate: '2026-06-06',
         slotTime: '09:00',
         status: 'pending',
         createdAt: '2026-06-05T02:00:00.000Z',
@@ -241,6 +242,7 @@ describe('DashboardPage', () => {
       minAdvanceHours: 0,
       maxAdvanceDays: 60,
       reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
       blackoutDates: [],
     }
     mockedAdminApi.listBookings.mockResolvedValue([])
@@ -306,7 +308,7 @@ describe('DashboardPage', () => {
         bookingCode: 'Q-1006-0001',
         customerName: 'สมชาย',
         phone: '0890000000',
-        bookingDate: '2026-06-10',
+        bookingDate: '2026-06-06',
         slotTime: '10:00',
         status: 'pending',
         createdAt: '2026-06-05T02:00:00.000Z',
@@ -350,7 +352,7 @@ describe('DashboardPage', () => {
       bookingCode: 'Q-1006-0001',
       customerName: 'สมชาย',
       phone: '0890000000',
-      bookingDate: '2026-06-10',
+      bookingDate: '2026-06-06',
       slotTime: '10:00',
       status: 'confirmed',
       createdAt: '2026-06-05T02:00:00.000Z',
@@ -371,6 +373,46 @@ describe('DashboardPage', () => {
       expect(screen.queryAllByText('สมชาย')).toHaveLength(0)
     })
     expect(mockedAdminApi.updateBookingStatus).toHaveBeenCalledWith('booking-1', 'confirmed')
+  })
+
+  it('marks an active booking as no-show from the booking list', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([
+      {
+        id: 'booking-1',
+        serviceId: 'service-1',
+        bookingCode: 'Q-1006-0001',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        bookingDate: '2026-06-06',
+        slotTime: '10:00',
+        status: 'confirmed',
+        createdAt: '2026-06-05T02:00:00.000Z',
+      },
+    ])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([])
+    mockedAdminApi.updateBookingStatus.mockResolvedValue({
+      id: 'booking-1',
+      serviceId: 'service-1',
+      bookingCode: 'Q-1006-0001',
+      customerName: 'สมชาย',
+      phone: '0890000000',
+      bookingDate: '2026-06-06',
+      slotTime: '10:00',
+      status: 'no_show',
+      createdAt: '2026-06-05T02:00:00.000Z',
+    })
+
+    renderPage()
+    expect(await screen.findAllByText('สมชาย')).not.toHaveLength(0)
+
+    await user.click(screen.getAllByRole('button', { name: 'ไม่มาตามนัด' })[0])
+
+    await waitFor(() => {
+      expect(mockedAdminApi.updateBookingStatus).toHaveBeenCalledWith('booking-1', 'no_show')
+    })
+    expect(await screen.findAllByText('ไม่มาตามนัด')).not.toHaveLength(0)
   })
 
   it('adds a service when a realtime service event arrives', async () => {

@@ -5,12 +5,15 @@ const pushVerificationStorageKey = 'service-booking-admin-push-verified'
 const pushVerificationTtlMs = 24 * 60 * 60 * 1000
 
 type PushDeliveryReport = {
+  totalSubscriptions?: number
+  targetedSubscriptions?: number
   attempted: number
   sent: number
   expired: number
   failed: number
   lastStatusCode?: number
   lastError?: string
+  recommendation?: string
 }
 
 const urlBase64ToUint8Array = (base64String: string) => {
@@ -107,12 +110,25 @@ const ensurePushSubscription = async (registration: ServiceWorkerRegistration, p
 const isPushDelivered = (report: PushDeliveryReport) => report.attempted > 0 && report.sent > 0
 
 const formatPushReport = (report: PushDeliveryReport) => {
+  const recommendationLabels: Record<string, string> = {
+    no_subscription: 'ยังไม่มีเครื่องที่สมัครรับแจ้งเตือน',
+    subscription_not_found: 'ไม่พบ subscription ของเครื่องนี้ในระบบ',
+    subscription_expired: 'subscription หมดอายุ ระบบจะสมัครใหม่ให้',
+    vapid_or_permission_invalid: 'คีย์ VAPID หรือสิทธิ์แจ้งเตือนไม่ตรงกับ subscription ปัจจุบัน',
+    provider_failed: 'ผู้ให้บริการ push ตอบกลับล้มเหลว',
+    unknown: 'ยังไม่ทราบสาเหตุจากผู้ให้บริการ push',
+  }
   const parts = [
+    report.recommendation && recommendationLabels[report.recommendation]
+      ? recommendationLabels[report.recommendation]
+      : '',
+    typeof report.totalSubscriptions === 'number' ? `subscriptions=${report.totalSubscriptions}` : '',
+    typeof report.targetedSubscriptions === 'number' ? `targeted=${report.targetedSubscriptions}` : '',
     `attempted=${report.attempted}`,
     `sent=${report.sent}`,
     `failed=${report.failed}`,
     `expired=${report.expired}`,
-  ]
+  ].filter(Boolean)
   if (report.lastStatusCode) {
     parts.push(`status=${report.lastStatusCode}`)
   }

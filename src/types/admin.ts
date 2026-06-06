@@ -1,4 +1,4 @@
-export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
+export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
 
 export type ServiceItem = {
   id: string
@@ -52,6 +52,7 @@ export type BookingSettings = {
   minAdvanceHours: number
   maxAdvanceDays: number
   reminderLeadMinutes: number
+  bufferMinutes: number
   blackoutDates: BookingBlackoutDate[]
 }
 

@@ -57,6 +57,7 @@ const statusLabels: Record<BookingStatus, string> = {
   confirmed: 'ยืนยันแล้ว',
   completed: 'เสร็จสิ้น',
   cancelled: 'ยกเลิก',
+  no_show: 'ไม่มาตามนัด',
 }
 
 const statusChipSx = {
@@ -67,7 +68,7 @@ const statusChipSx = {
 }
 
 const statusChipTextSx = (status: BookingStatus) =>
-  status === 'completed'
+  status === 'completed' || status === 'no_show'
     ? {
         color: '#111827',
         '& .MuiChip-label': {
@@ -85,6 +86,9 @@ const getBookingStatusAction = (status: BookingStatus) => {
   }
   return { label: status === 'completed' ? 'เสร็จสิ้น' : 'ยืนยัน', nextStatus: status, disabled: true }
 }
+
+const isClosedBookingStatus = (status: BookingStatus) =>
+  status === 'completed' || status === 'cancelled' || status === 'no_show'
 
 const pageLabels = {
   overview: 'จัดการคิวจองบริการ',
@@ -123,6 +127,14 @@ const reminderLeadOptions = [
   { value: 720, label: '12 ชั่วโมงก่อนนัด' },
   { value: 1440, label: '1 วันก่อนนัด' },
   { value: 2880, label: '2 วันก่อนนัด' },
+]
+
+const bufferMinuteOptions = [
+  { value: 0, label: 'ไม่เว้นพัก' },
+  { value: 5, label: '5 นาที' },
+  { value: 10, label: '10 นาที' },
+  { value: 15, label: '15 นาที' },
+  { value: 30, label: '30 นาที' },
 ]
 
 const formatNotificationTimestamp = (createdAt?: string) => {
@@ -1372,6 +1384,7 @@ function BookingSettingsPage({
   const [minAdvanceHours, setMinAdvanceHours] = useState(String(settings?.minAdvanceHours ?? 0))
   const [maxAdvanceDays, setMaxAdvanceDays] = useState(String(settings?.maxAdvanceDays ?? 60))
   const [reminderLeadMinutes, setReminderLeadMinutes] = useState(String(settings?.reminderLeadMinutes ?? 1440))
+  const [bufferMinutes, setBufferMinutes] = useState(String(settings?.bufferMinutes ?? 0))
   const [closedWeekdays, setClosedWeekdays] = useState(settings?.closedWeekdays ?? '')
   const [blackoutDates, setBlackoutDates] = useState(settings?.blackoutDates ?? [])
   const [isSaving, setIsSaving] = useState(false)
@@ -1389,6 +1402,7 @@ function BookingSettingsPage({
         minAdvanceHours: Number(minAdvanceHours),
         maxAdvanceDays: Number(maxAdvanceDays),
         reminderLeadMinutes: Number(reminderLeadMinutes),
+        bufferMinutes: Number(bufferMinutes),
         blackoutDates: blackoutDates
           .map((item) => ({ date: item.date.trim(), reason: item.reason?.trim() ?? '' }))
           .filter((item) => item.date),
@@ -1488,6 +1502,22 @@ function BookingSettingsPage({
                   onChange={(event) => setReminderLeadMinutes(event.target.value)}
                 >
                   {reminderLeadOptions.map((option) => (
+                    <MenuItem key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth>
+                <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เวลาพักระหว่างคิว</Typography>
+                <Select
+                  aria-label="เวลาพักระหว่างคิว"
+                  value={bufferMinutes}
+                  onChange={(event) => setBufferMinutes(event.target.value)}
+                >
+                  {bufferMinuteOptions.map((option) => (
                     <MenuItem key={option.value} value={String(option.value)}>
                       {option.label}
                     </MenuItem>
@@ -2177,7 +2207,7 @@ function BookingsCard({
   const [isSaving, setIsSaving] = useState(false)
 
   const openEditBooking = (booking: Booking) => {
-    if (booking.status === 'completed' || booking.status === 'cancelled') return
+    if (isClosedBookingStatus(booking.status)) return
     setEditingBooking(booking)
     setEditServiceId(booking.serviceId)
     setEditCustomerName(booking.customerName)
@@ -2285,7 +2315,7 @@ function BookingsCard({
                         </Typography>
                       </Box>
                       <Chip
-                        color={booking.status === 'completed' ? 'secondary' : 'primary'}
+                        color={isClosedBookingStatus(booking.status) ? 'secondary' : 'primary'}
                         label={statusLabels[booking.status]}
                         sx={{ ...statusChipTextSx(booking.status), flexShrink: 0 }}
                       />
@@ -2337,7 +2367,7 @@ function BookingsCard({
                   </TableCell>
                   <TableCell>
                     <Stack spacing={1}>
-                      <Chip color={booking.status === 'completed' ? 'secondary' : 'primary'} label={statusLabels[booking.status]} sx={statusChipTextSx(booking.status)} />
+                      <Chip color={isClosedBookingStatus(booking.status) ? 'secondary' : 'primary'} label={statusLabels[booking.status]} sx={statusChipTextSx(booking.status)} />
 	                      <BookingActionButtons booking={booking} onDeleteBooking={onDeleteBooking} onEditBooking={openEditBooking} onStatusChange={onStatusChange} />
                     </Stack>
                   </TableCell>
@@ -2428,7 +2458,7 @@ function BookingActionButtons({
       <Button
         fullWidth
         variant="outlined"
-        disabled={booking.status === 'completed' || booking.status === 'cancelled'}
+        disabled={isClosedBookingStatus(booking.status)}
         onClick={() => onEditBooking(booking)}
       >
         แก้ไข
@@ -2436,11 +2466,19 @@ function BookingActionButtons({
       <Button
         fullWidth
         variant="contained"
-        disabled={booking.status === 'completed' || booking.status === 'cancelled'}
+        disabled={isClosedBookingStatus(booking.status)}
         onClick={() => onDeleteBooking(booking)}
         sx={{ bgcolor: '#DC2626', color: '#FFFFFF', '&:hover': { bgcolor: '#B91C1C' } }}
       >
         ยกเลิก
+      </Button>
+      <Button
+        fullWidth
+        variant="outlined"
+        disabled={isClosedBookingStatus(booking.status)}
+        onClick={() => onStatusChange(booking, 'no_show')}
+      >
+        ไม่มาตามนัด
       </Button>
       <Button
         fullWidth

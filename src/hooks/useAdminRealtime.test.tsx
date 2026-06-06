@@ -84,6 +84,7 @@ describe('useAdminRealtime', () => {
         minAdvanceHours: 0,
         maxAdvanceDays: 60,
         reminderLeadMinutes: 1440,
+        bufferMinutes: 0,
         blackoutDates: [],
       },
     }
