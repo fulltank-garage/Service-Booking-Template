@@ -20,6 +20,7 @@ const (
 	readNotificationRetention = 7 * 24 * time.Hour
 	allNotificationRetention  = 30 * 24 * time.Hour
 	reminderLockKey           = "service-booking:reminder-job-lock"
+	webPushDeliveryTimeout    = 10 * time.Second
 )
 
 var thaiShortMonths = [...]string{"ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."}
@@ -208,7 +209,10 @@ func (service *NotificationService) sendPush(ctx context.Context, notification m
 	if service.push == nil {
 		return
 	}
-	_, err := service.sendPushMessage(ctx, PushMessage{
+	pushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), webPushDeliveryTimeout)
+	defer cancel()
+
+	_, err := service.sendPushMessage(pushCtx, PushMessage{
 		Title: notification.Title,
 		Body:  notification.Body,
 		URL:   notification.URL,

@@ -45,6 +45,36 @@ func TestBookingCreatedSendsWebPushToSavedSubscriptions(t *testing.T) {
 	}
 }
 
+func TestBookingCreatedSendsWebPushAfterRequestContextIsCancelled(t *testing.T) {
+	store := &notificationStore{
+		subscriptions: []models.PushSubscription{
+			{Endpoint: "https://push.example.test/one", P256DH: "key", Auth: "auth"},
+		},
+	}
+	pushSender := &recordingPushSender{}
+	service := NewNotificationServiceWithPush(store, nil, nil, pushSender)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := service.BookingCreated(ctx, models.Booking{
+		BaseModel:    models.BaseModel{ID: "booking-1"},
+		BookingCode:  "SB-TEST-0001",
+		CustomerName: "ลูกค้าทดสอบ",
+		BookingDate:  "2026-06-05",
+		SlotTime:     "10:00",
+	})
+
+	if err != nil {
+		t.Fatalf("booking created: %v", err)
+	}
+	if len(pushSender.sent) != 1 {
+		t.Fatalf("expected push to still be sent, got %d", len(pushSender.sent))
+	}
+	if len(pushSender.contextErrors) != 1 || pushSender.contextErrors[0] != nil {
+		t.Fatalf("expected push context to be detached from request cancellation, got %#v", pushSender.contextErrors)
+	}
+}
+
 func TestBookingCreatedDeletesExpiredWebPushSubscriptions(t *testing.T) {
 	store := &notificationStore{
 		subscriptions: []models.PushSubscription{
@@ -290,11 +320,13 @@ func (store *notificationStore) SaveBookingSettings(context.Context, *models.Boo
 
 type recordingPushSender struct {
 	sent          []PushMessage
+	contextErrors []error
 	errByEndpoint map[string]error
 }
 
-func (sender *recordingPushSender) Send(_ context.Context, subscription models.PushSubscription, message PushMessage) error {
+func (sender *recordingPushSender) Send(ctx context.Context, subscription models.PushSubscription, message PushMessage) error {
 	sender.sent = append(sender.sent, message)
+	sender.contextErrors = append(sender.contextErrors, ctx.Err())
 	if err, ok := sender.errByEndpoint[subscription.Endpoint]; ok {
 		return err
 	}
