@@ -13,6 +13,7 @@ function App() {
   const [isBooting, setIsBooting] = useState(true)
   const [bootProgress, setBootProgress] = useState(8)
   const { applyAppUpdate, clearApplyingAppUpdate, hasPendingAppUpdate, isApplyingAppUpdate, isInitialUpdateCheckDone } = useAppUpdate()
+  const shouldShowUpdateSplash = hasPendingAppUpdate || isApplyingAppUpdate
 
   useEffect(() => {
     if (!isBooting) return undefined
@@ -28,7 +29,15 @@ function App() {
   }, [isBooting, isInitialUpdateCheckDone])
 
   useEffect(() => {
+    if (!isBooting || !hasPendingAppUpdate || isApplyingAppUpdate) return undefined
+
+    const timer = window.setTimeout(() => applyAppUpdate(), 500)
+    return () => window.clearTimeout(timer)
+  }, [applyAppUpdate, hasPendingAppUpdate, isApplyingAppUpdate, isBooting])
+
+  useEffect(() => {
     if (!isInitialUpdateCheckDone) return undefined
+    if (shouldShowUpdateSplash) return undefined
 
     const progressTimer = window.setTimeout(() => setBootProgress(100), 0)
     const timer = window.setTimeout(() => {
@@ -39,7 +48,7 @@ function App() {
       window.clearTimeout(progressTimer)
       window.clearTimeout(timer)
     }
-  }, [clearApplyingAppUpdate, isInitialUpdateCheckDone])
+  }, [clearApplyingAppUpdate, isInitialUpdateCheckDone, shouldShowUpdateSplash])
 
   const handleAuthenticated = (nextSession: StoredAdminSession) => {
     authStorage.setSession(nextSession)
@@ -53,7 +62,7 @@ function App() {
   }
 
   if (isBooting) {
-    return <StartupSplash isUpdating={hasPendingAppUpdate || isApplyingAppUpdate} progress={bootProgress} />
+    return <StartupSplash isUpdating={shouldShowUpdateSplash} progress={bootProgress} />
   }
 
   if (!session) {
@@ -61,7 +70,7 @@ function App() {
   }
 
   return (
-    <Suspense fallback={<StartupSplash isUpdating={hasPendingAppUpdate || isApplyingAppUpdate} progress={100} />}>
+    <Suspense fallback={<StartupSplash isUpdating={shouldShowUpdateSplash} progress={100} />}>
       <DashboardPage
         adminEmail={session.email}
         adminName={session.name}
@@ -81,7 +90,7 @@ function StartupSplash({ isUpdating, progress }: { isUpdating: boolean; progress
       <Stack spacing={2.2} sx={{ alignItems: 'center', textAlign: 'center' }}>
         <BrandMark />
         <Typography sx={{ color: 'primary.main', fontSize: '1rem', fontWeight: 950 }}>
-          {isUpdating ? 'กำลังอัปเดตแอปพลิเคชั่น' : 'กำลังเข้าสู่ระบบแอดมิน'}
+          {isUpdating ? 'มีเวอร์ชันใหม่ กำลังอัปเดตแอป' : 'กำลังเข้าสู่ระบบแอดมิน'}
         </Typography>
         <Typography sx={{ color: 'text.primary', fontSize: '2.5rem', fontWeight: 950, lineHeight: 1 }}>
           {normalizedProgress}%
