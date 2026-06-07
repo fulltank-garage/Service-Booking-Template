@@ -18,7 +18,6 @@ import {
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ScheduleIcon from '@mui/icons-material/Schedule'
-import SendIcon from '@mui/icons-material/Send'
 import { bookingApi } from '../../api/bookingApi'
 import type { AvailabilitySlot, Booking, BookingRules, CreateBookingPayload, ServiceItem } from '../../types/booking'
 import type { LineProfile } from '../../integrations/liff'
@@ -478,9 +477,10 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             <Button
               variant="contained"
               size="large"
-              endIcon={<SendIcon />}
+              fullWidth
               disabled={!canSubmit || isSubmitting}
               onClick={handleSubmit}
+              sx={{ minHeight: 58, fontSize: '1.1rem', py: 1.5 }}
             >
               {isSubmitting ? 'กำลังส่ง...' : 'จองคิว'}
             </Button>
