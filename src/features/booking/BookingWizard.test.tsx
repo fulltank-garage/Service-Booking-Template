@@ -117,6 +117,49 @@ describe('BookingWizard', () => {
     expect(await screen.findByText('จองคิวเรียบร้อย')).toBeInTheDocument()
   })
 
+  it('shows a placeholder until a service is selected for time slots', async () => {
+    mockedBookingApi.listServices.mockResolvedValue([
+      {
+        id: 'service-1',
+        nameTh: 'บริการทดสอบ',
+        nameEn: 'Test Service',
+        descriptionTh: 'บริการสำหรับทดสอบ',
+        durationMinutes: 30,
+        priceCents: 0,
+        accentColor: '#FF008C',
+        isActive: true,
+      },
+    ])
+    mockedBookingApi.getBookingRules.mockResolvedValue({
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: '',
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
+      blackoutDates: [],
+    })
+    mockedBookingApi.listAvailability.mockResolvedValue([
+      { time: '10:00', booked: 0, capacity: 1, available: true },
+    ])
+
+    const user = userEvent.setup()
+    renderWizard()
+
+    expect(await screen.findByTestId('time-slot-select-placeholder')).toBeInTheDocument()
+    expect(screen.getByText(/กรุณาเลือกบริการที่คุณสนใจก่อน/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /10:00/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('บริการ'))
+    await user.click(await screen.findByRole('option', { name: 'บริการทดสอบ' }))
+
+    await waitFor(() => expect(screen.queryByTestId('time-slot-select-placeholder')).not.toBeInTheDocument())
+    expect(await screen.findByRole('button', { name: /10:00/ })).toBeInTheDocument()
+  })
+
   it('deduplicates initial booking data loads under StrictMode', async () => {
     mockedBookingApi.listServices.mockResolvedValue([
       {

@@ -372,7 +372,27 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
               <ScheduleIcon color="primary" />
               <Typography variant="h3">เลือกเวลา</Typography>
             </Stack>
-            {isLoadingSlots ? (
+            {!selectedServiceId ? (
+              <Box
+                data-testid="time-slot-select-placeholder"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  minHeight: 62,
+                  px: 2,
+                  py: 1.75,
+                  display: 'grid',
+                  placeItems: 'center',
+                  textAlign: 'center',
+                  bgcolor: 'background.default',
+                }}
+              >
+                <Typography sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1.55 }}>
+                  กรุณาเลือกบริการที่คุณสนใจก่อน เพื่อดูช่วงเวลาที่ว่างสำหรับจองคิว
+                </Typography>
+              </Box>
+            ) : isLoadingSlots ? (
               <SlotGridSkeleton />
             ) : (
               <Grid container spacing={1.2}>
