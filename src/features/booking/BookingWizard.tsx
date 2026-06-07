@@ -305,7 +305,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Alert>
           )}
 
-          <BookingSectionHeading step={1} title="บริการ" />
+          <BookingSectionHeading step={1} title="เลือกบริการที่ต้องการ" />
 
           <FormControl fullWidth>
             <Select
@@ -354,7 +354,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             </Select>
           </FormControl>
 
-          <BookingSectionHeading step={2} title="วันเวลา" />
+          <BookingSectionHeading step={2} title="เลือกวันและเวลา" />
 
           <BookingCalendar
             blackoutDates={blackoutDates}
@@ -408,7 +408,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
             )}
           </Box>
 
-          <BookingSectionHeading step={3} title="ข้อมูลติดต่อ" />
+          <BookingSectionHeading step={3} title="กรอกข้อมูลติดต่อ" />
 
           <Grid container spacing={1.5}>
             <Grid size={{ xs: 12 }}>
@@ -474,7 +474,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
 function BookingSectionHeading({ step, title }: { step: number; title: string }) {
   return (
     <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
-      <Box sx={{ height: 1, flex: 1, bgcolor: 'divider' }} />
+      <Box sx={{ height: 2, flex: 1, minWidth: 24, borderRadius: 999, bgcolor: 'divider' }} />
       <Typography
         component="h3"
         variant="h3"
@@ -483,6 +483,7 @@ function BookingSectionHeading({ step, title }: { step: number; title: string })
           alignItems: 'center',
           gap: 0.8,
           flexShrink: 0,
+          maxWidth: 'min(72%, 320px)',
           color: 'text.primary',
           fontSize: '1rem',
           fontWeight: 950,
@@ -507,9 +508,11 @@ function BookingSectionHeading({ step, title }: { step: number; title: string })
         >
           {step}
         </Box>
-        <Box component="span">{title}</Box>
+        <Box component="span" sx={{ minWidth: 0 }}>
+          {title}
+        </Box>
       </Typography>
-      <Box sx={{ height: 1, flex: 1, bgcolor: 'divider' }} />
+      <Box sx={{ height: 2, flex: 1, minWidth: 24, borderRadius: 999, bgcolor: 'divider' }} />
     </Stack>
   )
 }

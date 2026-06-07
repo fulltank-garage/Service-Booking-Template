@@ -93,9 +93,9 @@ describe('BookingWizard', () => {
     renderWizard()
 
     await screen.findByRole('heading', { name: 'จองคิว' })
-    expect(screen.getByRole('heading', { name: '1 บริการ' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '2 วันเวลา' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '3 ข้อมูลติดต่อ' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '1 เลือกบริการที่ต้องการ' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '2 เลือกวันและเวลา' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '3 กรอกข้อมูลติดต่อ' })).toBeInTheDocument()
     expect(screen.getByText('เลือกวันที่')).toBeInTheDocument()
     expect(screen.getByText('เลือกบริการของคุณ')).toBeInTheDocument()
     await user.click(screen.getByLabelText('บริการ'))
