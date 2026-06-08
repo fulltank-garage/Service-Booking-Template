@@ -686,7 +686,7 @@ func (service *BookingService) sendCustomerMessage(ctx context.Context, booking 
 
 func bookingCreatedMessage(booking models.Booking) string {
 	return fmt.Sprintf(
-		"จองคิวสำเร็จ\nเลขที่จอง: %s\nบริการ: %s\nวันที่: %s\nเวลา: %s",
+		"ร้านได้รับคิวแล้ว\nเลขที่จอง: %s\nบริการ: %s\nวันที่: %s\nเวลา: %s\nรอร้านตรวจสอบและยืนยันคิวให้คุณ",
 		booking.BookingCode,
 		bookingServiceName(booking),
 		formatThaiDateLabel(booking.BookingDate),
@@ -696,7 +696,7 @@ func bookingCreatedMessage(booking models.Booking) string {
 
 func bookingRescheduledMessage(booking models.Booking) string {
 	return fmt.Sprintf(
-		"เลื่อนนัดสำเร็จ\nเลขที่จอง: %s\nวันที่: %s\nเวลา: %s",
+		"เปลี่ยนวันและเวลาให้แล้ว\nเลขที่จอง: %s\nวันที่: %s\nเวลา: %s\nร้านได้รับข้อมูลการเลื่อนนัดของคุณแล้ว",
 		booking.BookingCode,
 		formatThaiDateLabel(booking.BookingDate),
 		booking.SlotTime,
@@ -704,15 +704,17 @@ func bookingRescheduledMessage(booking models.Booking) string {
 }
 
 func bookingStatusMessage(booking models.Booking) string {
+	title, detail := bookingCustomerStatusCopy(booking.Status)
 	return fmt.Sprintf(
-		"อัปเดตสถานะการจอง\nเลขที่จอง: %s\nสถานะ: %s",
+		"%s\nเลขที่จอง: %s\n%s",
+		title,
 		booking.BookingCode,
-		bookingStatusLabel(booking.Status),
+		detail,
 	)
 }
 
 func bookingCancelledMessage(booking models.Booking) string {
-	return fmt.Sprintf("ยกเลิกการจองแล้ว\nเลขที่จอง: %s", booking.BookingCode)
+	return fmt.Sprintf("คิวนี้ถูกยกเลิกแล้ว\nเลขที่จอง: %s\nหากต้องการใช้บริการ กรุณาจองคิวใหม่", booking.BookingCode)
 }
 
 func bookingServiceName(booking models.Booking) string {
@@ -737,6 +739,21 @@ func bookingStatusLabel(status string) string {
 		return "ไม่มาตามนัด"
 	default:
 		return "รอจัดการ"
+	}
+}
+
+func bookingCustomerStatusCopy(status string) (string, string) {
+	switch status {
+	case models.BookingStatusConfirmed:
+		return "ร้านยืนยันคิวแล้ว", "กรุณามาตามวันและเวลานัด"
+	case models.BookingStatusCompleted:
+		return "ใช้บริการเรียบร้อยแล้ว", "ขอบคุณที่มาใช้บริการ คุณสามารถจองคิวใหม่ได้เมื่อต้องการ"
+	case models.BookingStatusCancelled:
+		return "คิวนี้ถูกยกเลิกแล้ว", "หากต้องการใช้บริการ กรุณาจองคิวใหม่"
+	case models.BookingStatusNoShow:
+		return "ไม่ได้มาตามนัด", "หากต้องการใช้บริการ กรุณาจองคิวใหม่"
+	default:
+		return "ร้านได้รับคิวแล้ว", "รอร้านตรวจสอบและยืนยันคิวให้คุณ"
 	}
 }
 
