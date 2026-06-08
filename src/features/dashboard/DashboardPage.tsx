@@ -1125,7 +1125,6 @@ function SidebarContent({
     { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <MiscellaneousServicesIcon /> },
-    { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon />, hiddenInSimpleMode: true },
     { page: 'settings', label: 'การตั้งค่าร้าน', icon: <SettingsIcon /> },
   ]
   const visibleNavItems = navItems.filter((item) => !(simpleMode && item.hiddenInSimpleMode))
@@ -1232,21 +1231,6 @@ function SidebarContent({
           )
         })}
       </Stack>
-      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, bgcolor: 'background.default', p: 1.4 }}>
-        <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 950 }}>โหมดง่าย</Typography>
-            <Typography sx={{ mt: 0.25, color: 'text.secondary', fontSize: '0.72rem', fontWeight: 760, lineHeight: 1.25 }}>
-              เหมาะกับร้านเล็กที่ใช้แค่คิวหลัก
-            </Typography>
-          </Box>
-          <IOSSwitch
-            checked={simpleMode}
-            slotProps={{ input: { 'aria-label': 'โหมดง่าย' } }}
-            onChange={(event) => onSimpleModeChange(event.target.checked)}
-          />
-        </Stack>
-      </Box>
       <Box sx={{ flex: 1 }} />
       <AdminProfilePanel
         adminEmail={adminEmail}
@@ -1415,7 +1399,6 @@ function OverviewPage({
         <SummaryCard icon={<HourglassTopIcon />} label="รอจัดการ" value={summary.pending} color="#FF008C" />
         <SummaryCard icon={<CheckCircleIcon />} label="ยืนยันแล้ว" value={summary.confirmed} color="#111827" />
         <SummaryCard icon={<CalendarMonthIcon />} label="คิวทั้งหมด" value={summary.total} color="#FF008C" />
-        <SummaryCard icon={<NotificationsIcon />} label="แจ้งเตือนยังไม่อ่าน" value={summary.unread} color="#111827" />
       </Grid>
       {dailySummary && (
         <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
