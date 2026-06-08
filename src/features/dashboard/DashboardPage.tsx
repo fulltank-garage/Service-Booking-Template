@@ -1525,23 +1525,6 @@ function SetupChecklistPage({
           </Stack>
         </CardContent>
       </Card>
-
-      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-        <CardContent sx={{ p: 2.5 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between' }}>
-            <Box>
-              <Typography sx={{ fontWeight: 950 }}>โหมดง่ายสำหรับร้านเล็ก</Typography>
-              <Typography sx={{ mt: 0.5, color: 'text.secondary', fontWeight: 760 }}>
-                ซ่อนหน้าที่ไม่จำเป็นและให้ร้านโฟกัสกับคิว บริการ และตั้งค่าหลัก
-              </Typography>
-            </Box>
-            <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography sx={{ fontWeight: 900 }}>{simpleMode ? 'เปิดอยู่' : 'ปิดอยู่'}</Typography>
-              <IOSSwitch checked={simpleMode} onChange={(event) => onSimpleModeChange(event.target.checked)} />
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
     </Stack>
   )
 }
