@@ -2090,9 +2090,9 @@ function BookingSettingsPage({
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
-                  <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เตือนก่อนนัด</Typography>
+                  <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เตือนลูกค้าก่อนนัด</Typography>
                   <Select
-                    aria-label="เตือนก่อนนัด"
+                    aria-label="เตือนลูกค้าก่อนนัด"
                     value={reminderLeadMinutes}
                     onChange={(event) => setReminderLeadMinutes(event.target.value)}
                   >
