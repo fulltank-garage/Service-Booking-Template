@@ -388,7 +388,7 @@ export function BookingWizard({ lineProfile, onBookingConfirmed }: BookingWizard
                 }}
               >
                 <Typography sx={{ color: 'text.secondary', fontWeight: 700, lineHeight: 1.55 }}>
-                  กรุณาเลือกบริการที่คุณสนใจก่อน เพื่อดูช่วงเวลาที่ว่างสำหรับจองคิว
+                  โปรดเลือกบริการที่ต้องการจอง เพื่อดูวันและเวลาที่ว่าง
                 </Typography>
               </Box>
             ) : isLoadingSlots ? (
