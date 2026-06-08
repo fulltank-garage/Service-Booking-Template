@@ -2991,31 +2991,13 @@ function BookingsCard({
             />
           )}
           {nextBooking && <NextBookingPanel booking={nextBooking} />}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
-            <TextField
-              placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่จอง"
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              size="small"
-              sx={{ flex: 1 }}
-            />
-            <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
-              <Select
-                aria-label="กรองสถานะ"
-                value={statusFilter}
-                onChange={(event) => onStatusFilterChange(event.target.value as BookingStatus | 'all')}
-              >
-                <MenuItem value="all">ทุกสถานะ</MenuItem>
-                {Object.entries(statusLabels)
-                  .filter(([status]) => !simpleMode || status === 'pending' || status === 'confirmed' || status === 'completed')
-                  .map(([status, label]) => (
-                  <MenuItem key={status} value={status}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
+          <TextField
+            placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่จอง"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            size="small"
+            fullWidth
+          />
           <Stack direction="column" spacing={{ xs: 1.2, sm: 0.8 }}>
             <Button fullWidth variant="contained" onClick={openCreateBooking}>
               เพิ่มคิวโทร/หน้าร้าน
