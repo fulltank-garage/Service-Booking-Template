@@ -70,7 +70,30 @@ describe('BookingSuccessPage', () => {
     )
 
     expect(await screen.findByText('SB-TEST-0001')).toBeInTheDocument()
+    expect(screen.getByText('ร้านได้รับคิวแล้ว')).toBeInTheDocument()
+    expect(screen.getByText('รอร้านตรวจสอบและยืนยันคิวให้คุณ')).toBeInTheDocument()
     expect(mockedBookingApi.latestBookingByLineUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a customer-friendly confirmed booking status', async () => {
+    mockedBookingApi.latestBookingByLineUser.mockResolvedValue({
+      id: 'booking-confirmed',
+      bookingCode: 'SB-TEST-0004',
+      serviceId: 'service-1',
+      customerName: 'สมชาย',
+      phone: '0890000000',
+      lineUserId: 'line-user-1',
+      bookingDate: '2026-06-10',
+      slotTime: '10:00',
+      status: 'confirmed',
+      createdAt: '2026-06-10T03:00:00.000Z',
+    })
+
+    renderBookingSuccessPage()
+
+    expect(await screen.findByText('SB-TEST-0004')).toBeInTheDocument()
+    expect(screen.getByText('ร้านยืนยันคิวแล้ว')).toBeInTheDocument()
+    expect(screen.getByText('กรุณามาตามวันและเวลานัด')).toBeInTheDocument()
   })
 
   it('leaves the booking details page when the booking is removed while the page is open', async () => {

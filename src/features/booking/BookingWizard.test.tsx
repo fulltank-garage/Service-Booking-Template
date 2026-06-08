@@ -150,7 +150,7 @@ describe('BookingWizard', () => {
     renderWizard()
 
     expect(await screen.findByTestId('time-slot-select-placeholder')).toBeInTheDocument()
-    expect(screen.getByText(/กรุณาเลือกบริการที่คุณสนใจก่อน/)).toBeInTheDocument()
+    expect(screen.getByText(/โปรดเลือกบริการที่ต้องการจอง/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /10:00/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByLabelText('บริการ'))
