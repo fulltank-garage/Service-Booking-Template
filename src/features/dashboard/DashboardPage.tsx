@@ -3037,19 +3037,23 @@ function BookingsCard({
               </Select>
             </FormControl>
           </Stack>
-          <Stack direction="row" spacing={0.8} sx={{ justifyContent: 'flex-end' }}>
-            <Button variant="contained" onClick={openCreateBooking}>
+          <Stack direction="column" spacing={{ xs: 1.2, sm: 0.8 }}>
+            <Button fullWidth variant="contained" onClick={openCreateBooking}>
               เพิ่มคิวโทร/หน้าร้าน
             </Button>
-            <Button variant="outlined" disabled={isExporting} onClick={handleExport}>
-              {isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV'}
-            </Button>
-            <Button variant="outlined" onClick={onPreviousDay}>
-              วันก่อนหน้า
-            </Button>
-            <Button variant="outlined" onClick={onNextDay}>
-              วันถัดไป
-            </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1.2, sm: 0.8 }} sx={{ justifyContent: 'flex-end', alignItems: { xs: 'stretch', sm: 'center' } }}>
+              <Button fullWidth variant="outlined" disabled={isExporting} onClick={handleExport} sx={{ flex: { sm: 1 } }}>
+                {isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV'}
+              </Button>
+              <Stack direction="row" spacing={0.8} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'auto auto' }, flex: { sm: 'auto' } }}>
+                <Button variant="outlined" onClick={onPreviousDay}>
+                  วันก่อนหน้า
+                </Button>
+                <Button variant="outlined" onClick={onNextDay}>
+                  วันถัดไป
+                </Button>
+              </Stack>
+            </Stack>
           </Stack>
         </Stack>
 
