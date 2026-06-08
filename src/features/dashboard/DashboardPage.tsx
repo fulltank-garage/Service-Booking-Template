@@ -2823,26 +2823,6 @@ function BookingListSectionHeader({ hasBookings }: { hasBookings: boolean }) {
   )
 }
 
-function BookingStatusGuide() {
-  const items = [
-    'รอจัดการ = ลูกค้าจองเข้ามาแล้ว ร้านยังไม่ได้รับคิวนี้',
-    'ยืนยันแล้ว = ร้านรับคิวนี้แล้ว ลูกค้ารอมาใช้บริการ',
-    'เสร็จสิ้น = ร้านทำคิวนี้เสร็จแล้ว ไม่ต้องแก้ต่อ',
-  ]
-
-  return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2.5, p: 1.5 }}>
-      <Typography sx={{ mb: 0.8, fontWeight: 950 }}>สถานะคิวหมายถึงอะไร</Typography>
-      <Stack spacing={0.5}>
-        {items.map((item) => (
-          <Typography key={item} sx={{ color: 'text.secondary', fontSize: '0.88rem', fontWeight: 760 }}>
-            {item}
-          </Typography>
-        ))}
-      </Stack>
-    </Box>
-  )
-}
 
 function TodayFocusPanel({
   booking,
@@ -3011,7 +2991,6 @@ function BookingsCard({
             />
           )}
           {nextBooking && <NextBookingPanel booking={nextBooking} />}
-          <BookingStatusGuide />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
             <TextField
               placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่จอง"
