@@ -126,6 +126,15 @@ function App() {
     navigate('/booking/success')
   }
 
+  const handleBookingUpdated = (booking: Booking) => {
+    setLatestBooking(booking)
+    try {
+      window.localStorage.setItem(latestBookingStorageKey, JSON.stringify(booking))
+    } catch {
+      // Ignore storage failures inside restricted LIFF browsers.
+    }
+  }
+
   const handleBookingCancelled = () => {
     setLatestBooking(null)
     setAutoCloseSuccess(false)
@@ -150,6 +159,7 @@ function App() {
         fallbackBooking={latestBooking}
         lineProfile={lineProfile}
         onBookingCancelled={handleBookingCancelled}
+        onBookingUpdated={handleBookingUpdated}
       />
     ) : (
       <BookingWizard lineProfile={lineProfile} onBookingConfirmed={handleBookingConfirmed} />

@@ -30,6 +30,7 @@ type BookingSuccessPageProps = {
   fallbackBooking: Booking | null
   lineProfile: LineProfile | null
   onBookingCancelled: () => void
+  onBookingUpdated?: (booking: Booking) => void
 }
 
 const latestBookingCache = new Map<string, Booking>()
@@ -97,7 +98,7 @@ const loadLatestBooking = (lineUserId: string, options?: { force?: boolean }) =>
   return request
 }
 
-export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking, lineProfile, onBookingCancelled }: BookingSuccessPageProps) {
+export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking, lineProfile, onBookingCancelled, onBookingUpdated }: BookingSuccessPageProps) {
   const [booking, setBooking] = useState<Booking | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(lineProfile?.userId))
   const [error, setError] = useState('')
@@ -112,10 +113,10 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
   const fallbackBookingRef = useRef(fallbackBooking)
   const displayedBooking = lineProfile?.userId ? booking : fallbackBooking
   const displayedBookingId = displayedBooking?.id ?? ''
-  const fallbackBookingId = fallbackBooking?.id ?? ''
   const todayKey = new Date().toISOString().slice(0, 10)
   const rescheduleSlotSelectValue = slots.some((slot) => slot.time === rescheduleSlot) ? rescheduleSlot : ''
   const onBookingCancelledRef = useRef(onBookingCancelled)
+  const onBookingUpdatedRef = useRef(onBookingUpdated)
 
   useEffect(() => {
     fallbackBookingRef.current = fallbackBooking
@@ -124,6 +125,10 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
   useEffect(() => {
     onBookingCancelledRef.current = onBookingCancelled
   }, [onBookingCancelled])
+
+  useEffect(() => {
+    onBookingUpdatedRef.current = onBookingUpdated
+  }, [onBookingUpdated])
 
   useEffect(() => {
     if (!lineProfile?.userId) {
@@ -140,6 +145,7 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
             closeStaleBookingDetails(lineProfile.userId, setBooking, onBookingCancelledRef.current)
           } else {
             setBooking(latestBooking)
+            onBookingUpdatedRef.current?.(latestBooking)
           }
         }
       } catch (error) {
@@ -159,7 +165,7 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
     return () => {
       active = false
     }
-  }, [fallbackBookingId, lineProfile?.userId])
+  }, [lineProfile?.userId])
 
   useEffect(() => {
     if (!lineProfile?.userId || !displayedBookingId) {
@@ -175,6 +181,7 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
             closeStaleBookingDetails(lineProfile.userId, setBooking, onBookingCancelledRef.current)
           } else {
             setBooking(latestBooking)
+            onBookingUpdatedRef.current?.(latestBooking)
           }
         }
       } catch (error) {
@@ -285,6 +292,7 @@ export function BookingSuccessPage({ autoCloseOnSuccess = false, fallbackBooking
         latestBookingCache.set(lineProfile.userId, updated)
       }
       setBooking(updated)
+      onBookingUpdatedRef.current?.(updated)
       setIsRescheduleOpen(false)
     } catch {
       setError('เลื่อนนัดไม่สำเร็จ กรุณาเลือกเวลาใหม่')

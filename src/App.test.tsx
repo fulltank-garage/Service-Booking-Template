@@ -89,6 +89,7 @@ describe('App routing', () => {
   beforeEach(() => {
     resetCustomerSessionForTests()
     resetBookingBootstrapForTests()
+    window.localStorage.clear()
     mockedInitializeLiff.mockReset()
     mockedInitializeLiff.mockResolvedValue(null)
     mockedBookingApi.listServices.mockClear()
@@ -238,5 +239,47 @@ describe('App routing', () => {
     expect(await screen.findByText('SB-TEST-0001')).toBeInTheDocument()
     expect(mockedInitializeLiff.mock.calls.length).toBeLessThanOrEqual(1)
     expect(mockedBookingApi.latestBookingByLineUser.mock.calls.length).toBeLessThanOrEqual(1)
+  })
+
+  it('keeps rich menu booking details and cache in sync after admin confirms a booking', async () => {
+    window.history.replaceState({}, '', '/?liff.state=%2Fbooking%2Fsuccess')
+    mockedInitializeLiff.mockResolvedValue({ userId: 'line-user-sync', displayName: 'สมชาย' })
+    mockedBookingApi.latestBookingByLineUser
+      .mockResolvedValueOnce({
+        id: 'booking-sync',
+        bookingCode: 'SB-TEST-SYNC',
+        serviceId: 'service-1',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        lineUserId: 'line-user-sync',
+        bookingDate: '2026-06-10',
+        slotTime: '10:00',
+        status: 'pending',
+        createdAt: '2026-06-10T03:00:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        id: 'booking-sync',
+        bookingCode: 'SB-TEST-SYNC',
+        serviceId: 'service-1',
+        customerName: 'สมชาย',
+        phone: '0890000000',
+        lineUserId: 'line-user-sync',
+        bookingDate: '2026-06-10',
+        slotTime: '10:00',
+        status: 'confirmed',
+        createdAt: '2026-06-10T03:00:00.000Z',
+      })
+
+    renderApp()
+
+    expect(await screen.findByText('ร้านได้รับคิวแล้ว')).toBeInTheDocument()
+
+    window.dispatchEvent(new Event('focus'))
+
+    expect(await screen.findByText('ร้านยืนยันคิวแล้ว')).toBeInTheDocument()
+    await waitFor(() => {
+      const cached = JSON.parse(window.localStorage.getItem('bookingQueue.latestBooking') ?? '{}')
+      expect(cached.status).toBe('confirmed')
+    })
   })
 })
