@@ -50,6 +50,7 @@ describe('useAdminRealtime', () => {
     MockWebSocket.instances = []
     authStorage.setSession({
       email: 'admin@example.com',
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
       name: 'FULLTANK Garage Admin',
       token: 'test-token',
     })

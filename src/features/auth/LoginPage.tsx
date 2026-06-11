@@ -20,7 +20,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
     setIsSubmitting(true)
     try {
       const session = await adminApi.login(email, password)
-      onAuthenticated({ email: session.email, name: session.name, token: session.token })
+      onAuthenticated({ email: session.email, expiresAt: session.expiresAt, name: session.name, token: session.token })
     } catch {
       setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
     } finally {
