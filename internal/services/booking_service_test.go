@@ -12,6 +12,12 @@ import (
 	"gorm.io/gorm"
 )
 
+func freezeBookingServiceNow(service *BookingService) {
+	service.now = func() time.Time {
+		return time.Date(2026, 6, 5, 12, 0, 0, 0, time.FixedZone("ICT", 7*60*60))
+	}
+}
+
 func TestCreateBookingRejectsFullSlot(t *testing.T) {
 	store := &fakeStore{
 		service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true, DurationMinutes: 30},
@@ -21,6 +27,7 @@ func TestCreateBookingRejectsFullSlot(t *testing.T) {
 		},
 	}
 	service := NewBookingService(store, nil, nil, 2)
+	freezeBookingServiceNow(service)
 
 	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    "svc-1",
@@ -39,6 +46,7 @@ func TestCreateBookingRejectsFullSlot(t *testing.T) {
 func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
 	service := NewBookingService(store, nil, nil, 3)
+	freezeBookingServiceNow(service)
 
 	booking, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    " svc-1 ",
@@ -69,6 +77,7 @@ func TestCreateBookingNormalizesAndPersistsPendingBooking(t *testing.T) {
 func TestCreateBookingRejectsMissingLineUserID(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
 	service := NewBookingService(store, nil, nil, 3)
+	freezeBookingServiceNow(service)
 
 	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    "svc-1",
@@ -90,6 +99,7 @@ func TestCreateBookingSendsLineMessage(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, NameTH: "ทำเล็บเจล", IsActive: true}}
 	messenger := &recordingCustomerMessenger{}
 	service := NewBookingServiceWithCustomerMessenger(store, nil, nil, messenger, 3)
+	freezeBookingServiceNow(service)
 
 	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    "svc-1",
@@ -128,6 +138,7 @@ func TestUpdateServiceCanReactivateInactiveService(t *testing.T) {
 	}
 	notifier := &recordingBookingNotifier{}
 	service := NewBookingService(store, notifier, nil, 1)
+	freezeBookingServiceNow(service)
 
 	updated, err := service.UpdateService(context.Background(), "svc-1", ServiceInput{
 		NameTH:          "ทำเล็บเจล",
@@ -209,6 +220,7 @@ func TestSaveBookingSettingsNotifiesRealtime(t *testing.T) {
 func TestListAvailabilityReturnsSixteenBusinessSlots(t *testing.T) {
 	store := &fakeStore{service: models.Service{BaseModel: models.BaseModel{ID: "svc-1"}, IsActive: true}}
 	service := NewBookingService(store, nil, nil, 3)
+	freezeBookingServiceNow(service)
 
 	slots, err := service.ListAvailability(context.Background(), "svc-1", "2026-06-10")
 	if err != nil {
@@ -235,6 +247,7 @@ func TestListAvailabilityUsesBookingSettings(t *testing.T) {
 	}
 	notifier := &recordingBookingNotifier{}
 	service := NewBookingService(store, notifier, nil, 1)
+	freezeBookingServiceNow(service)
 
 	slots, err := service.ListAvailability(context.Background(), "svc-1", "2026-06-10")
 	if err != nil {
@@ -277,6 +290,7 @@ func TestListAvailabilityUsesServiceDurationAndOverlappingBookings(t *testing.T)
 		},
 	}
 	service := NewBookingService(store, nil, nil, 1)
+	freezeBookingServiceNow(service)
 
 	slots, err := service.ListAvailability(context.Background(), "svc-1", "2026-06-10")
 	if err != nil {
@@ -312,6 +326,7 @@ func TestListAvailabilityUsesBufferMinutesForOverlappingBookings(t *testing.T) {
 		},
 	}
 	service := NewBookingService(store, nil, nil, 1)
+	freezeBookingServiceNow(service)
 
 	slots, err := service.ListAvailability(context.Background(), "svc-1", "2026-06-10")
 	if err != nil {
@@ -343,6 +358,7 @@ func TestCreateBookingAllowsOverlappingSlotWhenCapacityAvailable(t *testing.T) {
 		},
 	}
 	service := NewBookingService(store, nil, nil, 1)
+	freezeBookingServiceNow(service)
 
 	booking, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    "svc-1",
@@ -380,6 +396,7 @@ func TestCreateBookingRejectsSlotBlockedByBufferTime(t *testing.T) {
 		},
 	}
 	service := NewBookingService(store, nil, nil, 1)
+	freezeBookingServiceNow(service)
 
 	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    "svc-1",
@@ -409,6 +426,7 @@ func TestCreateBookingRejectsBlackoutDate(t *testing.T) {
 		blackoutDates: []models.BookingBlackoutDate{{Date: "2026-06-10", Reason: "Shop holiday"}},
 	}
 	service := NewBookingService(store, nil, nil, 1)
+	freezeBookingServiceNow(service)
 
 	_, err := service.CreateBooking(context.Background(), CreateBookingInput{
 		ServiceID:    "svc-1",
@@ -479,6 +497,7 @@ func TestRescheduleBookingByLineUserUpdatesSlotAndNotes(t *testing.T) {
 	}
 	notifier := &recordingBookingNotifier{}
 	service := NewBookingService(store, notifier, nil, 1)
+	freezeBookingServiceNow(service)
 
 	booking, err := service.RescheduleBookingByLineUser(context.Background(), "booking-1", RescheduleBookingInput{
 		LineUserID:  "line-user-1",
