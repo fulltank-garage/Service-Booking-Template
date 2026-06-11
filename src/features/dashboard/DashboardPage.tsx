@@ -3447,20 +3447,24 @@ function BookingCreateSheet({
     [bookingSettings?.maxAdvanceDays],
   )
 
+  const clearSelectedSlot = () => {
+    setSlotTime('')
+    setSlots([])
+    setSlotError('')
+  }
+
   const reset = () => {
     onServiceIdChange(services[0]?.id ?? '')
     setCustomerName('')
     setPhone('')
     onBookingDateChange(selectedDate)
-    setSlotTime('')
+    clearSelectedSlot()
     setNotes('')
   }
 
   const handleBookingDateChange = (value: string) => {
     onBookingDateChange(value)
-    setSlotTime('')
-    setSlots([])
-    setSlotError('')
+    clearSelectedSlot()
   }
 
   useEffect(() => {
