@@ -22,6 +22,8 @@ import (
 
 var ErrInvalidCredentials = errors.New("invalid admin credentials")
 
+const adminSessionDuration = 90 * 24 * time.Hour
+
 type AuthService struct {
 	name     string
 	email    string
@@ -98,9 +100,26 @@ func (service *AuthService) Login(email string, password string) (AdminSession, 
 		return AdminSession{}, ErrInvalidCredentials
 	}
 
-	expiresAt := service.now().Add(24 * time.Hour)
+	expiresAt := service.now().Add(adminSessionDuration)
 	token := service.sign(service.email, expiresAt)
 	return AdminSession{Name: service.name, Email: service.email, Token: token, ExpiresAt: expiresAt}, nil
+}
+
+func (service *AuthService) Refresh(ctx context.Context, token string) (AdminSession, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return AdminSession{}, ErrInvalidCredentials
+	}
+	if service.store != nil {
+		return service.refreshStoredSession(ctx, token)
+	}
+	session, ok := service.SessionFromToken(ctx, token)
+	if !ok {
+		return AdminSession{}, ErrInvalidCredentials
+	}
+	expiresAt := service.now().Add(adminSessionDuration)
+	nextToken := service.sign(session.Email, expiresAt)
+	return AdminSession{Name: session.Name, Email: session.Email, Token: nextToken, ExpiresAt: expiresAt}, nil
 }
 
 func (service *AuthService) Validate(token string) bool {
@@ -166,7 +185,7 @@ func (service *AuthService) loginWithStore(ctx context.Context, email string, pa
 	if err != nil {
 		return AdminSession{}, err
 	}
-	expiresAt := service.now().Add(24 * time.Hour)
+	expiresAt := service.now().Add(adminSessionDuration)
 	if err := service.store.CreateAdminSession(ctx, &models.AdminSessionRecord{
 		AdminUserID: user.ID,
 		TokenHash:   service.tokenHash(token),
@@ -175,6 +194,29 @@ func (service *AuthService) loginWithStore(ctx context.Context, email string, pa
 		return AdminSession{}, err
 	}
 	return AdminSession{Name: user.Name, Email: user.Email, Token: token, ExpiresAt: expiresAt}, nil
+}
+
+func (service *AuthService) refreshStoredSession(ctx context.Context, token string) (AdminSession, error) {
+	session, err := service.store.FindAdminSessionByTokenHash(ctx, service.tokenHash(token))
+	if err != nil || session.RevokedAt != nil || !session.AdminUser.IsActive || !service.now().Before(session.ExpiresAt) {
+		return AdminSession{}, ErrInvalidCredentials
+	}
+	nextToken, err := randomToken()
+	if err != nil {
+		return AdminSession{}, err
+	}
+	expiresAt := service.now().Add(adminSessionDuration)
+	if err := service.store.CreateAdminSession(ctx, &models.AdminSessionRecord{
+		AdminUserID: session.AdminUserID,
+		TokenHash:   service.tokenHash(nextToken),
+		ExpiresAt:   expiresAt,
+	}); err != nil {
+		return AdminSession{}, err
+	}
+	if err := service.store.RevokeAdminSession(ctx, service.tokenHash(token)); err != nil {
+		return AdminSession{}, err
+	}
+	return AdminSession{Name: session.AdminUser.Name, Email: session.AdminUser.Email, Token: nextToken, ExpiresAt: expiresAt}, nil
 }
 
 func (service *AuthService) storedSessionFromToken(ctx context.Context, token string) (AdminSession, bool) {

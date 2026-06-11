@@ -52,6 +52,23 @@ func (handler *AuthHandler) Logout(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (handler *AuthHandler) Refresh(c *gin.Context) {
+	token := bearerToken(c.GetHeader("Authorization"))
+	if token == "" {
+		token = strings.TrimSpace(c.Query("token"))
+	}
+	session, err := handler.service.Refresh(c.Request.Context(), token)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidCredentials) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "refresh failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": session})
+}
+
 func bearerToken(header string) string {
 	const prefix = "Bearer "
 	if !strings.HasPrefix(header, prefix) {

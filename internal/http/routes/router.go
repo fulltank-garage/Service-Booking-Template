@@ -40,6 +40,7 @@ func New(deps Dependencies) *gin.Engine {
 	admin := api.Group("/admin")
 	admin.POST("/auth/login", authHandler.Login)
 	admin.Use(middleware.AdminAuth(deps.AuthService))
+	admin.POST("/auth/refresh", authHandler.Refresh)
 	admin.POST("/auth/logout", authHandler.Logout)
 	admin.GET("/bookings", bookingHandler.ListBookings)
 	admin.POST("/bookings", bookingHandler.CreateAdminBooking)
