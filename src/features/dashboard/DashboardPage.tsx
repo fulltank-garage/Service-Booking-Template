@@ -345,7 +345,7 @@ type DashboardPageProps = {
 export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendingAppUpdate, onLogout }: DashboardPageProps) {
   const [activePage, setActivePage] = useState<AdminPage>('bookings')
   const [isNavOpen, setIsNavOpen] = useState(false)
-  const [isSimpleMode, setIsSimpleMode] = useState(() => window.localStorage.getItem(simpleModeStorageKey) !== 'false')
+  const [isSimpleMode] = useState(() => window.localStorage.getItem(simpleModeStorageKey) !== 'false')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
@@ -540,11 +540,6 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     return { items, doneCount, total: items.length }
   }, [bookingSettings, bookings.length, pushHealth, services.length])
 
-  const handleSimpleModeChange = (enabled: boolean) => {
-    setIsSimpleMode(enabled)
-    window.localStorage.setItem(simpleModeStorageKey, String(enabled))
-  }
-
   const handleStatusChange = async (booking: Booking, status: BookingStatus) => {
     const updatedBooking = { ...booking, status }
     const filters = { date: selectedBookingDate, query: bookingQuery, status: bookingStatusFilter }
@@ -653,7 +648,6 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           unreadCount={summary.unread}
           onApplyAppUpdate={applyAppUpdate}
           onChangePage={handleChangePage}
-          onSimpleModeChange={handleSimpleModeChange}
           onClose={() => setIsNavOpen(false)}
           onLogout={onLogout}
       />
@@ -671,7 +665,6 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
           unreadCount={summary.unread}
           onApplyAppUpdate={applyAppUpdate}
           onChangePage={handleChangePage}
-          onSimpleModeChange={handleSimpleModeChange}
           onLogout={onLogout}
         />
 
@@ -697,8 +690,6 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                     progress={setupProgress}
                     pushHealth={pushHealth}
                     onChangePage={handleChangePage}
-                    onSimpleModeChange={handleSimpleModeChange}
-                    simpleMode={isSimpleMode}
                   />
                 )}
                 {activePage === 'overview' && (
@@ -949,7 +940,6 @@ function MobileNavDrawer({
   onChangePage,
   onClose,
   onLogout,
-  onSimpleModeChange,
 }: {
   activePage: AdminPage
   adminEmail: string
@@ -965,7 +955,6 @@ function MobileNavDrawer({
   onChangePage: (page: AdminPage) => void
   onClose: () => void
   onLogout: () => void
-  onSimpleModeChange: (enabled: boolean) => void
 }) {
   return (
     <Drawer
@@ -1016,7 +1005,6 @@ function MobileNavDrawer({
         onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
-        onSimpleModeChange={onSimpleModeChange}
       />
     </Drawer>
   )
@@ -1035,7 +1023,6 @@ function Sidebar({
   onApplyAppUpdate,
   onChangePage,
   onLogout,
-  onSimpleModeChange,
 }: {
   activePage: AdminPage
   adminEmail: string
@@ -1049,7 +1036,6 @@ function Sidebar({
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
-  onSimpleModeChange: (enabled: boolean) => void
 }) {
   return (
     <Box
@@ -1081,7 +1067,6 @@ function Sidebar({
         onApplyAppUpdate={onApplyAppUpdate}
         onChangePage={onChangePage}
         onLogout={onLogout}
-        onSimpleModeChange={onSimpleModeChange}
       />
     </Box>
   )
@@ -1102,7 +1087,6 @@ function SidebarContent({
   onApplyAppUpdate,
   onChangePage,
   onLogout,
-  onSimpleModeChange,
 }: {
   activePage: AdminPage
   adminEmail: string
@@ -1118,13 +1102,13 @@ function SidebarContent({
   onApplyAppUpdate: () => void
   onChangePage: (page: AdminPage) => void
   onLogout: () => void
-  onSimpleModeChange: (enabled: boolean) => void
 }) {
   const navItems: Array<{ page: AdminPage; label: string; icon: ReactNode; hiddenInSimpleMode?: boolean }> = [
     { page: 'setup', label: 'เริ่มใช้งาน', icon: <CheckCircleIcon /> },
     { page: 'overview', label: 'ภาพรวมของร้าน', icon: <DashboardIcon /> },
     { page: 'bookings', label: 'รายการจอง', icon: <CalendarMonthIcon /> },
     { page: 'services', label: 'บริการของร้าน', icon: <MiscellaneousServicesIcon /> },
+    { page: 'notifications', label: 'รายการแจ้งเตือน', icon: <NotificationsIcon />, hiddenInSimpleMode: true },
     { page: 'settings', label: 'การตั้งค่าร้าน', icon: <SettingsIcon /> },
   ]
   const visibleNavItems = navItems.filter((item) => !(simpleMode && item.hiddenInSimpleMode))
@@ -1419,16 +1403,12 @@ function OverviewPage({
 
 function SetupChecklistPage({
   onChangePage,
-  onSimpleModeChange,
   progress,
   pushHealth,
-  simpleMode,
 }: {
   onChangePage: (page: AdminPage) => void
-  onSimpleModeChange: (enabled: boolean) => void
   progress: { items: Array<{ label: string; done: boolean }>; doneCount: number; total: number }
   pushHealth: PushHealthReport | null
-  simpleMode: boolean
 }) {
   const steps: Array<{
     label: string
@@ -2092,7 +2072,7 @@ function BookingSettingsPage({
                 <FormControl fullWidth>
                   <Typography sx={{ mb: 0.8, fontSize: '0.85rem', fontWeight: 900 }}>เตือนลูกค้าก่อนนัด</Typography>
                   <Select
-                    aria-label="เตือนลูกค้าก่อนนัด"
+                    aria-label="เตือนก่อนนัด"
                     value={reminderLeadMinutes}
                     onChange={(event) => setReminderLeadMinutes(event.target.value)}
                   >
@@ -2964,6 +2944,20 @@ function BookingsCard({
             size="small"
             fullWidth
           />
+          <FormControl fullWidth size="small">
+            <Select
+              aria-label="กรองสถานะ"
+              value={statusFilter}
+              onChange={(event) => onStatusFilterChange(event.target.value as BookingStatus | 'all')}
+            >
+              <MenuItem value="all">ทุกสถานะ</MenuItem>
+              <MenuItem value="pending">รอจัดการ</MenuItem>
+              <MenuItem value="confirmed">ยืนยันแล้ว</MenuItem>
+              <MenuItem value="completed">เสร็จสิ้น</MenuItem>
+              <MenuItem value="cancelled">ยกเลิก</MenuItem>
+              <MenuItem value="no_show">ไม่มาตามนัด</MenuItem>
+            </Select>
+          </FormControl>
           <Stack direction="column" spacing={{ xs: 1.2, sm: 0.8 }}>
             <Button fullWidth variant="contained" onClick={openCreateBooking}>
               เพิ่มคิวโทร/หน้าร้าน
@@ -2985,6 +2979,9 @@ function BookingsCard({
         </Stack>
 
         <BookingListSectionHeader hasBookings={bookings.length > 0} />
+        <Typography sx={{ mb: 1.5, color: 'text.secondary', fontWeight: 760 }}>
+          รอจัดการ = ลูกค้าจองเข้ามาแล้ว · ยืนยันแล้ว = ร้านรับคิวนี้แล้ว · เสร็จสิ้น = ร้านทำคิวนี้เสร็จแล้ว
+        </Typography>
 
         {bookings.length === 0 ? (
           <Box
