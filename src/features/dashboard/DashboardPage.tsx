@@ -184,6 +184,37 @@ const bufferMinuteOptions = [
   { value: 30, label: '30 นาที' },
 ]
 
+const weekdayLabels = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์']
+
+const parseClosedWeekdays = (value?: string) =>
+  new Set(
+    (value ?? '')
+      .split(',')
+      .map((item) => Number(item.trim()))
+      .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6),
+  )
+
+const parseISODate = (value: string) => new Date(`${value}T00:00:00`)
+
+const getBookingDateBlockReason = (dateKey: string, settings: BookingSettings | null) => {
+  if (!dateKey) return 'กรุณาเลือกวันที่'
+  const date = parseISODate(dateKey)
+  if (!Number.isFinite(date.getTime())) return 'วันที่ไม่ถูกต้อง'
+  if (dateKey < todayISO()) return 'เลือกย้อนหลังไม่ได้ กรุณาเลือกวันนี้หรือวันถัดไป'
+  const maxAdvanceDays = settings?.maxAdvanceDays ?? 60
+  if (dateKey > addDaysToISODate(todayISO(), maxAdvanceDays)) {
+    return `เลือกได้ล่วงหน้าไม่เกิน ${maxAdvanceDays} วัน`
+  }
+  const blackoutDate = (settings?.blackoutDates ?? []).find((item) => item.date === dateKey)
+  if (blackoutDate) {
+    return blackoutDate.reason ? `วันหยุดเฉพาะวันที่: ${blackoutDate.reason}` : 'วันนี้เป็นวันหยุดเฉพาะวันที่'
+  }
+  if (parseClosedWeekdays(settings?.closedWeekdays).has(date.getDay())) {
+    return `ร้านหยุดทุก${weekdayLabels[date.getDay()]}`
+  }
+  return ''
+}
+
 const formatNotificationTimestamp = (createdAt?: string) => {
   if (!createdAt) {
     return 'ไม่พบเวลาการแจ้งเตือน'
@@ -714,6 +745,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                     />
                   )}
 	                  <BookingsPage
+	                    bookingSettings={bookingSettings}
 	                    bookings={bookings}
 	                    query={bookingQuery}
 	                    selectedDate={selectedBookingDate}
@@ -1608,6 +1640,7 @@ function QuickStartNudge({
 }
 
 function BookingsPage({
+  bookingSettings,
   bookings,
   query,
   selectedDate,
@@ -1624,6 +1657,7 @@ function BookingsPage({
   onStatusChange,
   onUpdateBooking,
 }: {
+  bookingSettings: BookingSettings | null
   bookings: Booking[]
   query: string
   selectedDate: string
@@ -1643,6 +1677,7 @@ function BookingsPage({
   return (
     <BookingsCard
       bookings={bookings}
+      bookingSettings={bookingSettings}
       query={query}
       selectedDate={selectedDate}
       services={services}
@@ -2850,6 +2885,7 @@ function TodayFocusPanel({
 }
 
 function BookingsCard({
+  bookingSettings,
   bookings,
   query,
   selectedDate,
@@ -2866,6 +2902,7 @@ function BookingsCard({
   onStatusChange,
   onUpdateBooking,
 }: {
+  bookingSettings: BookingSettings | null
   bookings: Booking[]
   query: string
   selectedDate: string
@@ -3134,6 +3171,7 @@ function BookingsCard({
         </CardContent>
       </Card>
       <BookingCreateSheet
+        bookingSettings={bookingSettings}
         bookingDate={bookingDateForCreate}
         isOpen={isCreateOpen}
         selectedDate={selectedDate}
@@ -3370,6 +3408,7 @@ function BookingActionButtons({
 }
 
 function BookingCreateSheet({
+  bookingSettings,
   bookingDate,
   isOpen,
   onBookingDateChange,
@@ -3380,6 +3419,7 @@ function BookingCreateSheet({
   serviceId,
   services,
 }: {
+  bookingSettings: BookingSettings | null
   bookingDate: string
   isOpen: boolean
   onBookingDateChange: (value: string) => void
@@ -3398,6 +3438,14 @@ function BookingCreateSheet({
   const [slotError, setSlotError] = useState('')
   const [notes, setNotes] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const bookingDateBlockReason = useMemo(
+    () => getBookingDateBlockReason(bookingDate, bookingSettings),
+    [bookingDate, bookingSettings],
+  )
+  const maxBookingDate = useMemo(
+    () => addDaysToISODate(todayISO(), bookingSettings?.maxAdvanceDays ?? 60),
+    [bookingSettings?.maxAdvanceDays],
+  )
 
   const reset = () => {
     onServiceIdChange(services[0]?.id ?? '')
@@ -3408,8 +3456,15 @@ function BookingCreateSheet({
     setNotes('')
   }
 
+  const handleBookingDateChange = (value: string) => {
+    onBookingDateChange(value)
+    setSlotTime('')
+    setSlots([])
+    setSlotError('')
+  }
+
   useEffect(() => {
-    if (!isOpen || !serviceId || !bookingDate) {
+    if (!isOpen || !serviceId || !bookingDate || bookingDateBlockReason) {
       return undefined
     }
 
@@ -3436,10 +3491,10 @@ function BookingCreateSheet({
     return () => {
       active = false
     }
-  }, [bookingDate, isOpen, serviceId])
+  }, [bookingDate, bookingDateBlockReason, isOpen, serviceId])
 
   const handleCreate = async () => {
-    if (isSaving || !serviceId || !phone.trim() || !bookingDate || !slotTime) return
+    if (isSaving || !serviceId || !phone.trim() || !bookingDate || bookingDateBlockReason || !slotTime) return
     setIsSaving(true)
     try {
       await onCreate({
@@ -3499,7 +3554,16 @@ function BookingCreateSheet({
         </Grid>
         <Grid container spacing={1.5}>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField fullWidth label="วันที่" type="date" value={bookingDate} onChange={(event) => onBookingDateChange(event.target.value)} />
+            <TextField
+              fullWidth
+              error={Boolean(bookingDateBlockReason)}
+              helperText={bookingDateBlockReason || `เลือกได้ตั้งแต่วันนี้ถึง ${formatThaiDateLabel(maxBookingDate)}`}
+              label="วันที่"
+              type="date"
+              value={bookingDate}
+              onChange={(event) => handleBookingDateChange(event.target.value)}
+              slotProps={{ htmlInput: { min: todayISO(), max: maxBookingDate } }}
+            />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth>
@@ -3508,7 +3572,7 @@ function BookingCreateSheet({
                 value={slotTime}
                 onChange={(event) => setSlotTime(event.target.value)}
                 displayEmpty
-                disabled={!serviceId || !bookingDate || isLoadingSlots || slots.length === 0}
+                disabled={!serviceId || !bookingDate || Boolean(bookingDateBlockReason) || isLoadingSlots || slots.length === 0}
               >
                 <MenuItem value="" disabled>
                   {isLoadingSlots ? 'กำลังโหลดเวลา...' : 'เลือกเวลา'}
@@ -3539,7 +3603,7 @@ function BookingCreateSheet({
           </Button>
           <Button
             variant="contained"
-            disabled={!serviceId || !phone.trim() || !bookingDate || !slotTime || isSaving}
+            disabled={!serviceId || !phone.trim() || !bookingDate || Boolean(bookingDateBlockReason) || !slotTime || isSaving}
             onClick={handleCreate}
           >
             {isSaving ? 'กำลังบันทึก...' : 'บันทึกคิว'}

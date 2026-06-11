@@ -1,11 +1,11 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
 import { appTheme } from '../../theme/theme'
 import { adminApi } from '../../api/adminApi'
-import { todayISO } from '../../utils/dateFormat'
+import { addDaysToISODate, todayISO } from '../../utils/dateFormat'
 import type { AdminNotification, AdminRealtimeEvent } from '../../types/admin'
 
 const realtimeState = vi.hoisted(() => ({
@@ -668,6 +668,56 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByRole('option', { name: '09:45' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '10:30' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('explains unavailable walk-in booking dates before loading times', async () => {
+    const user = userEvent.setup()
+    const today = todayISO()
+    const tomorrow = addDaysToISODate(today, 1)
+    const yesterday = addDaysToISODate(today, -1)
+    const todayWeekday = new Date(`${today}T00:00:00`).getDay()
+
+    mockedAdminApi.getBookingSettings.mockResolvedValue({
+      openTime: '09:00',
+      closeTime: '17:00',
+      slotIntervalMinutes: 30,
+      slotCapacity: 1,
+      closedWeekdays: String(todayWeekday),
+      minAdvanceHours: 0,
+      maxAdvanceDays: 60,
+      reminderLeadMinutes: 1440,
+      bufferMinutes: 0,
+      blackoutDates: [{ date: tomorrow, reason: 'อบรมทีม' }],
+    })
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([
+      {
+        id: 'service-1',
+        nameTh: 'ทำเล็บเจล',
+        nameEn: 'Gel nail',
+        descriptionTh: 'ทำเล็บเจลสีพื้น',
+        durationMinutes: 45,
+        priceCents: 35000,
+        accentColor: '#FF008C',
+        isActive: true,
+      },
+    ])
+
+    renderPage()
+    await user.click((await screen.findAllByRole('button', { name: 'เพิ่มคิวโทร/หน้าร้าน' }))[0])
+
+    expect(await screen.findByText(new RegExp(`ร้านหยุดทุก`))).toBeInTheDocument()
+    const dateInput = screen.getAllByLabelText('วันที่').find((item) => item.getAttribute('min') === today)
+    expect(dateInput).toBeTruthy()
+    expect(dateInput).toHaveAttribute('min', today)
+
+    fireEvent.change(dateInput!, { target: { value: yesterday } })
+    expect(await screen.findByText('เลือกย้อนหลังไม่ได้ กรุณาเลือกวันนี้หรือวันถัดไป')).toBeInTheDocument()
+
+    fireEvent.change(dateInput!, { target: { value: tomorrow } })
+    expect(await screen.findByText('วันหยุดเฉพาะวันที่: อบรมทีม')).toBeInTheDocument()
+    expect(mockedAdminApi.listAvailability).not.toHaveBeenCalled()
   })
 
   it('marks the demo booking checklist as complete without creating a real booking', async () => {
