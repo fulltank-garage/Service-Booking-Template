@@ -2,6 +2,7 @@ import { httpClient } from './httpClient'
 import type {
   AdminNotification,
   ApiEnvelope,
+  AvailabilitySlot,
   Booking,
   BookingDailySummary,
   BookingSettings,
@@ -91,6 +92,13 @@ export const adminApi = {
 
   listServices: async () => {
     const response = await httpClient.get<ApiEnvelope<ServiceItem[]>>('/admin/services')
+    return response.data.data
+  },
+
+  listAvailability: async (serviceId: string, date: string) => {
+    const response = await httpClient.get<ApiEnvelope<AvailabilitySlot[]>>('/availability', {
+      params: { serviceId, date },
+    })
     return response.data.data
   },
 

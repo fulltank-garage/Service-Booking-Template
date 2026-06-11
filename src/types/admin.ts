@@ -11,6 +11,13 @@ export type ServiceItem = {
   isActive: boolean
 }
 
+export type AvailabilitySlot = {
+  time: string
+  available: boolean
+  capacity: number
+  booked: number
+}
+
 export type Booking = {
   id: string
   serviceId: string

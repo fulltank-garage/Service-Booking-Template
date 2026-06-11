@@ -18,6 +18,7 @@ const realtimeState = vi.hoisted(() => ({
 vi.mock('../../api/adminApi', () => ({
   adminApi: {
     listBookings: vi.fn(),
+    listAvailability: vi.fn(),
     listNotifications: vi.fn(),
     listServices: vi.fn(),
     getBookingSettings: vi.fn(),
@@ -60,6 +61,7 @@ describe('DashboardPage', () => {
     window.localStorage.clear()
     realtimeState.options = null
     mockedAdminApi.listBookings.mockReset()
+    mockedAdminApi.listAvailability.mockReset()
     mockedAdminApi.listNotifications.mockReset()
     mockedAdminApi.listServices.mockReset()
     mockedAdminApi.getBookingSettings.mockReset()
@@ -123,6 +125,11 @@ describe('DashboardPage', () => {
       status: 'pending',
       createdAt: '2026-06-06T01:00:00.000Z',
     })
+    mockedAdminApi.listAvailability.mockResolvedValue([
+      { time: '09:00', available: true, capacity: 1, booked: 0 },
+      { time: '10:00', available: true, capacity: 1, booked: 0 },
+      { time: '11:00', available: true, capacity: 1, booked: 0 },
+    ])
     mockedAdminApi.exportBookings.mockResolvedValue(new Blob(['booking_code']))
   })
 
@@ -618,6 +625,7 @@ describe('DashboardPage', () => {
     await user.click(screen.getByRole('button', { name: 'บันทึกคิว' }))
 
     await waitFor(() => {
+      expect(mockedAdminApi.listAvailability).toHaveBeenCalledWith('service-1', expect.any(String))
       expect(mockedAdminApi.createBooking).toHaveBeenCalledWith(expect.objectContaining({
         serviceId: 'service-1',
         customerName: 'ลูกค้า Walk-in',
@@ -625,6 +633,67 @@ describe('DashboardPage', () => {
         slotTime: '10:00',
       }))
     })
+  })
+
+  it('uses service availability for walk-in booking times', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([
+      {
+        id: 'service-1',
+        nameTh: 'ทำเล็บเจล',
+        nameEn: 'Gel nail',
+        descriptionTh: 'ทำเล็บเจลสีพื้น',
+        durationMinutes: 45,
+        priceCents: 35000,
+        accentColor: '#FF008C',
+        isActive: true,
+      },
+    ])
+    mockedAdminApi.listAvailability.mockResolvedValue([
+      { time: '09:45', available: true, capacity: 1, booked: 0 },
+      { time: '10:30', available: false, capacity: 1, booked: 1 },
+    ])
+
+    renderPage()
+    await user.click((await screen.findAllByRole('button', { name: 'เพิ่มคิวโทร/หน้าร้าน' }))[0])
+    await screen.findByText('กรอกเฉพาะข้อมูลจำเป็นก่อน')
+    await waitFor(() => {
+      expect(screen.getAllByRole('combobox', { name: 'เวลา' }).some((item) => item.textContent?.includes('09:45'))).toBe(true)
+    })
+    const timeSelect = screen.getAllByRole('combobox', { name: 'เวลา' }).find((item) => item.textContent?.includes('09:45'))
+    expect(timeSelect).toBeTruthy()
+    await user.click(timeSelect!)
+
+    expect(await screen.findByRole('option', { name: '09:45' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '10:30' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('marks the demo booking checklist as complete without creating a real booking', async () => {
+    const user = userEvent.setup()
+    mockedAdminApi.listBookings.mockResolvedValue([])
+    mockedAdminApi.listNotifications.mockResolvedValue([])
+    mockedAdminApi.listServices.mockResolvedValue([
+      {
+        id: 'service-1',
+        nameTh: 'ทำเล็บเจล',
+        nameEn: 'Gel nail',
+        descriptionTh: 'ทำเล็บเจลสีพื้น',
+        durationMinutes: 45,
+        priceCents: 35000,
+        accentColor: '#FF008C',
+        isActive: true,
+      },
+    ])
+
+    renderPage()
+    expect(await screen.findByText(/เหลือ 1 ขั้นตอน/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'บันทึกว่าลองแล้ว' }))
+
+    expect(mockedAdminApi.createBooking).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.queryByText(/เหลือ 1 ขั้นตอน/)).not.toBeInTheDocument())
+    expect(window.localStorage.getItem('service-booking-admin-demo-booking-complete')).toBe('true')
   })
 
   it('shows shop-language actions for active bookings', async () => {

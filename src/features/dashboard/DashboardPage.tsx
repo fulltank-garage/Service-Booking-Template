@@ -143,6 +143,7 @@ const pageLabels = {
 } as const
 
 const simpleModeStorageKey = 'service-booking-admin-simple-mode'
+const demoBookingSetupStorageKey = 'service-booking-admin-demo-booking-complete'
 
 const formatThaiPrice = (priceCents: number) =>
   `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
@@ -346,6 +347,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
   const [activePage, setActivePage] = useState<AdminPage>('bookings')
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [isSimpleMode] = useState(() => window.localStorage.getItem(simpleModeStorageKey) !== 'false')
+  const [hasCompletedDemoBooking, setHasCompletedDemoBooking] = useState(() => window.localStorage.getItem(demoBookingSetupStorageKey) === 'true')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
@@ -533,12 +535,18 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
     const items = [
       { label: 'เพิ่มบริการแรก', done: services.length > 0 },
       { label: 'ตั้งเวลาเปิดปิดร้าน', done: Boolean(bookingSettings?.openTime && bookingSettings?.closeTime) },
-      { label: 'ทดลองสร้างคิว', done: bookings.length > 0 },
+      { label: 'ทดลองสร้างคิว', done: hasCompletedDemoBooking || bookings.length > 0 },
       { label: 'เปิดแจ้งเตือนโทรศัพท์', done: pushHealth?.recommendation === 'push_ready' },
     ]
     const doneCount = items.filter((item) => item.done).length
     return { items, doneCount, total: items.length }
-  }, [bookingSettings, bookings.length, pushHealth, services.length])
+  }, [bookingSettings, bookings.length, hasCompletedDemoBooking, pushHealth, services.length])
+
+  const handleCompleteDemoBooking = () => {
+    window.localStorage.setItem(demoBookingSetupStorageKey, 'true')
+    setHasCompletedDemoBooking(true)
+    setNotice('บันทึกว่าเคยทดลองเพิ่มคิวแล้ว')
+  }
 
   const handleStatusChange = async (booking: Booking, status: BookingStatus) => {
     const updatedBooking = { ...booking, status }
@@ -690,6 +698,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                     progress={setupProgress}
                     pushHealth={pushHealth}
                     onChangePage={handleChangePage}
+                    onCompleteDemoBooking={handleCompleteDemoBooking}
                   />
                 )}
                 {activePage === 'overview' && (
@@ -701,6 +710,7 @@ export function DashboardPage({ adminEmail, adminName, applyAppUpdate, hasPendin
                     <QuickStartNudge
                       progress={setupProgress}
                       onChangePage={handleChangePage}
+                      onCompleteDemoBooking={handleCompleteDemoBooking}
                     />
                   )}
 	                  <BookingsPage
@@ -1402,10 +1412,12 @@ function OverviewPage({
 }
 
 function SetupChecklistPage({
+  onCompleteDemoBooking,
   onChangePage,
   progress,
   pushHealth,
 }: {
+  onCompleteDemoBooking: () => void
   onChangePage: (page: AdminPage) => void
   progress: { items: Array<{ label: string; done: boolean }>; doneCount: number; total: number }
   pushHealth: PushHealthReport | null
@@ -1433,9 +1445,9 @@ function SetupChecklistPage({
     },
     {
       label: 'ทดลองสร้างคิว',
-      description: 'ลองเพิ่มคิวโทรหรือ walk-in เพื่อให้ทีมคุ้นกับหน้ารายการจอง',
+      description: 'ลองดูขั้นตอนเพิ่มคิวแบบจำลอง เพื่อให้ทีมคุ้นกับหน้ารายการจองโดยไม่สร้างข้อมูลจริง',
       done: progress.items.find((item) => item.label === 'ทดลองสร้างคิว')?.done ?? false,
-      actionLabel: 'ไปหน้ารายการจอง',
+      actionLabel: 'บันทึกว่าลองแล้ว',
       page: 'bookings',
     },
     {
@@ -1496,7 +1508,16 @@ function SetupChecklistPage({
                     </Stack>
                     <Typography sx={{ mt: 0.7, color: 'text.secondary', fontWeight: 760 }}>{step.description}</Typography>
                   </Box>
-                  <Button variant={step.done ? 'outlined' : 'contained'} onClick={() => onChangePage(step.page)}>
+                  <Button
+                    variant={step.done ? 'outlined' : 'contained'}
+                    onClick={() => {
+                      if (step.label === 'ทดลองสร้างคิว' && !step.done) {
+                        onCompleteDemoBooking()
+                        return
+                      }
+                      onChangePage(step.page)
+                    }}
+                  >
                     {step.actionLabel}
                   </Button>
                 </Stack>
@@ -1538,9 +1559,11 @@ function DailySummaryPanel({ item, title }: { item: DailyBookingSummary; title: 
 }
 
 function QuickStartNudge({
+  onCompleteDemoBooking,
   onChangePage,
   progress,
 }: {
+  onCompleteDemoBooking: () => void
   onChangePage: (page: AdminPage) => void
   progress: { items: Array<{ label: string; done: boolean }>; doneCount: number; total: number }
 }) {
@@ -1565,8 +1588,17 @@ function QuickStartNudge({
             <Button variant="outlined" onClick={() => onChangePage('setup')}>
               ดูขั้นตอนทั้งหมด
             </Button>
-            <Button variant="contained" onClick={() => onChangePage(nextPage)}>
-              ทำขั้นตอนถัดไป
+            <Button
+              variant="contained"
+              onClick={() => {
+                if (nextStep?.label === 'ทดลองสร้างคิว') {
+                  onCompleteDemoBooking()
+                  return
+                }
+                onChangePage(nextPage)
+              }}
+            >
+              {nextStep?.label === 'ทดลองสร้างคิว' ? 'บันทึกว่าลองแล้ว' : 'ทำขั้นตอนถัดไป'}
             </Button>
           </Stack>
         </Stack>
@@ -3361,6 +3393,9 @@ function BookingCreateSheet({
   const [customerName, setCustomerName] = useState('')
   const [phone, setPhone] = useState('')
   const [slotTime, setSlotTime] = useState('')
+  const [slots, setSlots] = useState<Array<{ time: string; available: boolean }>>([])
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
+  const [slotError, setSlotError] = useState('')
   const [notes, setNotes] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -3372,6 +3407,36 @@ function BookingCreateSheet({
     setSlotTime('')
     setNotes('')
   }
+
+  useEffect(() => {
+    if (!isOpen || !serviceId || !bookingDate) {
+      return undefined
+    }
+
+    let active = true
+    const loadSlots = async () => {
+      setIsLoadingSlots(true)
+      setSlotError('')
+      setSlotTime('')
+      try {
+        const items = await adminApi.listAvailability(serviceId, bookingDate)
+        if (!active) return
+        setSlots(items)
+        setSlotTime(items.find((slot) => slot.available)?.time ?? '')
+      } catch {
+        if (!active) return
+        setSlots([])
+        setSlotError('โหลดช่วงเวลาไม่สำเร็จ')
+      } finally {
+        if (active) setIsLoadingSlots(false)
+      }
+    }
+    void loadSlots()
+
+    return () => {
+      active = false
+    }
+  }, [bookingDate, isOpen, serviceId])
 
   const handleCreate = async () => {
     if (isSaving || !serviceId || !phone.trim() || !bookingDate || !slotTime) return
@@ -3438,17 +3503,28 @@ function BookingCreateSheet({
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth>
-              <Select aria-label="เวลา" value={slotTime} onChange={(event) => setSlotTime(event.target.value)} displayEmpty>
+              <Select
+                aria-label="เวลา"
+                value={slotTime}
+                onChange={(event) => setSlotTime(event.target.value)}
+                displayEmpty
+                disabled={!serviceId || !bookingDate || isLoadingSlots || slots.length === 0}
+              >
                 <MenuItem value="" disabled>
-                  เลือกเวลา
+                  {isLoadingSlots ? 'กำลังโหลดเวลา...' : 'เลือกเวลา'}
                 </MenuItem>
-                {shopTimeOptions.map((option) => (
-                  <MenuItem key={`create-time-${option.value}`} value={option.value}>
-                    {option.label}
+                {slots.map((slot) => (
+                  <MenuItem key={`create-time-${slot.time}`} value={slot.time} disabled={!slot.available}>
+                    {slot.time}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
+            {slotError && (
+              <Typography sx={{ mt: 0.6, color: 'error.main', fontSize: '0.82rem', fontWeight: 760 }}>
+                {slotError}
+              </Typography>
+            )}
           </Grid>
         </Grid>
         <Box>
