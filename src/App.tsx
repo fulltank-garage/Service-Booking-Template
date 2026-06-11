@@ -49,6 +49,22 @@ const readLatestBooking = () => {
   }
 }
 
+const saveLatestBooking = (booking: Booking) => {
+  try {
+    window.localStorage.setItem(latestBookingStorageKey, JSON.stringify(booking))
+  } catch {
+    // Ignore storage failures inside restricted LIFF browsers.
+  }
+}
+
+const clearLatestBooking = () => {
+  try {
+    window.localStorage.removeItem(latestBookingStorageKey)
+  } catch {
+    // Ignore storage failures inside restricted LIFF browsers.
+  }
+}
+
 function App() {
   const [lineProfile, setLineProfile] = useState<LineProfile | null>(null)
   const [activePage, setActivePage] = useState(getCurrentPath)
@@ -117,32 +133,20 @@ function App() {
 
   const handleBookingConfirmed = (booking: Booking) => {
     setLatestBooking(booking)
-    try {
-      window.localStorage.setItem(latestBookingStorageKey, JSON.stringify(booking))
-    } catch {
-      // Ignore storage failures inside restricted LIFF browsers.
-    }
+    saveLatestBooking(booking)
     setAutoCloseSuccess(true)
     navigate('/booking/success')
   }
 
   const handleBookingUpdated = (booking: Booking) => {
     setLatestBooking(booking)
-    try {
-      window.localStorage.setItem(latestBookingStorageKey, JSON.stringify(booking))
-    } catch {
-      // Ignore storage failures inside restricted LIFF browsers.
-    }
+    saveLatestBooking(booking)
   }
 
   const handleBookingCancelled = () => {
     setLatestBooking(null)
     setAutoCloseSuccess(false)
-    try {
-      window.localStorage.removeItem(latestBookingStorageKey)
-    } catch {
-      // Ignore storage failures inside restricted LIFF browsers.
-    }
+    clearLatestBooking()
     navigate('/booking')
   }
 
