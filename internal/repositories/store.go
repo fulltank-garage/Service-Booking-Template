@@ -276,8 +276,7 @@ func (store *GormStore) GetBookingSettings(ctx context.Context) (models.BookingS
 
 func (store *GormStore) ListBlackoutDates(ctx context.Context) ([]models.BookingBlackoutDate, error) {
 	var blackoutDates []models.BookingBlackoutDate
-	err := store.db.WithContext(ctx).Order("date ASC").Find(&blackoutDates).Error
-	return blackoutDates, err
+	return blackoutDates, store.db.WithContext(ctx).Order("date ASC").Find(&blackoutDates).Error
 }
 
 func (store *GormStore) SaveBookingSettings(ctx context.Context, settings *models.BookingSettings) error {
