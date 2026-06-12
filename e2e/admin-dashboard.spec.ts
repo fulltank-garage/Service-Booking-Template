@@ -1,147 +1,12 @@
 import { expect, test } from '@playwright/test'
-
-const expectBottomEditorSheet = async (page: import('@playwright/test').Page, title: string) => {
-  const sheet = page.getByRole('dialog', { name: title })
-  await expect(sheet).toBeVisible()
-  const backdrop = page.locator('[data-testid="bottom-editor-backdrop"]')
-  const backdropMetrics = await backdrop.evaluate((element) => {
-    const style = window.getComputedStyle(element)
-    return {
-      backgroundColor: style.backgroundColor,
-      backdropFilter: style.backdropFilter,
-    }
-  })
-  expect(backdropMetrics.backgroundColor).toBe('rgba(255, 255, 255, 0.72)')
-  expect(backdropMetrics.backdropFilter).toContain('blur')
-  const sheetMetrics = await sheet.evaluate((element) => {
-    const style = window.getComputedStyle(element)
-    return {
-      borderTopWidth: style.borderTopWidth,
-      borderRadius: style.borderRadius,
-      boxShadow: style.boxShadow,
-      transform: style.transform,
-    }
-  })
-  expect(sheetMetrics.borderTopWidth).toBe('1px')
-  expect(sheetMetrics.borderRadius).toBe('19.2px')
-  expect(sheetMetrics.boxShadow).toBe('none')
-  expect(sheetMetrics.transform).not.toBe('none')
-  await backdrop.click({ position: { x: 4, y: 4 } })
-  await expect(sheet).toBeVisible()
-}
-
-const expectDropdownHasNoOverlay = async (page: import('@playwright/test').Page) => {
-  const backdropMetrics = await page.locator('.MuiPopover-root .MuiBackdrop-root').evaluate((element) => {
-    const style = window.getComputedStyle(element)
-    return {
-      backgroundColor: style.backgroundColor,
-      backdropFilter: style.backdropFilter,
-    }
-  })
-  expect(backdropMetrics.backgroundColor).toBe('rgba(0, 0, 0, 0)')
-  expect(backdropMetrics.backdropFilter).toBe('none')
-}
+import { expectBottomEditorSheet, expectDropdownHasNoOverlay, loginAdmin, openDashboardNav, setupAdminDashboardRoutes } from './admin-dashboard.helpers'
 
 test('admin dashboard loads booking and notification surfaces', async ({ page }, testInfo) => {
-  const service = {
-    id: 'service-1',
-    nameTh: 'บริการทดสอบ',
-    nameEn: 'Test Service',
-    descriptionTh: 'บริการสำหรับทดสอบ',
-    durationMinutes: 30,
-    priceCents: 50000,
-    accentColor: '#FF008C',
-    isActive: true,
-  }
-  const booking = {
-    id: 'booking-1',
-    bookingCode: 'SB-TEST-0001',
-    serviceId: 'service-1',
-    customerName: 'ลูกค้าทดสอบ',
-    phone: '0890000000',
-    bookingDate: '2026-06-10',
-    slotTime: '10:00',
-    status: 'pending',
-    createdAt: '2026-06-10T03:00:00.000Z',
-    service,
-  }
+  await setupAdminDashboardRoutes(page)
+  await loginAdmin(page)
+  const isMobile = testInfo.project.name === 'mobile-chromium'
 
-  await page.route('**/api/v1/admin/auth/login', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: {
-          email: 'admin@example.com',
-          name: 'FULLTANK Garage Admin',
-          token: 'e2e-token',
-          expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-        },
-      }),
-    })
-  })
-  await page.route('**/api/v1/admin/bookings**', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ data: [booking] }),
-    })
-  })
-  await page.route('**/api/v1/admin/notifications', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ data: [] }),
-    })
-  })
-  await page.route('**/api/v1/admin/booking-settings', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        data: {
-          openTime: '09:00',
-          closeTime: '17:00',
-          slotIntervalMinutes: 30,
-          slotCapacity: 1,
-          closedWeekdays: '',
-          minAdvanceHours: 0,
-          maxAdvanceDays: 60,
-          reminderLeadMinutes: 1440,
-          blackoutDates: [],
-        },
-      }),
-    })
-  })
-  await page.route('**/api/v1/admin/services', async (route) => {
-    if (route.request().method() === 'POST') {
-      await route.fulfill({
-        status: 201,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: { ...service, id: 'service-2', nameTh: 'บริการใหม่' } }),
-      })
-      return
-    }
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ data: [service] }),
-    })
-  })
-  await page.route('**/api/v1/admin/push/public-key', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ configured: false, publicKey: '' }),
-    })
-  })
-
-  await page.context().grantPermissions(['notifications'])
-  await page.addInitScript(() => {
-    if ('Notification' in window) {
-      Object.defineProperty(window.Notification, 'permission', { get: () => 'granted' })
-    }
-  })
-  await page.goto('/')
-  await page.getByLabel('อีเมล').fill('admin@example.com')
-  await page.getByLabel('รหัสผ่าน').fill('admin1234')
-  await page.getByRole('button', { name: /เข้าสู่ระบบ/ }).click()
-
-  if (testInfo.project.name === 'mobile-chromium') {
+  if (isMobile) {
     await expect(page.getByRole('button', { name: 'เปิดเมนู' })).toBeVisible()
     await expect(page.locator('header').getByAltText('BookingQueue logo')).toHaveCount(0)
     await expect(page.locator('header').getByText('รายการจอง')).toBeVisible()
@@ -153,7 +18,7 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
     await expect(page.getByRole('heading', { name: 'รายการจอง' })).toBeVisible()
     await expect(page.locator('aside').getByText('FULLTANK Garage Admin')).toBeVisible()
   }
-  if (testInfo.project.name === 'mobile-chromium') {
+  if (isMobile) {
     await page.getByRole('button', { name: 'เปิดเมนู' }).click()
     await expect(page.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeVisible()
     await page.getByRole('button', { name: 'ปิดเมนู' }).click()
@@ -161,15 +26,10 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
     await expect(page.getByRole('button', { name: 'รายการแจ้งเตือน' })).toBeVisible()
   }
 
-  if (testInfo.project.name === 'mobile-chromium') {
-    await page.getByRole('button', { name: 'เปิดเมนู' }).click()
-    await page.getByRole('button', { name: 'รายการจอง' }).click()
-  } else {
-    await page.getByRole('button', { name: 'รายการจอง' }).click()
-  }
+  await openDashboardNav(page, 'รายการจอง', isMobile)
 
   await expect(page.getByRole('heading', { name: 'รายการจอง' })).toBeVisible()
-  if (testInfo.project.name === 'mobile-chromium') {
+  if (isMobile) {
     await expect(page.locator('p').filter({ hasText: 'ลูกค้าทดสอบ', visible: true })).toBeVisible()
     await expect(page.locator('p').filter({ hasText: 'SB-TEST-0001', visible: true })).toBeVisible()
   } else {
@@ -189,12 +49,7 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   await expect(editBookingSheet.getByRole('button', { name: 'ยกเลิก' })).toHaveCount(0)
   await editBookingSheet.getByRole('button', { name: 'ปิด' }).click()
 
-  if (testInfo.project.name === 'mobile-chromium') {
-    await page.getByRole('button', { name: 'เปิดเมนู' }).click()
-    await page.getByRole('button', { name: 'การตั้งค่าร้าน' }).click()
-  } else {
-    await page.getByRole('button', { name: 'การตั้งค่าร้าน' }).click()
-  }
+  await openDashboardNav(page, 'การตั้งค่าร้าน', isMobile)
 
   await expect(page.getByText('เวลาเปิดร้าน')).toBeVisible()
   const openTimeSelect = page.getByLabel('เวลาเปิดร้าน')
@@ -233,12 +88,7 @@ test('admin dashboard loads booking and notification surfaces', async ({ page },
   await expectDropdownHasNoOverlay(page)
   await page.keyboard.press('Escape')
 
-  if (testInfo.project.name === 'mobile-chromium') {
-    await page.getByRole('button', { name: 'เปิดเมนู' }).click()
-    await page.getByRole('button', { name: 'บริการของร้าน' }).click()
-  } else {
-    await page.getByRole('button', { name: 'บริการของร้าน' }).click()
-  }
+  await openDashboardNav(page, 'บริการของร้าน', isMobile)
 
   await expect(page.getByPlaceholder('ค้นหาบริการ')).toBeVisible()
   await expect(page.getByRole('button', { name: 'เพิ่มบริการ' })).toBeVisible()

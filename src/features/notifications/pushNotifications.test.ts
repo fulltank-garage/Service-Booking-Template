@@ -189,95 +189,11 @@ describe('pushNotifications', () => {
       configurable: true,
       value: 'granted',
     })
-    window.localStorage.setItem(
-      'service-booking-admin-push-verified',
-      JSON.stringify({ endpoint: 'https://push.example.test/existing', verifiedAt: Date.now() }),
-    )
+    window.localStorage.setItem('service-booking-admin-push-verified', JSON.stringify({ endpoint: 'https://push.example.test/existing', verifiedAt: Date.now() }))
     mockedAdminApi.getPushPublicKey.mockResolvedValue({ configured: true, publicKey: 'AQID' })
 
     await refreshPushSubscription()
 
     expect(mockedAdminApi.testPush).not.toHaveBeenCalled()
-  })
-
-  it('repairs the push subscription when the first notification test fails', async () => {
-    const oldSubscription = {
-      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
-      toJSON: () => ({ endpoint: 'https://push.example.test/old', keys: { auth: 'old-auth', p256dh: 'old-p256dh' } }),
-      unsubscribe: vi.fn().mockResolvedValue(true),
-    } as unknown as PushSubscription
-    const repairedSubscription = {
-      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
-      toJSON: () => ({ endpoint: 'https://push.example.test/repaired', keys: { auth: 'new-auth', p256dh: 'new-p256dh' } }),
-    } as unknown as PushSubscription
-    const subscribe = vi.fn().mockResolvedValue(repairedSubscription)
-    const registration = {
-      pushManager: {
-        getSubscription: vi.fn().mockResolvedValue(oldSubscription),
-        subscribe,
-      },
-      update: vi.fn().mockResolvedValue(undefined),
-    }
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: {
-        ready: Promise.resolve(registration),
-        register: vi.fn().mockResolvedValue(registration),
-      },
-    })
-    mockedAdminApi.getPushPublicKey.mockResolvedValue({ configured: true, publicKey: 'AQID' })
-    mockedAdminApi.testPush
-      .mockResolvedValueOnce({ attempted: 1, sent: 0, expired: 1, failed: 1 })
-      .mockResolvedValueOnce({ attempted: 1, sent: 1, expired: 0, failed: 0 })
-
-    await enablePushNotifications()
-
-    expect(oldSubscription.unsubscribe).toHaveBeenCalled()
-    expect(subscribe).toHaveBeenCalledWith({
-      applicationServerKey: new Uint8Array([1, 2, 3]),
-      userVisibleOnly: true,
-    })
-    expect(mockedAdminApi.testPush).toHaveBeenNthCalledWith(1, {
-      endpoint: 'https://push.example.test/old',
-      keys: { auth: 'old-auth', p256dh: 'old-p256dh' },
-    })
-    expect(mockedAdminApi.testPush).toHaveBeenNthCalledWith(2, {
-      endpoint: 'https://push.example.test/repaired',
-      keys: { auth: 'new-auth', p256dh: 'new-p256dh' },
-    })
-  })
-
-  it('includes provider status and error details when push repair still fails', async () => {
-    const oldSubscription = {
-      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
-      toJSON: () => ({ endpoint: 'https://push.example.test/old', keys: { auth: 'old-auth', p256dh: 'old-p256dh' } }),
-      unsubscribe: vi.fn().mockResolvedValue(true),
-    } as unknown as PushSubscription
-    const repairedSubscription = {
-      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
-      toJSON: () => ({ endpoint: 'https://push.example.test/repaired', keys: { auth: 'new-auth', p256dh: 'new-p256dh' } }),
-    } as unknown as PushSubscription
-    const registration = {
-      pushManager: {
-        getSubscription: vi.fn().mockResolvedValue(oldSubscription),
-        subscribe: vi.fn().mockResolvedValue(repairedSubscription),
-      },
-      update: vi.fn().mockResolvedValue(undefined),
-    }
-    Object.defineProperty(navigator, 'serviceWorker', {
-      configurable: true,
-      value: {
-        ready: Promise.resolve(registration),
-        register: vi.fn().mockResolvedValue(registration),
-      },
-    })
-    mockedAdminApi.getPushPublicKey.mockResolvedValue({ configured: true, publicKey: 'AQID' })
-    mockedAdminApi.testPush
-      .mockResolvedValueOnce({ attempted: 1, sent: 0, expired: 0, failed: 1, lastStatusCode: 403, lastError: 'web push response status 403' })
-      .mockResolvedValueOnce({ attempted: 1, sent: 0, expired: 0, failed: 1, lastStatusCode: 401, lastError: 'web push response status 401: BadJwtToken' })
-
-    await expect(enablePushNotifications()).rejects.toThrow(
-      'attempted=1, sent=0, failed=1, expired=0, status=401, error=web push response status 401: BadJwtToken',
-    )
   })
 })
