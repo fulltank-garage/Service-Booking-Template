@@ -1,0 +1,112 @@
+import { useEffect, useState } from 'react'
+import { Alert, Box, Card, CardContent, Chip, Divider, Skeleton, Stack, Typography } from '@mui/material'
+import { bookingApi } from '../../api/bookingApi'
+import type { ServiceItem } from '../../types/booking'
+
+const formatThaiPrice = (priceCents: number) =>
+  `${new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 }).format(priceCents / 100)} บาท`
+
+let servicesCache: ServiceItem[] | null = null
+let servicesRequest: Promise<ServiceItem[]> | null = null
+
+const loadServicesOnce = () => {
+  servicesRequest ??= bookingApi.listServices().then((items) => {
+    servicesCache = items
+    return items
+  })
+  return servicesRequest
+}
+
+export function ServicesCatalogPage() {
+  const [services, setServices] = useState<ServiceItem[]>(() => servicesCache ?? [])
+  const [isLoading, setIsLoading] = useState(() => !servicesCache)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      if (!servicesCache) setIsLoading(true)
+      setError('')
+      try {
+        const items = await loadServicesOnce()
+        if (active) setServices(items)
+      } catch {
+        servicesRequest = null
+        if (active) setError('โหลดข้อมูลบริการไม่สำเร็จ')
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return (
+    <Stack spacing={2}>
+      <Box>
+        <Typography variant="h2" sx={{ fontSize: '1.8rem' }}>
+          บริการทางร้าน
+        </Typography>
+      </Box>
+
+      {error && <Alert severity="error">{error}</Alert>}
+
+      {isLoading ? (
+        <Stack spacing={1.5}>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Card key={index} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+              <CardContent sx={{ p: 2 }}>
+                <Stack spacing={1.3}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Skeleton variant="text" width="54%" height={30} sx={{ bgcolor: 'divider' }} />
+                    <Skeleton variant="text" width="92%" height={24} sx={{ mt: 0.45, bgcolor: 'divider' }} />
+                    <Skeleton variant="text" width="72%" height={24} sx={{ bgcolor: 'divider' }} />
+                  </Box>
+                  <Divider />
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Skeleton variant="rounded" width={86} height={32} sx={{ borderRadius: 4, bgcolor: 'divider' }} />
+                    <Skeleton variant="text" width={78} height={28} sx={{ bgcolor: 'divider' }} />
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      ) : services.length === 0 ? (
+        <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+          <CardContent sx={{ p: 2.25, textAlign: 'center' }}>
+            <Typography sx={{ fontWeight: 900 }}>ยังไม่มีรายการบริการ</Typography>
+          </CardContent>
+        </Card>
+      ) : (
+        <Stack spacing={1.5}>
+          {services.map((service) => (
+            <Card key={service.id} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+              <CardContent sx={{ p: 2 }}>
+                <Stack spacing={1.3}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: '1.18rem', fontWeight: 950, lineHeight: 1.2 }}>
+                      {service.nameTh}
+                    </Typography>
+                    <Typography sx={{ mt: 0.45, color: 'text.secondary', lineHeight: 1.5 }}>
+                      {service.descriptionTh || 'ดูรายละเอียดและเลือกเวลาจองได้จากหน้าเริ่มการจอง'}
+                    </Typography>
+                  </Box>
+                  <Divider />
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Chip color="secondary" label={`${service.durationMinutes} นาที`} />
+                    <Typography sx={{ color: 'primary.main', fontWeight: 950 }}>
+                      {formatThaiPrice(service.priceCents)}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      )}
+    </Stack>
+  )
+}
