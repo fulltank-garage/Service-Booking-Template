@@ -1,7 +1,6 @@
 import { Box, Stack } from '@mui/material'
 import { adminApi } from '../../api/adminApi'
 import { addDaysToISODate } from '../../utils/dateFormat'
-import type { BookingStatus } from '../../types/admin'
 import { PushNotificationPrompt } from '../notifications/PushNotificationPrompt'
 import { MOBILE_TOPBAR_OFFSET } from './constants/dashboardOptions'
 import { AdminTopbar } from './components/AdminTopbar'

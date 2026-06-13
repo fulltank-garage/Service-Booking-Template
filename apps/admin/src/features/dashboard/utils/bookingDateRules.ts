@@ -7,7 +7,9 @@ const parseClosedWeekdays = (value?: string) =>
   new Set(
     (value ?? '')
       .split(',')
-      .map((item) => Number(item.trim()))
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map(Number)
       .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6),
   )
 

@@ -57,6 +57,7 @@ export function useBookingWizardState({ lineProfile, onBookingConfirmed }: UseBo
       .finally(() => {
         if (active) setIsLoadingServices(false)
       })
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mark the existing async bootstrap request as pending before it resolves.
     setIsLoadingServices(true)
     setError('')
     return () => {
@@ -67,6 +68,7 @@ export function useBookingWizardState({ lineProfile, onBookingConfirmed }: UseBo
   useEffect(() => {
     if (!selectedServiceId || !bookingDate) return undefined
     let active = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the visible slot state for the newly requested service/date pair.
     setIsLoadingSlots(true)
     setSelectedSlot('')
     setError('')

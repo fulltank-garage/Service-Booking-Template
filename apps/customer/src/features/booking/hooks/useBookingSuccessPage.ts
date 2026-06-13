@@ -45,6 +45,7 @@ export function useBookingSuccessPage({
   const reschedule = useRescheduleBooking({
     booking: displayedBooking,
     lineProfile,
+    // eslint-disable-next-line react-hooks/refs -- keep reschedule callbacks aligned with the latest parent callback without recreating polling effects.
     onBookingUpdated: onBookingUpdatedRef.current,
     setBooking,
     setError,

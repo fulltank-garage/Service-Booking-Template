@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { installDashboardPageHooks, mockedAdminApi, realtimeState, renderPage } from './DashboardPage.testSetup'
@@ -65,10 +65,17 @@ describe('DashboardPage.settings-services', () => {
     renderPage()
     expect(await screen.findByText('ยังไม่มีรายการจอง')).toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: 'เพิ่มคิวโทร/หน้าร้าน' })[0])
-    await user.type((await screen.findAllByLabelText('เบอร์โทร'))[0], '0890000000')
-    await user.click(screen.getAllByLabelText('เวลา')[0])
+    const createDialog = await screen.findByRole('dialog', { name: 'เพิ่มคิวโทร/หน้าร้าน' })
+    const createForm = within(createDialog)
+    await user.click(createForm.getByRole('combobox', { name: 'บริการ' }))
+    await user.click(await screen.findByRole('option', { name: 'ทำเล็บเจล' }))
+    await waitFor(() => {
+      expect(mockedAdminApi.listAvailability).toHaveBeenCalledWith('service-1', expect.any(String))
+    })
+    await user.type(createForm.getByLabelText('เบอร์โทร'), '0890000000')
+    await user.click(createForm.getByLabelText('เวลา'))
     await user.click(await screen.findByRole('option', { name: '10:00' }))
-    await user.click(screen.getByRole('button', { name: 'บันทึกคิว' }))
+    await user.click(createForm.getByRole('button', { name: 'บันทึกคิว' }))
 
     await waitFor(() => {
       expect(mockedAdminApi.listAvailability).toHaveBeenCalledWith('service-1', expect.any(String))
@@ -105,13 +112,15 @@ describe('DashboardPage.settings-services', () => {
 
     renderPage()
     await user.click((await screen.findAllByRole('button', { name: 'เพิ่มคิวโทร/หน้าร้าน' }))[0])
-    await screen.findByText('กรอกเฉพาะข้อมูลจำเป็นก่อน')
+    const createDialog = await screen.findByRole('dialog', { name: 'เพิ่มคิวโทร/หน้าร้าน' })
+    const createForm = within(createDialog)
+    await createForm.findByText('กรอกเฉพาะข้อมูลจำเป็นก่อน')
+    await user.click(createForm.getByRole('combobox', { name: 'บริการ' }))
+    await user.click(await screen.findByRole('option', { name: 'ทำเล็บเจล' }))
     await waitFor(() => {
-      expect(screen.getAllByRole('combobox', { name: 'เวลา' }).some((item) => item.textContent?.includes('09:45'))).toBe(true)
+      expect(mockedAdminApi.listAvailability).toHaveBeenCalledWith('service-1', expect.any(String))
     })
-    const timeSelect = screen.getAllByRole('combobox', { name: 'เวลา' }).find((item) => item.textContent?.includes('09:45'))
-    expect(timeSelect).toBeTruthy()
-    await user.click(timeSelect!)
+    await user.click(createForm.getByRole('combobox', { name: 'เวลา' }))
 
     expect(await screen.findByRole('option', { name: '09:45' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '10:30' })).toHaveAttribute('aria-disabled', 'true')

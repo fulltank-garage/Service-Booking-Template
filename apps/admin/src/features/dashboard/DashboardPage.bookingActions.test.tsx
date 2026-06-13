@@ -1,8 +1,8 @@
-import { act, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { todayISO } from '../../utils/dateFormat'
-import { installDashboardPageHooks, mockedAdminApi, realtimeState, renderPage } from './DashboardPage.testSetup'
+import { installDashboardPageHooks, mockedAdminApi, renderPage } from './DashboardPage.testSetup'
 
 installDashboardPageHooks()
 

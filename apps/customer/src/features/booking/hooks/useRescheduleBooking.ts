@@ -26,6 +26,7 @@ export function useRescheduleBooking({ booking, lineProfile, onBookingUpdated, s
   useEffect(() => {
     if (!isRescheduleOpen || !booking?.serviceId || !rescheduleDate) return undefined
     let active = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset loading/error state when the reschedule availability request changes.
     setIsLoadingSlots(true)
     setError('')
     void bookingApi.listAvailability(booking.serviceId, rescheduleDate)

@@ -44,6 +44,7 @@ export function BookingsCard({
   onUpdateBooking: (booking: Booking, payload: BookingPayload) => Promise<void>
 }) {
   const state = useBookingsCardState({ bookings, onExportBookings, onUpdateBooking, selectedDate, services })
+  const serviceIdForCreate = state.serviceIdForCreate || services[0]?.id || ''
   const listProps = {
     bookings,
     onDeleteBooking,
@@ -94,7 +95,7 @@ export function BookingsCard({
         bookingDate={state.bookingDateForCreate}
         isOpen={state.isCreateOpen}
         selectedDate={selectedDate}
-        serviceId={state.serviceIdForCreate}
+        serviceId={serviceIdForCreate}
         services={services}
         onBookingDateChange={state.setBookingDateForCreate}
         onClose={() => state.setIsCreateOpen(false)}
