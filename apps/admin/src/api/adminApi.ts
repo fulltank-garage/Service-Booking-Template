@@ -1,0 +1,182 @@
+import { httpClient } from './httpClient'
+import type {
+  AdminNotification,
+  ApiEnvelope,
+  AvailabilitySlot,
+  Booking,
+  BookingDailySummary,
+  BookingSettings,
+  BookingStatus,
+  PushHealthReport,
+  ServiceItem,
+} from '../types/admin'
+
+type AdminLoginResponse = {
+  email: string
+  name: string
+  token: string
+  expiresAt: string
+}
+
+export type ServicePayload = {
+  nameTh: string
+  nameEn: string
+  descriptionTh: string
+  durationMinutes: number
+  priceCents: number
+  accentColor: string
+  isActive: boolean
+}
+
+export type BookingPayload = {
+  serviceId: string
+  customerName: string
+  phone: string
+  lineUserId?: string
+  bookingDate: string
+  slotTime: string
+  notes: string
+  status: BookingStatus
+}
+
+export type BookingListParams = {
+  date?: string
+  status?: BookingStatus | 'all'
+  query?: string
+}
+
+export const adminApi = {
+  login: async (email: string, password: string) => {
+    const response = await httpClient.post<ApiEnvelope<AdminLoginResponse>>('/admin/auth/login', { email, password })
+    return response.data.data
+  },
+
+  logout: async () => {
+    await httpClient.post('/admin/auth/logout')
+  },
+
+  listBookings: async (params?: BookingListParams) => {
+    const response = await httpClient.get<ApiEnvelope<Booking[]>>('/admin/bookings', {
+      params: {
+        ...(params?.date ? { date: params.date } : {}),
+        ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
+        ...(params?.query ? { query: params.query } : {}),
+      },
+    })
+    return response.data.data
+  },
+
+  createBooking: async (payload: Omit<BookingPayload, 'status'>) => {
+    const response = await httpClient.post<ApiEnvelope<Booking>>('/admin/bookings', payload)
+    return response.data.data
+  },
+
+  getBookingSummary: async (date?: string) => {
+    const response = await httpClient.get<ApiEnvelope<BookingDailySummary>>('/admin/bookings/summary', {
+      params: date ? { date } : undefined,
+    })
+    return response.data.data
+  },
+
+  exportBookings: async (params?: BookingListParams) => {
+    const response = await httpClient.get<Blob>('/admin/bookings/export', {
+      params: {
+        ...(params?.date ? { date: params.date } : {}),
+        ...(params?.status && params.status !== 'all' ? { status: params.status } : {}),
+        ...(params?.query ? { query: params.query } : {}),
+      },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  listServices: async () => {
+    const response = await httpClient.get<ApiEnvelope<ServiceItem[]>>('/admin/services')
+    return response.data.data
+  },
+
+  listAvailability: async (serviceId: string, date: string) => {
+    const response = await httpClient.get<ApiEnvelope<AvailabilitySlot[]>>('/availability', {
+      params: { serviceId, date },
+    })
+    return response.data.data
+  },
+
+  createService: async (payload: ServicePayload) => {
+    const response = await httpClient.post<ApiEnvelope<ServiceItem>>('/admin/services', payload)
+    return response.data.data
+  },
+
+  updateService: async (id: string, payload: ServicePayload) => {
+    const response = await httpClient.put<ApiEnvelope<ServiceItem>>(`/admin/services/${id}`, payload)
+    return response.data.data
+  },
+
+  deleteService: async (id: string) => {
+    await httpClient.delete(`/admin/services/${id}`)
+  },
+
+  updateBookingStatus: async (id: string, status: BookingStatus) => {
+    const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}/status`, { status })
+    return response.data.data
+  },
+
+  updateBooking: async (id: string, payload: BookingPayload) => {
+    const response = await httpClient.put<ApiEnvelope<Booking>>(`/admin/bookings/${id}`, payload)
+    return response.data.data
+  },
+
+  deleteBooking: async (id: string) => {
+    await httpClient.delete(`/admin/bookings/${id}`)
+  },
+
+  getBookingSettings: async () => {
+    const response = await httpClient.get<ApiEnvelope<BookingSettings>>('/admin/booking-settings')
+    return response.data.data
+  },
+
+  updateBookingSettings: async (payload: BookingSettings) => {
+    const response = await httpClient.put<ApiEnvelope<BookingSettings>>('/admin/booking-settings', payload)
+    return response.data.data
+  },
+
+  listNotifications: async () => {
+    const response = await httpClient.get<ApiEnvelope<AdminNotification[]>>('/admin/notifications')
+    return response.data.data
+  },
+
+  markNotificationRead: async (id: string) => {
+    const response = await httpClient.put<ApiEnvelope<AdminNotification>>(`/admin/notifications/${id}/read`)
+    return response.data.data
+  },
+
+  getPushPublicKey: async () => {
+    const response = await httpClient.get<{ configured: boolean; publicKey: string; error?: string }>('/admin/push/public-key')
+    return response.data
+  },
+
+  getPushHealth: async () => {
+    const response = await httpClient.get<ApiEnvelope<PushHealthReport>>('/admin/push/health')
+    return response.data.data
+  },
+
+  subscribePush: async (subscription: PushSubscriptionJSON) => {
+    await httpClient.post('/admin/push/subscribe', subscription)
+    return true
+  },
+
+  testPush: async (subscription: PushSubscriptionJSON) => {
+    const response = await httpClient.post<ApiEnvelope<{
+      totalSubscriptions?: number
+      targetedSubscriptions?: number
+      attempted: number
+      sent: number
+      expired: number
+      failed: number
+      lastStatusCode?: number
+      lastError?: string
+      recommendation?: string
+    }>>('/admin/push/test', subscription)
+    return response.data.data
+  },
+}

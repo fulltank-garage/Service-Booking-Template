@@ -1,0 +1,25 @@
+{
+  "name": "Service Booking Admin",
+  "short_name": "Booking Admin",
+  "description": "ระบบจัดการคิวจองบริการ",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FF008C",
+  "icons": [
+    {
+      "src": "/pwa-icons/booking-queue-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-icons/booking-queue-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
