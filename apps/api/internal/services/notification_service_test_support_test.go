@@ -1,0 +1,143 @@
+package services
+
+import (
+	"context"
+	"time"
+
+	"github.com/fulltank-garage/service-booking-template-api/internal/models"
+	"github.com/redis/go-redis/v9"
+)
+
+type notificationStore struct {
+	created           *models.Notification
+	subscriptions     []models.PushSubscription
+	deletedEndpoints  []string
+	cleanupReadBefore time.Time
+	cleanupAllBefore  time.Time
+	listPushCalls     int
+}
+
+type fakeRealtimeRedis struct {
+	setNXResult bool
+	delCalls    int
+}
+
+func (client *fakeRealtimeRedis) Publish(context.Context, string, interface{}) *redis.IntCmd {
+	return redis.NewIntResult(0, nil)
+}
+
+func (client *fakeRealtimeRedis) Subscribe(context.Context, ...string) *redis.PubSub {
+	return nil
+}
+
+func (client *fakeRealtimeRedis) SetNX(context.Context, string, interface{}, time.Duration) *redis.BoolCmd {
+	return redis.NewBoolResult(client.setNXResult, nil)
+}
+
+func (client *fakeRealtimeRedis) Del(context.Context, ...string) *redis.IntCmd {
+	client.delCalls++
+	return redis.NewIntResult(1, nil)
+}
+
+func (store *notificationStore) ListServices(context.Context) ([]models.Service, error) {
+	return nil, nil
+}
+func (store *notificationStore) ListAdminServices(context.Context) ([]models.Service, error) {
+	return nil, nil
+}
+func (store *notificationStore) FindServiceByID(context.Context, string) (models.Service, error) {
+	return models.Service{}, nil
+}
+func (store *notificationStore) FindAnyServiceByID(context.Context, string) (models.Service, error) {
+	return models.Service{}, nil
+}
+func (store *notificationStore) CreateService(context.Context, *models.Service) error { return nil }
+func (store *notificationStore) UpdateService(context.Context, *models.Service) error { return nil }
+func (store *notificationStore) DeleteService(context.Context, string) error          { return nil }
+func (store *notificationStore) FindAdminUserByEmail(context.Context, string) (models.AdminUser, error) {
+	return models.AdminUser{}, nil
+}
+func (store *notificationStore) CreateAdminUser(context.Context, *models.AdminUser) error { return nil }
+func (store *notificationStore) CreateAdminSession(context.Context, *models.AdminSessionRecord) error {
+	return nil
+}
+func (store *notificationStore) FindAdminSessionByTokenHash(context.Context, string) (models.AdminSessionRecord, error) {
+	return models.AdminSessionRecord{}, nil
+}
+func (store *notificationStore) RevokeAdminSession(context.Context, string) error { return nil }
+func (store *notificationStore) CountBookingsForSlot(context.Context, string, string, string) (int64, error) {
+	return 0, nil
+}
+func (store *notificationStore) CreateBooking(context.Context, *models.Booking) error { return nil }
+func (store *notificationStore) CreateBookingWithAvailability(context.Context, *models.Booking, int, int, int) error {
+	return nil
+}
+func (store *notificationStore) FindBookingByID(context.Context, string) (models.Booking, error) {
+	return models.Booking{}, nil
+}
+func (store *notificationStore) LatestBookingByLineUser(context.Context, string) (models.Booking, error) {
+	return models.Booking{}, nil
+}
+func (store *notificationStore) ListBookings(context.Context, models.BookingFilter) ([]models.Booking, error) {
+	return nil, nil
+}
+func (store *notificationStore) CountNoShowBookingsByLineUser(context.Context, string) (int64, error) {
+	return 0, nil
+}
+func (store *notificationStore) UpdateBookingWithAvailability(context.Context, *models.Booking, int, int, int) (models.Booking, error) {
+	return models.Booking{}, nil
+}
+func (store *notificationStore) UpdateBookingStatus(context.Context, string, string) (models.Booking, error) {
+	return models.Booking{}, nil
+}
+func (store *notificationStore) DeleteBooking(context.Context, string) error { return nil }
+func (store *notificationStore) CreateNotification(_ context.Context, notification *models.Notification) error {
+	store.created = notification
+	return nil
+}
+func (store *notificationStore) ListNotifications(context.Context, bool, int) ([]models.Notification, error) {
+	return nil, nil
+}
+func (store *notificationStore) MarkNotificationRead(context.Context, string) (models.Notification, error) {
+	return models.Notification{}, nil
+}
+func (store *notificationStore) CleanupNotifications(_ context.Context, readBefore time.Time, allBefore time.Time) error {
+	store.cleanupReadBefore = readBefore
+	store.cleanupAllBefore = allBefore
+	return nil
+}
+func (store *notificationStore) SavePushSubscription(context.Context, *models.PushSubscription) error {
+	return nil
+}
+func (store *notificationStore) ListPushSubscriptions(context.Context) ([]models.PushSubscription, error) {
+	store.listPushCalls++
+	return store.subscriptions, nil
+}
+func (store *notificationStore) DeletePushSubscription(_ context.Context, endpoint string) error {
+	store.deletedEndpoints = append(store.deletedEndpoints, endpoint)
+	return nil
+}
+func (store *notificationStore) GetBookingSettings(context.Context) (models.BookingSettings, error) {
+	return models.BookingSettings{}, nil
+}
+func (store *notificationStore) ListBlackoutDates(context.Context) ([]models.BookingBlackoutDate, error) {
+	return nil, nil
+}
+func (store *notificationStore) SaveBookingSettings(context.Context, *models.BookingSettings) error {
+	return nil
+}
+
+type recordingPushSender struct {
+	sent          []PushMessage
+	contextErrors []error
+	errByEndpoint map[string]error
+}
+
+func (sender *recordingPushSender) Send(ctx context.Context, subscription models.PushSubscription, message PushMessage) error {
+	sender.sent = append(sender.sent, message)
+	sender.contextErrors = append(sender.contextErrors, ctx.Err())
+	if err, ok := sender.errByEndpoint[subscription.Endpoint]; ok {
+		return err
+	}
+	return nil
+}

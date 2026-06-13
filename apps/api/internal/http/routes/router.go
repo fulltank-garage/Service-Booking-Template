@@ -1,0 +1,69 @@
+package routes
+
+import (
+	"github.com/fulltank-garage/service-booking-template-api/internal/config"
+	"github.com/fulltank-garage/service-booking-template-api/internal/http/handlers"
+	"github.com/fulltank-garage/service-booking-template-api/internal/http/middleware"
+	"github.com/fulltank-garage/service-booking-template-api/internal/services"
+	"github.com/fulltank-garage/service-booking-template-api/internal/ws"
+	"github.com/gin-gonic/gin"
+)
+
+type Dependencies struct {
+	Config              config.Config
+	AuthService         *services.AuthService
+	BookingService      *services.BookingService
+	NotificationService *services.NotificationService
+	Hub                 *ws.Hub
+}
+
+func New(deps Dependencies) *gin.Engine {
+	router := gin.New()
+	router.Use(gin.Logger(), gin.Recovery(), middleware.CORS(deps.Config.AllowedOrigins))
+
+	healthHandler := handlers.NewHealthHandler()
+	authHandler := handlers.NewAuthHandler(deps.AuthService)
+	bookingHandler := handlers.NewBookingHandler(deps.BookingService)
+	notificationHandler := handlers.NewNotificationHandler(deps.Config, deps.NotificationService)
+	webSocketHandler := handlers.NewWebSocketHandler(deps.Config, deps.Hub)
+
+	api := router.Group("/api/v1")
+	api.GET("/health", healthHandler.Health)
+	api.GET("/services", bookingHandler.ListServices)
+	api.GET("/booking-rules", bookingHandler.GetBookingRules)
+	api.GET("/availability", bookingHandler.Availability)
+	api.GET("/bookings/latest", bookingHandler.LatestBooking)
+	api.POST("/bookings", bookingHandler.CreateBooking)
+	api.POST("/bookings/:id/cancel", bookingHandler.CancelBooking)
+	api.PUT("/bookings/:id/reschedule", bookingHandler.RescheduleBooking)
+
+	admin := api.Group("/admin")
+	admin.POST("/auth/login", authHandler.Login)
+	admin.Use(middleware.AdminAuth(deps.AuthService))
+	admin.POST("/auth/refresh", authHandler.Refresh)
+	admin.POST("/auth/logout", authHandler.Logout)
+	admin.GET("/bookings", bookingHandler.ListBookings)
+	admin.POST("/bookings", bookingHandler.CreateAdminBooking)
+	admin.GET("/bookings/summary", bookingHandler.DailySummary)
+	admin.GET("/bookings/export", bookingHandler.ExportBookings)
+	admin.GET("/bookings/reminders", bookingHandler.ReminderCandidates)
+	admin.PUT("/bookings/:id", bookingHandler.UpdateBooking)
+	admin.PUT("/bookings/:id/status", bookingHandler.UpdateStatus)
+	admin.DELETE("/bookings/:id", bookingHandler.DeleteBooking)
+	admin.GET("/booking-settings", bookingHandler.GetBookingSettings)
+	admin.PUT("/booking-settings", bookingHandler.SaveBookingSettings)
+	admin.GET("/services", bookingHandler.ListAdminServices)
+	admin.POST("/services", bookingHandler.CreateService)
+	admin.PUT("/services/:id", bookingHandler.UpdateService)
+	admin.DELETE("/services/:id", bookingHandler.DeleteService)
+	admin.GET("/notifications", notificationHandler.List)
+	admin.PUT("/notifications/:id/read", notificationHandler.MarkRead)
+	admin.GET("/push/public-key", notificationHandler.PublicKey)
+	admin.GET("/push/health", notificationHandler.PushHealth)
+	admin.POST("/push/subscribe", notificationHandler.Subscribe)
+	admin.POST("/push/test", notificationHandler.TestPush)
+
+	api.GET("/ws/admin", middleware.AdminAuth(deps.AuthService), webSocketHandler.Admin)
+
+	return router
+}
